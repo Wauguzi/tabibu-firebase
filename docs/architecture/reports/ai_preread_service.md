@@ -9,7 +9,7 @@
 | Field | Value |
 |---|---|
 | Owner | Theo — CTO, Mobile Engineer |
-| Status | Server jobs built on Gemini; the app makes no model call |
+| Status | Server jobs built on Gemini; two in-app tasks on the device's own model, one with a cloud fallback (§8) |
 | Last reviewed | 2026-11-15 |
 | Runs on | Cloud Functions (`functions/src`), calling Gemini on the Agent Platform through `@google/genai` (`ai-gemini.ts`) |
 | Credentials | None stored. The Functions runtime service account holds Vertex AI User (`roles/aiplatform.user`) and the SDK uses Application Default Credentials |
@@ -173,7 +173,29 @@ stored. When the server template cannot load, every AI-job switch fails
 closed (no new job; the human path continues) and alert drafting falls back
 to the template draft, so the approver still gets one.
 
-## 8. Change log
+## 8. In the app: hybrid inference
+
+Two short tasks run in the app through Firebase AI Logic's native hybrid
+SDKs, bridged to Flutter over `MethodChannel("tabibu/hybrid_ai")`. The
+prompts live in the native plugins, so Dart can only name a task.
+
+| Task | Who | Model | Output |
+|---|---|---|---|
+| **Symptom tidy** (`symptom_tidy`) | The patient, booking | The device's model first, Gemini in the cloud when there is none | A tidier version of their own text, labelled as AI, replacing it only after "Use this" |
+| **Notes summary** (`notes_summary`) | The doctor, ordering | The device's model only (`ONLY_ON_DEVICE`) | Three bullets in the AI frame, never written into the notes the order stores |
+
+- **The notes never leave the device.** The iOS bridge builds no cloud model
+  for a notes summary, whatever mode arrives, and the action hides when the
+  device has no model.
+- **A tidy may reach the cloud**, so the app strips phone numbers and email
+  addresses before any tidy request leaves Dart. The patient's own words are
+  the named exception in the threat model's S-8.
+- **Both actions show where they ran** ("On this phone" or in the cloud) and
+  hide in Kiswahili, for text that is not English, or when switched off
+  (`hybrid_symptom_tidy_enabled`, `hybrid_notes_summary_enabled`).
+- Nothing logged includes the input or the output.
+
+## 9. Change log
 
 | Date | Change | Author |
 |---|---|---|
