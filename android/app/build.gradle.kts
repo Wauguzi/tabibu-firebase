@@ -37,8 +37,9 @@ android {
         applicationId = "com.tabibukenya.tabibu"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
-        // freeRASP requires 23.
-        minSdk = maxOf(flutter.minSdkVersion, 23)
+        // On-device hybrid inference requires 26. That drops Android 7.x
+        // (API 24 and 25). freeRASP's floor of 23 is still met.
+        minSdk = maxOf(flutter.minSdkVersion, 26)
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
@@ -110,5 +111,10 @@ dependencies {
     // LaunchTheme inherits from Theme.AppCompat (local_auth on Android 8 and below).
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("org.jetbrains.kotlin:kotlin-stdlib:2.3.20")
+    // Hybrid inference, pinned to the Firebase BoM 34.19.0 line. The on-device
+    // artifact is not in the BoM. Newer firebase-ai needs a BoM this app cannot take.
+    implementation("com.google.firebase:firebase-ai:17.17.0")
+    implementation("com.google.firebase:firebase-ai-ondevice:16.0.0-beta05")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    testImplementation("junit:junit:4.13.2")
 }
