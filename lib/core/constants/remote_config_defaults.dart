@@ -11,7 +11,9 @@ abstract final class RemoteConfigDefaults {
     'alerts_delivery_enabled': true,
     'symptom_intake_enabled': true,
     'report_translation_enabled': true,
-    'voice_input_enabled': true,
+    // Off until speech to text runs in the app; the server no longer takes
+    // symptom audio.
+    'voice_input_enabled': false,
     'alert_drafting_enabled': true,
   };
 

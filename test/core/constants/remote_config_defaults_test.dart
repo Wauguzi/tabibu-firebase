@@ -13,7 +13,13 @@ void main() {
       'voice_input_enabled',
       'alert_drafting_enabled',
     });
-    expect(RemoteConfigDefaults.killSwitches.values, everyElement(isTrue));
+    final on = {...RemoteConfigDefaults.killSwitches}
+      ..remove('voice_input_enabled');
+    expect(on.values, everyElement(isTrue));
+  });
+
+  test('voice input is off by default', () {
+    expect(RemoteConfigDefaults.killSwitches['voice_input_enabled'], isFalse);
   });
 
   test('the defaults keep the force-update parameters', () {
