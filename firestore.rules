@@ -1,0 +1,931 @@
+rules_version = '2';
+
+// ════════════════════════════════════════════════════════════════════════════
+// TABIBU: FIRESTORE SECURITY RULES
+// Information security review document
+// Last updated : 2026-11-15
+// Prepared by  : Engineering (Theo)
+// Review target: the pull request reviewer and Greptile, before each deploy
+// Emulator test: make rules-test → 248 passing (RT-1..RT-202 + matrix 15 client payloads)
+// Threat model  : docs/security/reports/firebase_and_ai_service_threat_model.md
+// Architecture  : docs/architecture/reports/mobile_architecture.md
+// Storage rules : storage.rules, same suite
+// ════════════════════════════════════════════════════════════════════════════
+//
+// ── 1. PURPOSE & SCOPE ──────────────────────────────────────────────────────
+//
+// These rules are the only access control between a client and Firestore.
+// They enforce architecture §6 / §11: who may read a case, a signed report, a
+// draft, a conversation or an alert, which fields an owner may change, and
+// that every privileged write is a Cloud Function's. The app's own checks
+// mirror them; these are what hold when the app is bypassed.
+//
+// The Admin SDK (Cloud Functions, the seed script) bypasses everything here.
+// What the functions may do is governed by their own validation and tests
+// (functions/src/*.test.ts).
+//
+// ── 2. COLLECTION LAYOUT ────────────────────────────────────────────────────
+//
+//   patients/{patientId}                 patient record (identity)
+//   doctors/{uid}                        practitioner private profile + hours
+//   practitioners/{uid}                  public directory projection
+//   cases/{c}                            order/case; participantUids gate
+//   cases/{c}/log/{seq}                  append-only stage log
+//   cases/{c}/private/payment            payment method (doctor + patient)
+//   cases/{c}/riskCheck/{id}             AI risk advisory (doctor only, S-8)
+//   cases/{c}/notesTranslation/{id}      notes translation (doctor + pathologist)
+//   cases/{c}/preread/{r}                AI draft (pathologist only, S-1)
+//   cases/{c}/reportDrafts/{p}           working draft (pathologist client write)
+//   cases/{c}/prereadScores/{r}          pathologist score
+//   cases/{c}/reports/{r}                signed version (readerUids, S-2/S-3)
+//   cases/{c}/reportProvenance/{r}       AI draft + diff (signer / admin)
+//   cases/{c}/reportTexts/{t}            working translation / explanation
+//   cases/{c}/reportTextsApproved/{t}    approved text; report() from id
+//   worklist/{c}                         desk entry (own pathologistUid)
+//   shareCodes/{s}                       addressed share code
+//   shareSecrets, rateCounters,          server-only
+//   orderCounters, orderNumbers,
+//   counterMarks, messageQuotas,
+//   linkJobs, transcriptions,
+//   demoAccounts
+//   modelSignals/{d}                     admin-read aggregates
+//   appointments/{a}                     consultation / case discussion
+//   appointments/{a}/intake/{d}          AI symptom summary (doctor only)
+//   conversations/{cid}                  thread; cursors and messages beneath
+//   conversations/{cid}/cursors/{u}      per-member read cursor
+//   conversations/{cid}/messages/{m}     message (+ transcript/machine|shared)
+//   notifications/{id}                   inbox row
+//   notifiableEvents, notifiableEventLinks, epiCounts, alertDeliveries,
+//   alertApprovers                       server-only (admins included)
+//   alertSignals/{s}, alerts/{a}         working alert records (approver read)
+//   publicAlerts/{a}                     reader-facing notice (synthetic: demo)
+//   publicAlerts/{a}/doctor/brief        clinician brief
+//
+// ── 3. ACTOR MODEL ──────────────────────────────────────────────────────────
+//
+//   ACTOR                 IDENTITY                 PRIVILEGE
+//   ───────────────────── ──────────────────────── ────────────────────────────
+//   Unauthenticated       none                     nothing
+//   Signed in, no role    Auth uid, no role claim  directory; own doctors
+//                                                  profile; own notifications
+//                                                  and shareCodes; isAlertApprover
+//                                                  branch of publicAlerts
+//   Patient               role == 'patient'        own record; own cases;
+//                                                  released reports; shared
+//                                                  transcripts; released alerts
+//   Doctor                role == 'doctor'         care-team patients; own
+//                                                  cases/appointments; unlocked
+//                                                  reports; conversations;
+//                                                  publicAlerts + brief
+//   Pathologist           role == 'pathologist'    care-team patients; assigned
+//                                                  cases, drafts, preread,
+//                                                  worklist; conversations;
+//                                                  publicAlerts + brief
+//   Demo account          demo == true             synthetic publicAlerts only
+//                                                  among clinical readers
+//   Alert approver        admin && alertApprover   working alerts + signals;
+//                                                  publicAlerts
+//   Admin                 admin == true            doctors profiles; scores /
+//                                                  provenance; modelSignals
+//   Cloud Functions       Admin SDK                everything; see §1
+//
+//   Every role is a custom claim set only by a Cloud Function (T-2). No rule
+//   reads a role from a document.
+//
+// ── 4. HELPER FUNCTIONS ─────────────────────────────────────────────────────
+//
+//   signedIn()            request.auth != null
+//   role(), isAdmin()     claims, defaulting to none; never throw
+//   clinical()            role in patient|doctor|pathologist
+//   isAlertApprover()     admin && alertApprover claim
+//   isDemo()              demo claim (synthetic alerts)
+//   changed()             update diff.affectedKeys
+//   text(f, max)          string ≤ max
+//   isoUtc(f)             ISO-8601 UTC stamp (optional fractional seconds)
+//   isUuidV4(id)          message / storage mid format
+//   phone()               +254 and nine digits
+//   isStorageUrl / storageUrl / tokens / preferences / stamped  (identity)
+//   draftStamped()        draft lastUpdatedAt must move forward (S-2)
+//   validHours()          workingDays integers 1-7 unique; minutes % 30
+//
+//   get() budget (≤ 10 per single-document request):
+//   · case subcollections: 1 (parent)
+//   · reportDrafts update scoredFirst / startedFromPreread: +0 or +1 (score)
+//   · reportTextsApproved get: 1 (report built from id)
+//   · messages / cursors / transcript: 1 (conversation); message create +1
+//     (quota); transcript +1 (message) → max 2
+//   · Storage: slides 1; conversation image/voice 2; signature 1; preread 1
+//
+// ── 5. PER-COLLECTION ANALYSIS ──────────────────────────────────────────────
+//
+// 5.1  patients/{patientId}
+//   OPERATION  RULE                              NOTES
+//   read       own uid, or onCareTeam()          list filters uid / doctorUids
+//   update     ownerUpdate() or careTeamUpdate()
+//   create/delete denied
+//
+// 5.2  doctors/{uid}
+//   get        owner or admin
+//   list       admin
+//   update     ownerUpdate() + hours only when changed; never busySlots
+//   create/delete denied
+//
+// 5.3  practitioners/{uid}
+//   read       any signed-in user
+//   write      denied
+//
+// 5.4  cases/{c}
+//   read       clinical() && uid in participantUids (list: array-contains)
+//   update     doctor notes in editable stages; sampleCollectedAt ISO UTC
+//   create/delete denied
+//
+// 5.5  case subcollections
+//   log        clinical + participant; doctor/pathologist or patientVisible
+//   private/payment  doctorUid or patientUid only
+//   riskCheck  ordering doctor only (S-8)
+//   notesTranslation  doctor or pathologist of the case (S-8)
+//   preread    case pathologist only (S-1)
+//   reportDrafts  own pathologist; Editing; whitelist; draftStamped forward
+//   prereadScores / reportProvenance  own pathologistUid on the doc, or admin
+//   reports    readerUids; patient needs releasedToPatient (S-2, S-3)
+//   reportTexts  approver get only; list false
+//   reportTextsApproved  get via report() from id; list false
+//
+// 5.6  worklist / shareCodes / closed / modelSignals — as named above
+// 5.7  appointments + intake (doctor only)
+// 5.8  conversations: clinical + participantUids; messages UUID v4;
+//      attachmentPath string equality; withheld → sender only;
+//      voiceBlockedUntil; voicePeaks size + first element 0-100
+// 5.9  notifications (T-3); role-less owner may read/update
+// 5.10 alerts: synthetic publicAlerts need demo claim; S-4 writes false
+//
+//   Collection-group report reads need match /{path=**}/reports/{reportUid}
+//   (same gate as the nested match). Do not add another collection named
+//   reports — it would inherit that gate.
+//
+// ── 6. CROSS-CUTTING CONCERNS ───────────────────────────────────────────────
+//
+// 6.1  Claims are the boundary (token refresh via AuthHelper).
+// 6.2  Download URLs are bearer links (profilePictureUrl only).
+// 6.3  No rate limiting in rules. App Check, once enforced, is the throttle
+//      (T-7). Quotas live in messageQuotas / rateCounters.
+// 6.4  Specialties lists held equal by a functions test.
+// 6.5  Admin SDK bypasses all of this.
+// 6.6  List queries must be list-provable (array-contains / equality filters).
+// 6.7  Client stamps are ISO UTC strings. sentAt vs request.time cannot be
+//      expressed against a string stamp; the trigger overwrites/validates
+//      delivery order (accepted residual).
+// 6.8  Orphan conversation uploads (fresh mid, no message) cannot be capped
+//      in rules; mitigated by the orphan sweep / lifecycle on the
+//      conversation Storage prefixes (functions, architecture).
+//
+// ── 7. THREAT SCENARIOS ─────────────────────────────────────────────────────
+//
+//   T-1   reading another case / patient     RT-2, RT-46, RT-47, RT-136, RT-196
+//   T-2   escalating a role / approver       RT-17, RT-173, RT-174
+//   T-3   forging a notification             RT-157
+//   T-7   flood / quota                      RT-147, RT-148, RT-152
+//   T-8   storage bearer / path abuse        RT-158..RT-171, RT-192/193
+//   T-9   precise location                   RT-8
+//   T-14  posing as a practitioner           RT-19, RT-21, RT-38
+//   T-16  joining a care team uninvited      RT-10, RT-11
+//   T-17  MDT identity leakage               RT-187..189 (transcript gate)
+//   T-18  share-code misuse                  RT-69..72
+//   T-19  unapproved / forged public alert   RT-176
+//   T-20  re-identification from alert       RT-177, RT-182
+//   S-1   unsigned AI draft                  RT-79..81, RT-90..91, RT-100/101,
+//                                            RT-105, RT-114..116, RT-161
+//   S-2   unsigned report to doctor          RT-83, RT-88
+//   S-3   result before release              RT-84..86, RT-110
+//   S-4   client alert publish               RT-176
+//   S-8   AI direct-use readers              RT-64..67, RT-124/125, RT-187..189,
+//                                            RT-196..199
+//
+// ── 8. PENDING ──────────────────────────────────────────────────────────────
+//
+//   App Check enforcement on Firestore, Storage and Functions (rollout).
+//   Fetch patient pictures through the SDK instead of URLs.
+//   Changing a practitioner's facility or a patient's sub-county needs a
+//   callable (the geohash is the server's); both are refused here.
+//
+// ── 9. EMULATOR TEST COVERAGE ───────────────────────────────────────────────
+//
+//   test/firestore_rules/*.test.js — RT-1..RT-44 (identity/storage),
+//   RT-45..RT-195 (data layer), RT-196..RT-200 (review fixes: message reads,
+//   withheld, transcripts, startedFromPreread, synthetic alerts). On every
+//   rules change: update "Last updated", the passing count and this list.
+// ════════════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function role() {
+      return request.auth.token.get('role', '');
+    }
+
+    function isAdmin() {
+      return request.auth.token.get('admin', false) == true;
+    }
+
+    function clinical() {
+      return role() in ['patient', 'doctor', 'pathologist'];
+    }
+
+    // Claim and registry together: a half-finished grant or revoke leaves
+    // no read access. The Functions gates also read the registry row.
+    function isAlertApprover() {
+      return isAdmin()
+          && request.auth.token.get('alertApprover', false) == true
+          && exists(/databases/$(database)/documents/alertApprovers/$(request.auth.uid));
+    }
+
+    function isDemo() {
+      return request.auth.token.get('demo', false) == true;
+    }
+
+    function changed() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function text(field, max) {
+      return request.resource.data[field] is string
+          && request.resource.data[field].size() <= max;
+    }
+
+    // ISO-8601 UTC with optional fractional seconds.
+    function isoUtc(value) {
+      return value is string
+          && value.matches(
+              '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}'
+              + '(\\.[0-9]{1,6})?Z$'
+          );
+    }
+
+    // Message / Storage mid format. Lowercase UUID v4.
+    function isUuidV4(id) {
+      return id.matches(
+          '^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+      );
+    }
+
+    function phone() {
+      return request.resource.data.phoneNumber.matches('^\\+254[17][0-9]{8}$');
+    }
+
+    function isStorageUrl(value, folder, owner) {
+      return value is string && value.size() <= 2048 && value.matches(
+          '^https://firebasestorage\\.googleapis\\.com/v0/b/'
+          + '(tabibu-86ea2\\.firebasestorage\\.app|demo-tabibu\\.appspot\\.com)/o/'
+          + folder + '%2F' + owner + '%2F[^?]+[?].*');
+    }
+
+    function storageUrl(field, folder, owner) {
+      return request.resource.data[field] == ''
+          || isStorageUrl(request.resource.data[field], folder, owner);
+    }
+
+    // Identity / notifications / cursors: stamp shape only. Drafts use
+    // draftStamped() so lastUpdatedAt must move forward (S-2 revision key).
+    function stamped() {
+      return isoUtc(request.resource.data.lastUpdatedAt)
+          && 'lastUpdatedAt' in changed();
+    }
+
+    function draftStamped() {
+      return isoUtc(request.resource.data.lastUpdatedAt)
+          && 'lastUpdatedAt' in changed()
+          && request.resource.data.lastUpdatedAt > resource.data.lastUpdatedAt;
+    }
+
+    function tokens() {
+      return request.resource.data.fcmTokens is list
+          && request.resource.data.fcmTokens.size() <= 10;
+    }
+
+    function preferences() {
+      return request.resource.data.language in ['en', 'sw']
+          && request.resource.data.receiveNotifications is bool
+          && stamped();
+    }
+
+    function validHours() {
+      let days = request.resource.data.workingDays;
+      // Element type: Flutter writes integers; the JS rules client writes doubles
+      // for the same literals, so `is int` alone is not enforceable in the
+      // emulator. Set membership still rejects non-numeric junk.
+      // syncPractitioner coerces before the directory projection.
+      return days is list
+          && days.size() >= 1 && days.size() <= 7
+          && (days[0] is int || days[0] is float)
+          && days.toSet().size() == days.size()
+          && days.toSet().difference([1, 2, 3, 4, 5, 6, 7].toSet()).size() == 0
+          && request.resource.data.dayStartMinute is int
+          && request.resource.data.dayEndMinute is int
+          && request.resource.data.dayStartMinute % 30 == 0
+          && request.resource.data.dayEndMinute % 30 == 0
+          && request.resource.data.dayStartMinute >= 0
+          && request.resource.data.dayEndMinute <= 1440
+          && request.resource.data.dayEndMinute - request.resource.data.dayStartMinute >= 30;
+    }
+
+    // ── patients/{patientId} ────────────────────────────────────────────────
+    // Clients create no profile (the identity callables do), and only the server
+    // adds to a care team: doctorUids here only ever shrinks.
+
+    match /patients/{patientId} {
+      function isOwner() {
+        return resource.data.uid == request.auth.uid && role() == 'patient';
+      }
+
+      function onCareTeam() {
+        return role() in ['doctor', 'pathologist']
+            && request.auth.uid in resource.data.doctorUids;
+      }
+
+      function ownerUpdate() {
+        return isOwner()
+            && changed().hasOnly(['firstName', 'middleName', 'lastName', 'phoneNumber',
+                                  'profilePictureUrl', 'doctorUids', 'fcmTokens', 'language',
+                                  'receiveNotifications', 'lastUpdatedAt'])
+            && text('firstName', 50) && request.resource.data.firstName.size() > 0
+            && text('middleName', 50)
+            && text('lastName', 50) && request.resource.data.lastName.size() > 0
+            && phone()
+            && storageUrl('profilePictureUrl', 'profilePictures', patientId)
+            && request.resource.data.doctorUids is list
+            && resource.data.doctorUids.toSet().hasAll(request.resource.data.doctorUids)
+            && tokens()
+            && preferences();
+      }
+
+      function careTeamUpdate() {
+        return role() == 'doctor'
+            && request.auth.uid in resource.data.doctorUids
+            && resource.data.isRegistered == false
+            && changed().hasOnly(['firstName', 'middleName', 'lastName', 'phoneNumber', 'email',
+                                  'profilePictureUrl', 'lastUpdatedAt'])
+            && text('firstName', 50) && request.resource.data.firstName.size() > 0
+            && text('middleName', 50)
+            && text('lastName', 50) && request.resource.data.lastName.size() > 0
+            && phone()
+            && (request.resource.data.email == ''
+                || (text('email', 254)
+                    && request.resource.data.email.matches('^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$')))
+            && storageUrl('profilePictureUrl', 'profilePictures', patientId)
+            && stamped();
+      }
+
+      allow read: if signedIn() && (resource.data.uid == request.auth.uid || onCareTeam());
+      allow update: if signedIn() && (ownerUpdate() || careTeamUpdate());
+      allow create, delete: if false;
+    }
+
+    // ── doctors/{uid} ───────────────────────────────────────────────────────
+    // Verification locks identity: title, names, kmpdcNumber and licenseUrls leave
+    // the editable set once Verified. Licences are one or two files; specialties
+    // come from the role's own list, one to five.
+
+    match /doctors/{uid} {
+      function isOwner() {
+        return request.auth.uid == uid;
+      }
+
+      function verified() {
+        return resource.data.verificationStatus == 'Verified';
+      }
+
+      function licenseUrls() {
+        let urls = request.resource.data.licenseUrls;
+        return urls is list && urls.size() >= 1 && urls.size() <= 2
+            && isStorageUrl(urls[0], 'licenses', uid)
+            && (urls.size() == 1 || isStorageUrl(urls[1], 'licenses', uid));
+      }
+
+      function specialties() {
+        let chosen = request.resource.data.specialties;
+        let allowed = resource.data.isPathologist
+            ? ['Histopathology', 'Cytology', 'Haematology', 'Microbiology',
+               'Immunohistochemistry']
+            : ['General practice', 'Family medicine', 'Internal medicine', 'General surgery',
+               'Breast surgery', 'Obstetrics and gynaecology', 'Paediatrics', 'Oncology',
+               'Dermatology', 'Ear, nose and throat', 'Urology', 'Gastroenterology',
+               'Infectious diseases', 'Cardiology', 'Orthopaedics'];
+        return chosen is list && chosen.size() >= 1 && chosen.size() <= 5
+            && chosen.toSet().size() == chosen.size()
+            && chosen.toSet().difference(allowed.toSet()).size() == 0;
+      }
+
+      function editable() {
+        return ['phoneNumber', 'profilePictureUrl', 'specialties', 'bio', 'isAvailable',
+                'fcmTokens', 'language', 'receiveNotifications', 'lastUpdatedAt',
+                'workingDays', 'dayStartMinute', 'dayEndMinute']
+            .concat(verified() ? [] : ['title', 'firstName', 'lastName', 'kmpdcNumber',
+                                       'licenseUrls'])
+            .concat(resource.data.verificationStatus == 'Rejected'
+                    && request.resource.data.verificationStatus == 'Pending'
+                    ? ['verificationStatus'] : []);
+      }
+
+      function ownerUpdate() {
+        return isOwner()
+            && changed().hasOnly(editable())
+            && request.resource.data.title in ['Dr.', 'Prof.', 'Mr.', 'Mrs.', 'Ms.']
+            && text('firstName', 50) && request.resource.data.firstName.size() > 0
+            && text('lastName', 50) && request.resource.data.lastName.size() > 0
+            && phone()
+            && isStorageUrl(request.resource.data.profilePictureUrl, 'profilePictures', uid)
+            && specialties()
+            && text('bio', 1000)
+            && text('kmpdcNumber', 30)
+            && request.resource.data.kmpdcNumber.matches('^[A-Z0-9/-]{3,30}$')
+            && licenseUrls()
+            && request.resource.data.isAvailable is bool
+            && tokens()
+            && preferences()
+            && (!changed().hasAny(['workingDays', 'dayStartMinute', 'dayEndMinute'])
+                || validHours());
+      }
+
+      allow get: if signedIn() && (isOwner() || isAdmin());
+      allow list: if signedIn() && isAdmin();
+      allow update: if signedIn() && ownerUpdate();
+      allow create, delete: if false;
+    }
+
+    // ── practitioners/{uid} ─────────────────────────────────────────────────
+    // Directory projection; the sync function writes it, clients never do.
+
+    match /practitioners/{uid} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    // ── cases/{caseUid} ─────────────────────────────────────────────────────
+
+    match /cases/{caseUid} {
+      function parent() {
+        return get(/databases/$(database)/documents/cases/$(caseUid)).data;
+      }
+
+      function notesUpdate() {
+        return role() == 'doctor'
+            && request.auth.uid == resource.data.doctorUid
+            && resource.data.currentStage in ['OrderCreated', 'PathologistRequested',
+                                              'PathologistRejected']
+            && changed().hasOnly(['clinicalNotes', 'sampleNotes', 'sampleCollectedAt',
+                                  'lastUpdatedAt'])
+            && text('clinicalNotes', 2000)
+            && text('sampleNotes', 1000)
+            && isoUtc(request.resource.data.sampleCollectedAt)
+            && stamped();
+      }
+
+      allow read: if signedIn() && clinical()
+          && request.auth.uid in resource.data.participantUids;
+      allow update: if signedIn() && notesUpdate();
+      allow create, delete: if false;
+
+      match /log/{seq} {
+        allow read: if signedIn() && clinical()
+            && request.auth.uid in parent().participantUids
+            && (request.auth.uid in [parent().doctorUid, parent().pathologistUid]
+                || resource.data.patientVisible == true);
+        allow write: if false;
+      }
+
+      match /private/{doc} {
+        allow read: if signedIn()
+            && doc == 'payment'
+            && ((role() == 'doctor' && request.auth.uid == parent().doctorUid)
+                || (role() == 'patient' && request.auth.uid == parent().patientUid));
+        allow write: if false;
+      }
+
+      match /riskCheck/{id} {
+        allow read: if signedIn() && role() == 'doctor'
+            && request.auth.uid == parent().doctorUid;
+        allow write: if false;
+      }
+
+      match /notesTranslation/{id} {
+        allow read: if signedIn()
+            && role() in ['doctor', 'pathologist']
+            && request.auth.uid in [parent().doctorUid, parent().pathologistUid];
+        allow write: if false;
+      }
+
+      match /preread/{runUid} {
+        allow read: if signedIn() && role() == 'pathologist'
+            && request.auth.uid == parent().pathologistUid;
+        allow write: if false;
+      }
+
+      match /reportDrafts/{pathologistUid} {
+        function isCasePathologist() {
+          return role() == 'pathologist'
+              && request.auth.uid == pathologistUid
+              && parent().pathologistUid == request.auth.uid;
+        }
+
+        function editable(kind) {
+          return kind == 'Initial'
+              ? ['title', 'diagnosisType', 'diagnosis', 'comments', 'responses',
+                 'labelOverrides', 'labelOverrideCount', 'isCritical', 'diagnosisStartedAt',
+                 'startedFromPreread', 'language', 'notifiableFindings',
+                 'confirmatoryRequests', 'hintShownDiseaseIds', 'lastUpdatedAt']
+              : kind == 'Amendment'
+              ? ['title', 'diagnosisType', 'diagnosis', 'comments', 'responses',
+                 'labelOverrides', 'labelOverrideCount', 'isCritical', 'diagnosisStartedAt',
+                 'startedFromPreread', 'language', 'amendmentReason', 'notifiableFindings',
+                 'confirmatoryRequests', 'hintShownDiseaseIds', 'lastUpdatedAt']
+              : kind == 'Addendum'
+              ? ['addendumText', 'lastUpdatedAt']
+              : [];
+        }
+
+        function bounded() {
+          return text('title', 120)
+              && request.resource.data.diagnosisType in ['Final', 'Provisional', 'Inconclusive']
+              && text('diagnosis', 2000)
+              && text('comments', 2000)
+              && text('addendumText', 2000)
+              && text('amendmentReason', 500)
+              && (request.resource.data.diagnosisStartedAt == ''
+                  || isoUtc(request.resource.data.diagnosisStartedAt))
+              && request.resource.data.language in ['en', 'sw']
+              && request.resource.data.isCritical is bool
+              && request.resource.data.startedFromPreread is bool
+              && request.resource.data.responses is list
+              && request.resource.data.responses.size() <= 60
+              && request.resource.data.labelOverrides is map
+              && request.resource.data.labelOverrideCount is int
+              && request.resource.data.labelOverrideCount
+                  == request.resource.data.labelOverrides.size()
+              && request.resource.data.labelOverrideCount <= 2000
+              && request.resource.data.notifiableFindings is list
+              && request.resource.data.notifiableFindings.size() <= 5
+              && request.resource.data.confirmatoryRequests is list
+              && request.resource.data.confirmatoryRequests.size() <= 5
+              && request.resource.data.hintShownDiseaseIds is list
+              && request.resource.data.hintShownDiseaseIds.size() <= 5
+              // Addendum locks diagnosis; the empty-started gate is for Initial/Amendment.
+              && (resource.data.kind == 'Addendum'
+                  || request.resource.data.diagnosisStartedAt != ''
+                  || request.resource.data.diagnosis == '');
+        }
+
+        function hasScore() {
+          return exists(/databases/$(database)/documents/cases/$(caseUid)/prereadScores
+              /$(resource.data.prereadRunUid));
+        }
+
+        function scoredFirst() {
+          return !('diagnosisStartedAt' in changed())
+              || request.resource.data.diagnosisStartedAt == resource.data.diagnosisStartedAt
+              || (resource.data.diagnosisStartedAt == ''
+                  && request.resource.data.diagnosisStartedAt != ''
+                  && (resource.data.prereadRunUid == '' || hasScore()));
+        }
+
+        function startedFromPrereadOk() {
+          return !('startedFromPreread' in changed())
+              || request.resource.data.startedFromPreread == resource.data.startedFromPreread
+              || (resource.data.startedFromPreread == false
+                  && request.resource.data.startedFromPreread == true
+                  && resource.data.prereadRunUid != ''
+                  && hasScore());
+        }
+
+        allow read: if signedIn() && isCasePathologist();
+        allow update: if signedIn() && isCasePathologist()
+            && resource.data.status == 'Editing'
+            && changed().hasOnly(editable(resource.data.kind))
+            && bounded()
+            && draftStamped()
+            && scoredFirst()
+            && startedFromPrereadOk();
+        allow create, delete: if false;
+      }
+
+      match /prereadScores/{runUid} {
+        allow read: if signedIn()
+            && ((role() == 'pathologist'
+                 && parent().pathologistUid == request.auth.uid
+                 && resource.data.pathologistUid == request.auth.uid)
+                || isAdmin());
+        allow write: if false;
+      }
+
+      match /reportProvenance/{reportUid} {
+        allow read: if signedIn()
+            && ((role() == 'pathologist'
+                 && parent().pathologistUid == request.auth.uid
+                 && resource.data.pathologistUid == request.auth.uid)
+                || isAdmin());
+        allow write: if false;
+      }
+
+      match /reports/{reportUid} {
+        allow read: if signedIn() && clinical()
+            && request.auth.uid in resource.data.readerUids
+            && (role() != 'patient' || resource.data.releasedToPatient == true);
+        allow write: if false;
+      }
+
+      match /reportTexts/{textId} {
+        allow get: if signedIn()
+            && role() in ['doctor', 'pathologist']
+            && request.auth.uid == resource.data.approverUid;
+        allow list: if false;
+        allow write: if false;
+      }
+
+      match /reportTextsApproved/{textId} {
+        function report() {
+          return get(/databases/$(database)/documents/cases/$(caseUid)/reports
+              /$(textId.split('_')[0])).data;
+        }
+
+        allow get: if signedIn() && clinical()
+            && request.auth.uid in report().readerUids
+            && (role() != 'patient' || report().releasedToPatient == true);
+        allow list: if false;
+        allow write: if false;
+      }
+    }
+
+    // Collection-group reports (same gate as the nested match).
+    match /{path=**}/reports/{reportUid} {
+      allow read: if signedIn() && clinical()
+          && request.auth.uid in resource.data.readerUids
+          && (role() != 'patient' || resource.data.releasedToPatient == true);
+      allow write: if false;
+    }
+
+    match /worklist/{caseUid} {
+      allow read: if signedIn() && role() == 'pathologist'
+          && resource.data.pathologistUid == request.auth.uid;
+      allow write: if false;
+    }
+
+    match /shareCodes/{shareUid} {
+      allow read: if signedIn()
+          && (resource.data.createdByUid == request.auth.uid
+              || resource.data.recipientUid == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /shareSecrets/{id} { allow read, write: if false; }
+    match /rateCounters/{id} { allow read, write: if false; }
+    match /orderCounters/{id} { allow read, write: if false; }
+    match /orderNumbers/{id} { allow read, write: if false; }
+    match /counterMarks/{id} { allow read, write: if false; }
+    match /messageQuotas/{id} { allow read, write: if false; }
+    match /linkJobs/{id} { allow read, write: if false; }
+    match /transcriptions/{id} { allow read, write: if false; }
+    match /demoAccounts/{id} { allow read, write: if false; }
+
+    match /modelSignals/{day} {
+      allow read: if signedIn() && isAdmin();
+      allow write: if false;
+    }
+
+    // ── appointments ────────────────────────────────────────────────────────
+
+    match /appointments/{appointmentUid} {
+      allow read: if signedIn()
+          && ((role() == 'patient' && resource.data.patientUid == request.auth.uid)
+              || (role() == 'doctor' && resource.data.doctorUid == request.auth.uid));
+      allow write: if false;
+
+      match /intake/{doc} {
+        allow read: if signedIn() && role() == 'doctor'
+            && resource.data.doctorUid == request.auth.uid;
+        allow write: if false;
+      }
+    }
+
+    // ── conversations ───────────────────────────────────────────────────────
+
+    match /conversations/{cid} {
+      function conv() {
+        return get(/databases/$(database)/documents/conversations/$(cid)).data;
+      }
+
+      allow read: if signedIn() && clinical()
+          && request.auth.uid in resource.data.participantUids;
+      allow write: if false;
+
+      match /cursors/{u} {
+        function cursorKeys() {
+          return request.resource.data.keys()
+              .hasOnly(['uid', 'conversationUid', 'lastReadAt', 'lastUpdatedAt']);
+        }
+
+        allow read: if signedIn() && clinical()
+            && request.auth.uid in conv().participantUids;
+        allow create: if signedIn() && clinical()
+            && u == request.auth.uid
+            && request.auth.uid in conv().participantUids
+            && cursorKeys()
+            && request.resource.data.uid == u
+            && request.resource.data.conversationUid == cid
+            && isoUtc(request.resource.data.lastReadAt)
+            && isoUtc(request.resource.data.lastUpdatedAt)
+            && request.resource.data.lastUpdatedAt == request.resource.data.lastReadAt;
+        allow update: if signedIn() && clinical()
+            && u == request.auth.uid
+            && request.auth.uid in conv().participantUids
+            && cursorKeys()
+            && request.resource.data.uid == u
+            && request.resource.data.conversationUid == cid
+            && isoUtc(request.resource.data.lastReadAt)
+            && request.resource.data.lastReadAt > resource.data.lastReadAt
+            && stamped();
+        allow delete: if false;
+      }
+
+      match /messages/{mid} {
+        function quotaPath() {
+          return /databases/$(database)/documents/messageQuotas/$(request.auth.uid);
+        }
+
+        function notTextBlocked() {
+          return !exists(quotaPath()) || get(quotaPath()).data.get('blocked', false) == false;
+        }
+
+        // Spec field voiceBlockedUntil: empty / missing = clear; non-empty = blocked
+        // until the sweep clears it. request.time vs a string stamp is not
+        // expressible here.
+        function notVoiceBlocked() {
+          return !exists(quotaPath())
+              || get(quotaPath()).data.get('voiceBlockedUntil', '') == '';
+        }
+
+        function d() {
+          return request.resource.data;
+        }
+
+        function messageKeys() {
+          return d().keys().hasOnly([
+            'uid', 'conversationUid', 'senderUid', 'kind', 'text', 'attachmentPath',
+            'attachmentType', 'attachmentSize', 'voiceDurationMs', 'voicePeaks',
+            'transcriptShared', 'transcriptLanguage', 'transcriptStatus',
+            'identifierFlagged', 'inputMode', 'status', 'withheldReason', 'sentAt',
+            'deliveredAt', 'lastUpdatedAt'
+          ]);
+        }
+
+        // voicePeaks: size ≤ 64; first element a number 0-100 when present.
+        // Rules cannot loop, so later elements are not checked element-wise.
+        // `is int || is float` rejects strings/maps; the JS rules client stores
+        // whole numbers as floats, while Flutter writes integers.
+        function voicePeaksOk() {
+          return d().voicePeaks is list
+              && d().voicePeaks.size() <= 64
+              && (d().voicePeaks.size() == 0
+                  || ((d().voicePeaks[0] is int || d().voicePeaks[0] is float)
+                      && d().voicePeaks[0] >= 0
+                      && d().voicePeaks[0] <= 100));
+        }
+
+        function textOrImageOk() {
+          return d().kind in ['Text', 'Image']
+              && d().voiceDurationMs == 0
+              && d().voicePeaks is list && d().voicePeaks.size() == 0
+              && d().inputMode == 'Typed'
+              && d().transcriptStatus == 'None'
+              && d().identifierFlagged == false
+              && ((d().kind == 'Text'
+                   && d().attachmentPath == ''
+                   && d().attachmentType == ''
+                   && d().attachmentSize == 0
+                   && d().text.size() > 0)
+                  || (d().kind == 'Image'
+                      && d().attachmentPath in [
+                           'conversations/' + cid + '/images/' + mid + '/image.jpg',
+                           'conversations/' + cid + '/images/' + mid + '/image.png'
+                         ]
+                      && d().attachmentType in ['image/jpeg', 'image/png']
+                      && d().attachmentSize is int
+                      && d().attachmentSize > 0
+                      && d().attachmentSize < 3 * 1024 * 1024));
+        }
+
+        function voiceOk() {
+          return d().kind == 'Voice'
+              && d().attachmentPath == 'conversations/' + cid + '/voice/' + mid + '.m4a'
+              && d().attachmentType in ['audio/mp4', 'audio/aac']
+              && d().attachmentSize is int
+              && d().attachmentSize > 0
+              && d().attachmentSize <= 524288
+              && d().voiceDurationMs is int
+              && d().voiceDurationMs > 0
+              && d().voiceDurationMs <= 120000
+              && voicePeaksOk()
+              && d().inputMode == 'Voice'
+              && d().transcriptStatus == 'Queued'
+              && d().identifierFlagged == false
+              && notVoiceBlocked();
+        }
+
+        // Withheld (rateLimited / voiceTooLong / missingAudio / …) → sender only.
+        allow read: if signedIn() && clinical()
+            && request.auth.uid in conv().participantUids
+            && (resource.data.status in ['Sent', 'Delivered', 'Withdrawn']
+                || resource.data.senderUid == request.auth.uid);
+        allow create: if signedIn() && clinical()
+            && isUuidV4(mid)
+            && request.auth.uid in conv().participantUids
+            && conv().status == 'Open'
+            && notTextBlocked()
+            && messageKeys()
+            && d().uid == mid
+            && d().conversationUid == cid
+            && d().senderUid == request.auth.uid
+            && d().kind in ['Text', 'Image', 'Voice']
+            && text('text', 2000)
+            && (textOrImageOk() || voiceOk())
+            && d().withheldReason == ''
+            && d().transcriptShared == false
+            && d().transcriptLanguage in ['', 'en', 'sw', 'mixed']
+            && d().status == 'Sent'
+            && d().deliveredAt == ''
+            && isoUtc(d().sentAt)
+            && d().lastUpdatedAt == d().sentAt;
+        allow update: if signedIn()
+            && resource.data.senderUid == request.auth.uid
+            && changed().size() == 0;
+        allow delete: if false;
+
+        // S-8: clinicians in the conversation read any voice-note transcript;
+        // anyone else reads only their own sent message or a shared one.
+        match /transcript/{k} {
+          function theMessage() {
+            return get(/databases/$(database)/documents/conversations/$(cid)/messages/$(mid))
+                .data;
+          }
+
+          allow read: if signedIn() && clinical()
+              && request.auth.uid in conv().participantUids
+              && (k == 'shared'
+                  || theMessage().senderUid == request.auth.uid
+                  || role() in ['doctor', 'pathologist']);
+          allow write: if false;
+        }
+      }
+    }
+
+    // ── notifications ───────────────────────────────────────────────────────
+
+    match /notifications/{id} {
+      allow read: if signedIn() && resource.data.recipientUid == request.auth.uid;
+      allow update: if signedIn()
+          && resource.data.recipientUid == request.auth.uid
+          && changed().hasOnly(['status', 'readAt', 'lastUpdatedAt'])
+          && request.resource.data.status in ['Unread', 'Read', 'Archived']
+          && text('readAt', 40)
+          && stamped();
+      allow create, delete: if false;
+    }
+
+    // ── alerts domain ───────────────────────────────────────────────────────
+
+    match /notifiableEvents/{id} { allow read, write: if false; }
+    match /notifiableEventLinks/{id} { allow read, write: if false; }
+    match /epiCounts/{id} { allow read, write: if false; }
+    match /alertDeliveries/{id} { allow read, write: if false; }
+    match /alertApprovers/{id} { allow read, write: if false; }
+
+    match /alertSignals/{signalUid} {
+      allow read: if signedIn() && isAlertApprover();
+      allow write: if false;
+    }
+
+    match /alerts/{alertUid} {
+      allow read: if signedIn() && isAlertApprover();
+      allow write: if false;
+    }
+
+    match /publicAlerts/{alertUid} {
+      // Synthetic notices reach demo accounts only.
+      allow read: if signedIn()
+          && (isAlertApprover()
+              || (clinical()
+                  && (resource.data.get('synthetic', false) == false || isDemo())
+                  && (role() != 'patient' || resource.data.patientsReleased == true)));
+      allow write: if false;
+
+      match /doctor/{d} {
+        allow read: if signedIn()
+            && d == 'brief'
+            && (isAlertApprover() || role() in ['doctor', 'pathologist']);
+        allow write: if false;
+      }
+    }
+  }
+}
