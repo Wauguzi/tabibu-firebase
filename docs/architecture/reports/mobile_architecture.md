@@ -56,7 +56,7 @@ authoritative for what resolved.
 | Dependency injection | `get_it ^9.3.0`, `injectable ^3.0.0` | Annotation-driven, code-generated (§7). |
 | Immutable models | `freezed ^3.2.6-dev.1`, `freezed_annotation ^3.1.0`, `json_serializable ^6.15.2` | |
 | Local persistence | `hive_ce ^2.22.0`, `hive_ce_flutter ^2.5.0`, `hive_ce_generator ^1.11.2` | An encrypted, offline-first cache, not a key-value store (§6). |
-| Backend | Firebase: `firebase_core`, `firebase_auth`, `cloud_firestore`, `firebase_storage`, `cloud_functions`, `firebase_messaging`, `firebase_remote_config`, `firebase_app_check`, `firebase_crashlytics`, `firebase_analytics`, `firebase_performance` | The app talks **only** to Firebase. It never calls a model (§3). |
+| Backend | Firebase: `firebase_core`, `firebase_auth`, `cloud_firestore`, `firebase_storage`, `cloud_functions`, `firebase_messaging`, `firebase_remote_config`, `firebase_app_check`, `firebase_crashlytics`, `firebase_analytics`, `firebase_performance`; natively, `FirebaseAILogic` 12.19.3 on iOS for hybrid inference | The app talks **only** to Firebase, and calls a model only through Firebase AI Logic (§3). |
 | Notifications | `firebase_messaging ^16.7.1`, `flutter_local_notifications ^22.3.3` | Push for alerts and case updates; local banners for foreground arrivals. See [`notifications_engine.md`](./notifications_engine.md). |
 | Anti-tamper | `freerasp ^8.2.4` | Root/jailbreak, repackaging, debugger and hook detection (§10). |
 | Secure storage | `flutter_secure_storage 11.2.0` (exact pin) | Holds the Hive encryption key. On the cold-start path; see §15 rule 2. |
@@ -97,10 +97,13 @@ Two halves, joined only through Firebase:
 
 Three rules follow from the diagram and are not negotiable:
 
-1. **The app never calls a model.** No model key ships in the binary, and
-   none exists: the functions call Gemini as their service account. The app
-   writes a request (a case opened, a result signed, an intake recorded) and
-   reads back a draft the functions wrote.
+1. **The app calls a model only through Firebase, and holds no model key.**
+   The jobs run in the functions, which call Gemini as their service
+   account: the app writes a request (a case opened, a result signed, an
+   intake recorded) and reads back a draft the functions wrote. Two short
+   tasks run in the app through Firebase AI Logic's native hybrid SDKs over
+   `tabibu/hybrid_ai`, which take a task id, never a prompt
+   ([AI service §8](./ai_preread_service.md#8-in-the-app-hybrid-inference)).
 2. **The helper, not the bloc and not the datasource, decides cache versus
    remote.** A bloc asks its helper. It never reaches into Hive or Firestore
    directly.
@@ -1022,6 +1025,7 @@ to see. Greptile is pointed at this section.
     | The case, share-code, report, appointment, conversation, notification and alert functions, with the signed-report PDF | Built, with emulator tests |
     | The eight client kill-switch defaults (§10) | Built (`remote_config_defaults.dart`) |
     | The AI jobs (pre-read, risk check and notes translation, symptom intake, report translation, explanation, alert drafting) | Built in Cloud Functions; their model layer is moving to Gemini, and the app gains Firebase AI Logic calls |
+    | The in-app hybrid tasks (symptom tidy, notes summary) | Dart and iOS built; Android in progress |
     | Voice recording and playback | Built (`record`, `just_audio`) |
     | The blocs and the feature screens | Built |
 

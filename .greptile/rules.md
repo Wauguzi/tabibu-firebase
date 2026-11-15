@@ -49,8 +49,11 @@ finding.
 
 ## Architecture boundaries
 
-- **The app never calls a model.** A model SDK, model endpoint or model key anywhere under `lib/`
-  is a defect. Model calls belong to the AI service in Cloud Functions, triggered through Firebase.
+- **The app calls a model only through Firebase.** A model key, a model endpoint or a non-Firebase
+  model SDK anywhere under `lib/` is a defect. Jobs belong to the AI service in Cloud Functions.
+  The one in-app path is the native hybrid plugins behind `tabibu/hybrid_ai`, which take a task id,
+  never a prompt: a `notes_summary` stays `ONLY_ON_DEVICE` and builds no cloud model, and every
+  tidy input passes `stripContactDetails` (S-8).
 - **The app talks to the backend only through the Firebase SDKs.** A raw HTTP client (`dio`,
   `http`, `HttpClient`) under `lib/` or in `pubspec.yaml` needs a CRQ that justifies the endpoint;
   without one it is a defect. A `badCertificateCallback` that returns `true` is a P1 finding in any

@@ -75,9 +75,12 @@ Each role, in a line:
 - **Doctors** see their day, order tests, and join multidisciplinary (MDT) consults.
 - **Pathologists** work a desk of cases the AI read first, and sign every report themselves.
 
-The app is built with Flutter for iOS, Android and the web, and talks only to Firebase. It makes no
-model call and holds no model key: the AI calls run inside Cloud Functions, on Gemini through the
-Agent Platform, authenticated by the functions' own service account, so there is no key to leak.
+The app is built with Flutter for iOS, Android and the web, talks only to Firebase, and holds no
+model key. The AI jobs run inside Cloud Functions, on Gemini through the Agent Platform,
+authenticated by the functions' own service account. Two short tasks run in the app through
+Firebase AI Logic's hybrid inference: a patient can tidy their typed symptoms, on the phone's own
+model where it has one and in the cloud otherwise, and a doctor can summarise their notes on the
+phone only.
 
 > [!NOTE]
 > The models run in Cloud Functions, each behind its own Remote Config switch: the risk check, the
@@ -95,9 +98,9 @@ person. The order **is** the case, so one record carries a patient from booking 
 
 | Step | What happens | AI |
 |---|---|---|
-| 1. Book | A patient books a doctor and types their symptoms. | A symptom summary in English and Kiswahili for the doctor |
+| 1. Book | A patient books a doctor and types their symptoms. A symptom summary in English and Kiswahili for the doctor. Before sending, the patient may tidy their own text, on the phone where it can; it changes only on "Use this" |
 | 2. Accept | The doctor accepts, and the slot shows as busy on their public profile. | None |
-| 3. Order | The doctor orders tests. The order gets an `ODR-…` number, and the payment method (cash, or an insurer and policy number) is recorded. Tabibu takes no money. | A risk check suggests tests and, from a fixed template, a protocol advisory. The doctor's notes are translated for the pathologist |
+| 3. Order | The doctor orders tests. The order gets an `ODR-…` number, and the payment method (cash, or an insurer and policy number) is recorded. Tabibu takes no money. | A risk check suggests tests and, from a fixed template, a protocol advisory. The doctor's notes are translated for the pathologist. The doctor may summarise their notes on the phone only, never stored |
 | 4. Assign | The doctor requests a pathologist, who has 24 hours to accept. | None |
 | 5. Pre-read | For an image-bearing test, slides go up; the pathologist's desk ranks every case. | The pre-read: a label per tile, a heatmap and measurements built in code, and a draft report, readable **only by the case's pathologist** (S-1) |
 | 6. Score and sign | The pathologist scores the pre-read, then edits and signs the report. The doctor opens it with a code from their inbox, behind the device's biometrics. | The pathologist approves the report's translation in one tap |

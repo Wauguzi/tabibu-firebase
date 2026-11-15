@@ -35,8 +35,9 @@ need on top (§6).
   one alert per key; both are closed as "won't fix" with this reasoning.
 - **Signing material is ignored.** `.gitignore` covers `**/android/key.properties`
   and `*.jks`.
-- **No model call from the client.** The app has no model SDK or model key;
-  the architecture routes every call through Cloud Functions.
+- **No model key in the client.** The jobs run in Cloud Functions; the two
+  in-app tasks go through Firebase AI Logic's native hybrid SDKs, which take
+  a task id and never a prompt (T-21).
 - **No patient data exists anywhere in the project.** Demo records are
   synthetic, and the images are from PatchCamelyon, CAMELYON16 and the NIH
   malaria set.
@@ -118,6 +119,9 @@ These are the rules whose breach is a P1 even when no attacker is involved
 | T-11 | A case read from a shared clinic phone after sign-out | Sign-out wipes case boxes (the 21 boxes of the data layer included) and the cached audio and image files, and rotates the Hive key; biometric re-entry option | Unit test on sign-out wipe | Planned |
 | T-12 | A prompt injected through free-text notes changes the draft's structure | Notes passed as data fields, never instructions; schema validation rejects off-schema output. The same holds for the translation, explanation, intake, notes-translation and alert-drafting prompts | `ai-gemini.test.ts` injection-as-data cases | In place, not deployed |
 | T-13 | A model API key leaks through the repository, the app bundle or Remote Config. Keys pushed to public GitHub are typically abused within minutes, and deleting the commit does not undo it | No model key exists: the functions authenticate as their service account. The share-code key lives in Firebase Secret Manager; the seed password and the App Check debug token in the macOS Keychain (`make seed-password`, `make app-check-token`). `.env` files are ignored and hold non-secret settings only. No key in `--dart-define`, Flutter assets or Remote Config, which serves every app instance and is fetchable with the public client config. GitHub push protection for the account, plus `make secrets` (gitleaks over history and staged changes). On a leak: revoke first, then clean up | `git check-ignore` on `.env`; `make secrets` clean; release-build string scan (shared with T-4) | Partly in place: ignore rules, Keychain targets and scan target done; repository secret scanning and gitleaks install pending |
+| T-21 | A scripted client calls Firebase AI Logic with the app's public config, to run its own prompts or spend the project's quota | App Check enforced on AI Logic; authenticated users only; a per-user quota; the prompts live in the native plugins and Dart sends only a task id | Console check of enforcement and the quota; channel tests that only two task ids exist | Planned: the console steps are pending |
+| T-22 | An in-app model adds facts to a patient's symptoms or a doctor's notes | The prompts forbid adding facts, diagnosing or advising; the output sits in the AI frame with where it ran; a tidy replaces the text only on "Use this", and a notes summary is never written into the order | Bloc and widget tests for write-back and labelling | In place, not deployed |
+| T-23 | Prompts and answers from in-app calls are kept in AI monitoring logs | A Cloud Logging exclusion for the AI Logic model resource on the default sink; nothing the app or the plugins log carries input or output | Console check of the exclusion | Planned |
 
 ## 5. Not applicable
 
