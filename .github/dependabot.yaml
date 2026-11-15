@@ -8,6 +8,14 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Held until after submission: any FlutterFire release can move the native Firebase SDK
+    # past 12.19, the last line with the iOS hybrid inference API. fake_cloud_firestore tracks
+    # cloud_firestore, so it is held with it.
+    ignore:
+      - dependency-name: "firebase_*"
+      - dependency-name: "cloud_firestore"
+      - dependency-name: "cloud_functions"
+      - dependency-name: "fake_cloud_firestore"
   - package-ecosystem: "npm"
     directory: "/functions"
     schedule:
