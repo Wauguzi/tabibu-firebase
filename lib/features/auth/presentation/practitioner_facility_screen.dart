@@ -362,6 +362,7 @@ class _PractitionerFacilityScreenState
                     controller: _bioController,
                     maxLines: 4,
                     maxLength: 300,
+                    sanitizePaste: true,
                     textInputAction: TextInputAction.done,
                   ),
                   const SizedBox(height: AppSpacing.md),

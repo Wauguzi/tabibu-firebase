@@ -174,6 +174,28 @@ void main() {
       expect(find.text('General surgery'), findsOneWidget);
     });
 
+    testWidgets('a pasted bio loses its invisible characters', (tester) async {
+      tallView(tester);
+      await tester.pumpRoleApp(surgeon(), '/doctor/profile/details');
+      await tester.pumpAndSettle();
+
+      // Cleared first, so the text arrives as one insert, the way a paste does.
+      await enterIn(tester, 'About you', '');
+      await enterIn(tester, 'About you', 'Breast\u200B surgeon\u202E here');
+      await tester.pump();
+
+      final field = tester.widget<TextField>(
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (widget) =>
+                widget is TabibuTextField && widget.label == 'About you',
+          ),
+          matching: find.byType(TextField),
+        ),
+      );
+      expect(field.controller!.text, 'Breast surgeon here');
+    });
+
     testWidgets('a long bio is refused before sending', (tester) async {
       tallView(tester);
       final bloc = await tester.pumpRoleApp(
