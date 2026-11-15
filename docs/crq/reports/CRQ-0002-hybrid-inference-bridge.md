@@ -69,7 +69,7 @@ for in-app model calls.
 | Security (rules, App Check, RASP, secrets) | Affected | In-app calls rely on App Check enforcement, authenticated users and a per-user quota on AI Logic (T-21); no key in the app |
 | Data protection (PHI, de-identification, model endpoints) | New endpoint | A tidy may reach Gemini in the cloud, after contact details are stripped: the named S-8 exception. Notes never leave the device. Monitoring logs are excluded (T-23) |
 | Design system / UI consistency | Existing pattern | `AiDraftFrame` with a source chip |
-| Localisation (en, sw) | Added | Nine `hybrid*` strings in both ARB files; the actions hide in Kiswahili, so the Kiswahili copy shows only in reasons |
+| Localisation (en, sw) | Added | Nine `hybrid*` strings in both ARB files. Both actions hide in Kiswahili, so the Kiswahili copy is kept for parity and not shown |
 | Existing data | None | |
 
 ## 5. Risk & rollback plan
@@ -100,8 +100,9 @@ release; reverting the branch's commits removes the bridge.
 
 | Check | Result |
 |---|---|
-| `make analyze` / `make bloc-lint` | Pass |
-| Hybrid and screen tests | Pass — 254, including the stripping tests |
+| `make analyze` / `make bloc-lint` | Pass — no issues |
+| `make test` (`TZ=UTC`) | Pass — 3,544 tests, including the stripping, Remote Config, retry, analytics and 2.0x tests |
+| `make spell` / `make release-check` | Pass — 1,068 files; the version follows the convention |
 | iOS RunnerTests (simulator) | Pass — 4: source and status mapping, the routing matrix, the prompts; run on one named simulator |
 | iOS simulator build | Pass |
 | Android plugin | Pass — compiles; 5 JVM contract tests (routing, cut-off, failure codes); debug APK builds on the upgraded toolchain |
@@ -121,7 +122,27 @@ release; reverting the branch's commits removes the bridge.
 
 ## 9. Post-implementation review
 
-Filled in after the merge.
+**Pre-review pass (15 Nov), before the pull request.** Eight findings, all
+fixed on this branch, each new guard proven by breaking it and watching its
+test fail:
+
+1. Remote Config never reached the actions: the switches and the cloud
+   model could not change anything, so the rollback in §5 did not work. The
+   lookup now registers as `HybridConfigLookup` and the widget resolves its
+   settings from it.
+2. A failed run hid the action, leaving no way to retry without editing.
+3. A failed run, "Use this" and "Done" logged nothing; every outcome now
+   logs one event (`hybrid_inference` with an outcome, `hybrid_proposal`).
+4. The bloc's analytics hook bypassed the `getIt` fallback convention.
+5. The widget ignored a new controller and a locale change after its first
+   frame.
+6. `download()`'s comment claimed a native download on Wi-Fi that neither
+   plugin makes.
+7. The review rules' S-8 still described server-side speech, and S-8 did not
+   name the notes summary's reader; both now match the threat model.
+8. No 2.0x text test; one now runs in English and Kiswahili.
+
+Filled in further after the merge.
 
 ## 10. Related records
 

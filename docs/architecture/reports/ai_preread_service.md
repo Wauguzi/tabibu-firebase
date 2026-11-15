@@ -39,9 +39,11 @@ the report translation (the signer), the patient explanation (the ordering
 doctor) and an alert (an authorised clinician holding the approver
 permission). **Where the threat model's S-8 names the reader as the qualified
 person who acts on the output, it is used directly**: the symptom summary and
-risk advice to the doctor, and the notes translation to the doctor and
-pathologist. Either way the output is labelled as AI, its input is
-de-identified (S-5), and it records its signals (§6).
+risk advice to the doctor, the notes translation to the doctor and
+pathologist, and the in-app notes summary to the doctor who wrote the notes
+(§8). Either way the output is labelled as AI, and its input is
+de-identified (S-5), except the two in-app tasks §8 names. Server outputs
+record their signals (§6).
 
 ## 2. Invocation
 
