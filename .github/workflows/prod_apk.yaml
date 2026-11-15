@@ -9,8 +9,10 @@ on:
     branches:
       - main
 
+# The release notes read the pull request's commits, which needs pull-requests: read.
 permissions:
   contents: read
+  pull-requests: read
 
 jobs:
   # The functions' lint, build and full type-check, the seed included. Their emulator tests
@@ -45,7 +47,8 @@ jobs:
         run: npx tsc --noEmit -p tsconfig.json
 
   build:
-    runs-on: ubuntu-latest
+    # Pinned: on the newer Ubuntu image Gradle was killed mid-build (exit 143).
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     env:
       # Empty for Dependabot and fork PRs, which receive no secrets; the signed steps skip.
@@ -63,8 +66,18 @@ jobs:
           docker-images: true
           swap-storage: true
 
+      # The step above deletes the runner's swap. Give the release build (Gradle, the Kotlin
+      # daemon, R8, gen_snapshot) 8 GB of headroom instead of an OOM kill.
+      - name: 💾 Add swap
+        run: |
+          sudo fallocate -l 8G /swapfile-ci
+          sudo chmod 600 /swapfile-ci
+          sudo mkswap /swapfile-ci
+          sudo swapon /swapfile-ci
+          free -h
+
       - name: ☕ Set up JDK 17
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
         with:
           java-version: "17"
           distribution: "temurin"
@@ -79,7 +92,7 @@ jobs:
         with:
           # The version the branch was verified on; a newer 3.x released on the day must not
           # fail a pull request for reasons unrelated to it.
-          flutter-version: "3.47.8"
+          flutter-version: "3.50.0"
           cache: true
 
       - name: 🔍 Flutter version
@@ -98,7 +111,7 @@ jobs:
           | xargs -0 dart format --set-exit-if-changed -o none
 
       - name: ⚙️ Code generation
-        run: dart run build_runner build
+        run: dart run build_runner build --delete-conflicting-outputs
 
       - name: 🔬 Analyze
         run: flutter analyze lib test
@@ -115,6 +128,15 @@ jobs:
       - name: 🏷️ Release script checks
         run: node --test scripts/*.test.cjs
 
+      # The merge drafts its release from pubspec.yaml and refuses a version that is not past the
+      # latest release, so a missing bump blocks the merge here instead of failing after it. The
+      # script reads tags only. Dependabot does not bump the version, so its pull requests skip.
+      - name: 🔢 Version bumped past the latest release
+        if: github.actor != 'dependabot[bot]'
+        run: |
+          git fetch --no-tags --depth=1 origin '+refs/tags/*:refs/tags/*'
+          node scripts/next-release.cjs
+
       - name: 🔑 Decode Android keystore
         if: env.CAN_SIGN == 'true'
         env:
@@ -123,14 +145,23 @@ jobs:
           echo "$RELEASE_KEYSTORE" | base64 --decode > "$RUNNER_TEMP/release.jks"
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
-      # Hosted runners have ~16 GB; gradle.properties asks for an 8 GB heap, which starves the
-      # Kotlin daemon and ends in an OOM kill (exit 143).
+      # gradle.properties asks for an 8 GB heap, which starves the OS, the Kotlin daemon and the
+      # compilers on a hosted runner and ends in an OOM kill (exit 143).
       - name: 🧠 Tune Gradle for hosted runner memory
         if: env.CAN_SIGN == 'true'
         run: |
-          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8/' android/gradle.properties
-          echo 'org.gradle.workers.max=2' >> android/gradle.properties
-          echo 'kotlin.daemon.jvmargs=-Xmx1536m' >> android/gradle.properties
+          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8/' android/gradle.properties
+          if grep -q '^org.gradle.parallel=' android/gradle.properties; then
+            sed -i 's/^org.gradle.parallel=.*/org.gradle.parallel=false/' android/gradle.properties
+          else
+            echo 'org.gradle.parallel=false' >> android/gradle.properties
+          fi
+          if ! grep -q '^org.gradle.workers.max=' android/gradle.properties; then
+            echo 'org.gradle.workers.max=2' >> android/gradle.properties
+          fi
+          if ! grep -q '^kotlin.daemon.jvmargs=' android/gradle.properties; then
+            echo 'kotlin.daemon.jvmargs=-Xmx1024m' >> android/gradle.properties
+          fi
 
       - name: 🏗️ Build release APK
         if: env.CAN_SIGN == 'true'
@@ -164,6 +195,31 @@ jobs:
           npx --yes firebase-tools@15.31.0 crashlytics:symbols:upload \
             --app "$FIREBASE_ANDROID_APP_ID" debug-symbols/
 
+      # Without notes the action sends `git log -1`, which on a pull request is GitHub's synthetic
+      # merge commit. Testers get the pull request and its commits instead. Titles and messages
+      # are the contributor's text, so they reach the file through env and jq, never the shell.
+      # App Distribution caps notes at 16,000 characters.
+      - name: 📝 Release notes from the pull request
+        if: env.CAN_SIGN == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          set -euo pipefail
+          version=$(sed -n 's/^version:[[:space:]]*//p' pubspec.yaml)
+          {
+            printf 'Tabibu %s\n' "$version"
+            printf 'PR #%s: %s\n\n' "$PR_NUMBER" "$PR_TITLE"
+            printf 'Commits:\n'
+            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/commits" \
+              --jq '.[] | select(.parents | length < 2)
+                    | "- " + (.commit.message | split("\n")[0]) + " (" + .sha[0:7] + ")"'
+          } > release-notes.txt
+          head -c 16000 release-notes.txt > release-notes.capped.txt
+          mv release-notes.capped.txt release-notes.txt
+          cat release-notes.txt
+
       - name: 🚀 Upload to Firebase App Distribution
         if: env.CAN_SIGN == 'true'
         uses: wzieba/Firebase-Distribution-Github-Action@bd494989dd4bec0343f78adee87fe66e48279ad6 # v1.7.1
@@ -172,6 +228,7 @@ jobs:
           serviceCredentialsFileContent: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
           groups: internal-production
           file: build/app/outputs/flutter-apk/app-production-release.apk
+          releaseNotesFile: release-notes.txt
 
       - name: 🧽 Remove signing material
         if: always()
