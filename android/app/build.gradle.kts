@@ -107,6 +107,8 @@ flutter {
 }
 
 dependencies {
+    // LaunchTheme inherits from Theme.AppCompat (local_auth on Android 8 and below).
+    implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("org.jetbrains.kotlin:kotlin-stdlib:2.3.20")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }
