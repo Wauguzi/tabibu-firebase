@@ -61,6 +61,12 @@ internal object HybridAiContract {
 
     fun exceedsCap(input: String): Boolean = input.length > maxInputChars
 
+    /**
+     * An answer that stopped at [maxOutputTokens] is cut off. Offering it for
+     * "Use this" would replace the patient's text with part of it.
+     */
+    fun cutOff(finishReason: String?): Boolean = finishReason == "MAX_TOKENS"
+
     fun cloudModelName(raw: Any?): String {
         val text = (raw as? String)?.trim()
         return if (text.isNullOrEmpty()) defaultCloudModel else text

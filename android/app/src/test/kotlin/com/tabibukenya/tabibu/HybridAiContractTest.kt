@@ -100,4 +100,10 @@ class HybridAiContractTest {
         assertEquals(HybridModelOption.Stable, HybridAiContract.modelOption("nope"))
     }
 
+    @Test
+    fun anAnswerCutOffAtTheCapIsRefused() {
+        assertTrue(HybridAiContract.cutOff("MAX_TOKENS"))
+        assertFalse(HybridAiContract.cutOff("STOP"))
+        assertFalse(HybridAiContract.cutOff(null))
+    }
 }

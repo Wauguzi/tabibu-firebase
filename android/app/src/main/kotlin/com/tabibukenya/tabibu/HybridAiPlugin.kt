@@ -205,6 +205,9 @@ class HybridAiPlugin(
         )
         val text = response.text?.trim().orEmpty()
         if (text.isEmpty()) throw HybridAiCallException("unknown")
+        if (HybridAiContract.cutOff(response.candidates.firstOrNull()?.finishReason?.name)) {
+            throw HybridAiCallException("unknown")
+        }
         val onDevice = response.inferenceSource == InferenceSource.ON_DEVICE
         val source = HybridAiContract.resultSource(plan, onDevice)
             ?: throw HybridAiCallException("unknown")
