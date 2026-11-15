@@ -148,9 +148,11 @@ class HybridRequest {
   final String modelOption;
   final String cloudModel;
 
+  /// A tidy may reach the cloud, so its input leaves without phone numbers
+  /// or email addresses; a notes summary never leaves the device.
   Map<String, Object> toMap() => {
     'task': task.wire,
-    'input': input,
+    'input': task == .symptomTidy ? stripContactDetails(input) : input,
     'mode': mode.wire,
     'modelOption': modelOption,
     'cloudModel': cloudModel,
@@ -160,6 +162,18 @@ class HybridRequest {
   @override
   String toString() => 'HybridRequest(${task.wire}, ${mode.wire})';
 }
+
+/// Replaces email addresses and Kenyan phone numbers with placeholders, with
+/// the same patterns the server's de-identifier uses before its prompts.
+String stripContactDetails(String text) =>
+    text.replaceAll(_email, '[EMAIL]').replaceAll(_phone, '[PHONE]');
+
+final _email = RegExp(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b');
+final _phone = RegExp(
+  r'(?:\+?254|0)\s*[17](?:[\s\-]*\d){8}'
+  r'|(?:\+?254|0)\s*20(?:[\s\-]*\d){6,7}'
+  r'|\b0[17]\d(?:[\s\-]?\d){7}\b',
+);
 
 class HybridResult {
   const HybridResult({required this.text, required this.source});

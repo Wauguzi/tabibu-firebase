@@ -132,6 +132,45 @@ void main() {
     expect(settings.symptomTidyEnabled, isFalse);
   });
 
+  group('contact details', () {
+    HybridRequest request(HybridTask task, String input) => HybridRequest(
+      task: task,
+      input: input,
+      mode: HybridMode.forTask(task),
+      modelOption: 'stable',
+      cloudModel: 'gemini-3.5-flash-lite',
+    );
+
+    test('a tidy leaves without phone numbers or email addresses', () {
+      final wire = request(
+        .symptomTidy,
+        'Fever since Monday. Call 0712 345 678 or +254 733-123-456, '
+        'office 020 1234567, or write to amina.otieno@example.com.',
+      ).toMap();
+
+      expect(
+        wire['input'],
+        'Fever since Monday. Call [PHONE] or [PHONE], '
+        'office [PHONE], or write to [EMAIL].',
+      );
+    });
+
+    test('symptom numbers that are not contact details stay', () {
+      const text = 'Temperature 38.5 for 3 days, 2 tablets every 8 hours.';
+
+      expect(request(.symptomTidy, text).toMap()['input'], text);
+    });
+
+    test(
+      'a notes summary keeps its text, since it never leaves the device',
+      () {
+        const text = 'Seen with 0712 345 678 on file.';
+
+        expect(request(.notesSummary, text).toMap()['input'], text);
+      },
+    );
+  });
+
   group('english heuristic', () {
     test('plain English passes', () {
       expect(looksLikeEnglish('Headache for two days'), isTrue);
