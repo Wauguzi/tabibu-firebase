@@ -1,3 +1,4 @@
+import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -100,10 +101,19 @@ void main() {
       ThemeMode themeMode = ThemeMode.light,
       Locale? locale,
       String caseUid = 'case-1',
+      List<CasesState>? then,
     }) async {
-      when(
-        () => blocs.cases.state,
-      ).thenReturn(cases ?? const CasesLoadSuccess());
+      if (then == null) {
+        when(
+          () => blocs.cases.state,
+        ).thenReturn(cases ?? const CasesLoadSuccess());
+      } else {
+        whenListen(
+          blocs.cases,
+          Stream.fromIterable(then),
+          initialState: cases ?? const CasesLoadSuccess(),
+        );
+      }
       when(() => blocs.appointments.state).thenReturn(
         AppointmentsLoadSuccess(appointments: appointments ?? [_appointment()]),
       );
@@ -620,22 +630,74 @@ void main() {
       expect(find.text(l10n.urgencyPriority), findsNWidgets(2));
     });
 
-    testWidgets('a missing case shows not found', (tester) async {
+    testWidgets('a case still missing after a fetch shows not found', (
+      tester,
+    ) async {
       _useTallSurface(tester);
       final l10n = lookupAppLocalizations(const Locale('en'));
       await pumpScreen(
         tester,
         cases: CasesLoadSuccess(cases: [_case()]),
         caseUid: 'no-such-case',
+        then: [
+          CasesLoadInProgress(cases: [_case()]),
+          CasesLoadSuccess(cases: [_case()]),
+        ],
       );
+      await tester.pump();
 
       expect(find.text(l10n.errorDataNotFound), findsOneWidget);
+      verify(
+        () => blocs.cases.add(
+          CasesRefreshed(uid: RoleSessions.doctor().doctor.uid, role: .doctor),
+        ),
+      ).called(1);
       expect(find.byType(KeyValueCard), findsNothing);
       verify(
         () => blocs.cases.add(
           const CaseLogRequested(caseUid: 'no-such-case', role: .doctor),
         ),
       ).called(1);
+    });
+
+    testWidgets('a case missing from the list loads instead of not found', (
+      tester,
+    ) async {
+      _useTallSurface(tester);
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      await pumpScreen(
+        tester,
+        cases: CasesLoadSuccess(cases: [_case()]),
+        caseUid: 'case-2',
+      );
+
+      expect(find.byType(LoadingView), findsOneWidget);
+      expect(find.text(l10n.errorDataNotFound), findsNothing);
+      await tester.pump(const Duration(milliseconds: 300));
+    });
+
+    testWidgets('a case shared a moment ago opens once the fetch lands', (
+      tester,
+    ) async {
+      _useTallSurface(tester);
+      await pumpScreen(
+        tester,
+        cases: CasesLoadSuccess(cases: [_case()]),
+        caseUid: 'case-2',
+        then: [
+          CasesLoadInProgress(cases: [_case()]),
+          CasesLoadSuccess(
+            cases: [
+              _case(),
+              _case(uid: 'case-2', orderNumber: 'ODR-JK-MN-02112026-003'),
+            ],
+          ),
+        ],
+      );
+      await tester.pump();
+
+      expect(find.byType(LoadingView), findsNothing);
+      expect(find.text('ODR-JK-MN-02112026-003'), findsWidgets);
     });
 
     testWidgets('loading shows the spinner', (tester) async {

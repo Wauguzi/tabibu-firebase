@@ -39,6 +39,10 @@ class DoctorCaseScreen extends StatefulWidget {
 }
 
 class _DoctorCaseScreenState extends State<DoctorCaseScreen> {
+  /// True while a sync runs for a case missing from the list, so the screen
+  /// shows loading rather than "not found" until the server answers.
+  bool _fetchingMissingCase = false;
+
   @override
   void initState() {
     super.initState();
@@ -49,6 +53,10 @@ class _DoctorCaseScreenState extends State<DoctorCaseScreen> {
     final cases = context.read<CasesBloc>();
     if (cases.state.cases.isEmpty) {
       cases.add(CasesRequested(uid: uid, role: .doctor));
+    } else if (!cases.state.cases.any((c) => c.uid == widget.caseUid)) {
+      // A case shared with this doctor a moment ago is not in the list yet.
+      _fetchingMissingCase = true;
+      cases.add(CasesRefreshed(uid: uid, role: .doctor));
     }
     cases.add(CaseLogRequested(caseUid: widget.caseUid, role: .doctor));
     context.read<AppointmentsBloc>().add(
@@ -66,39 +74,49 @@ class _DoctorCaseScreenState extends State<DoctorCaseScreen> {
     );
     final loading =
         caseModel == null &&
-        (casesState is CasesInitial || casesState is CasesLoadInProgress);
+        (_fetchingMissingCase ||
+            casesState is CasesInitial ||
+            casesState is CasesLoadInProgress);
 
-    return Scaffold(
-      body: SafeArea(
-        child: loading
-            ? Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(AppSpacing.md),
-                    child: TopBar(
-                      backLabel: l10n.commonBack,
-                      onBack: context.pop,
+    return BlocListener<CasesBloc, CasesState>(
+      listenWhen: (_, current) =>
+          _fetchingMissingCase &&
+          (current is CasesLoadSuccess || current is CasesLoadFailure),
+      listener: (_, _) => setState(() => _fetchingMissingCase = false),
+      child: Scaffold(
+        body: SafeArea(
+          child: loading
+              ? Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: TopBar(
+                        backLabel: l10n.commonBack,
+                        onBack: context.pop,
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: LoadingView(semanticLabel: l10n.resultsLoadingLabel),
-                  ),
-                ],
-              )
-            : caseModel == null
-            ? ListView(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                children: [
-                  TopBar(backLabel: l10n.commonBack, onBack: context.pop),
-                  const SizedBox(height: AppSpacing.sectionGap),
-                  EmptyState(title: l10n.errorDataNotFound),
-                ],
-              )
-            : _Body(
-                caseModel: caseModel,
-                log: casesState.logs[widget.caseUid] ?? const [],
-                appointments: appointments,
-              ),
+                    Expanded(
+                      child: LoadingView(
+                        semanticLabel: l10n.resultsLoadingLabel,
+                      ),
+                    ),
+                  ],
+                )
+              : caseModel == null
+              ? ListView(
+                  padding: const EdgeInsets.all(AppSpacing.md),
+                  children: [
+                    TopBar(backLabel: l10n.commonBack, onBack: context.pop),
+                    const SizedBox(height: AppSpacing.sectionGap),
+                    EmptyState(title: l10n.errorDataNotFound),
+                  ],
+                )
+              : _Body(
+                  caseModel: caseModel,
+                  log: casesState.logs[widget.caseUid] ?? const [],
+                  appointments: appointments,
+                ),
+        ),
       ),
     );
   }

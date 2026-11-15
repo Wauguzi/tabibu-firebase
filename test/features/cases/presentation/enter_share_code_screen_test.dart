@@ -194,13 +194,12 @@ void main() {
       },
     );
 
-    testWidgets('four digits redeem the share, with the code from the field', (
+    testWidgets('the fourth digit redeems the share without a tap', (
       tester,
     ) async {
       await pumpScreen(tester);
 
       await tester.enterText(find.byType(TextField), '4821');
-      await tester.tap(find.text(l10n.shareOpenReport));
       await tester.pump();
 
       verify(
@@ -212,6 +211,45 @@ void main() {
           ),
         ),
       ).called(1);
+    });
+
+    testWidgets('the fourth digit closes the keyboard', (tester) async {
+      await pumpScreen(tester);
+
+      await tester.showKeyboard(find.byType(TextField));
+      expect(tester.testTextInput.isVisible, isTrue);
+      await tester.enterText(find.byType(TextField), '4821');
+      await tester.pump();
+
+      expect(tester.testTextInput.isVisible, isFalse);
+    });
+
+    testWidgets('the button sends a full code again, for a retry', (
+      tester,
+    ) async {
+      await pumpScreen(tester);
+
+      await tester.enterText(find.byType(TextField), '4821');
+      await tester.pump();
+      await tester.tap(find.text(l10n.shareOpenReport));
+      await tester.pump();
+
+      verify(
+        () => blocs.share.add(any(that: isA<ShareRedeemRequested>())),
+      ).called(2);
+    });
+
+    testWidgets('a full code is not sent again while a request runs', (
+      tester,
+    ) async {
+      await pumpScreen(tester, state: const ShareWriteInProgress());
+
+      await tester.enterText(find.byType(TextField), '4821');
+      await tester.pump();
+
+      verifyNever(
+        () => blocs.share.add(any(that: isA<ShareRedeemRequested>())),
+      );
     });
 
     final failures = <(AppError, String Function(AppLocalizations))>[

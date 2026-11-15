@@ -66,8 +66,8 @@ class _ShareReportScreenState extends State<ShareReportScreen> {
     context.read<DirectoryBloc>().add(DirectoryQueryChanged(query: value));
   }
 
-  // The Face ID / PIN gate arrives with the app lock; the label says nothing
-  // about it until then.
+  // No second Face ID / PIN check: the app lock already guards the session,
+  // so the primary action creates the share at once.
   void _share() {
     if (_selectedUid.isEmpty) return;
     context.read<ShareBloc>().add(

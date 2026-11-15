@@ -23,7 +23,8 @@ import 'package:tabibu/l10n/l10n.dart';
 /// The field always starts empty. A route carries only the share id, never a
 /// code, and nothing reads `metadata.shareCode` here: the person types what
 /// the notification shows (T-18). Opening loads the recipient's shares so a
-/// redeem knows which case to open.
+/// redeem knows which case to open. The last digit closes the keyboard and
+/// sends the code; the button stays for a retry.
 class EnterShareCodeScreen extends StatefulWidget {
   const EnterShareCodeScreen({
     required this.role,
@@ -69,12 +70,18 @@ class _EnterShareCodeScreenState extends State<EnterShareCodeScreen> {
     super.dispose();
   }
 
-  void _onChanged(String _) {
-    if (_error == null && !_tooShort) return;
-    setState(() {
-      _error = null;
-      _tooShort = false;
-    });
+  void _onChanged(String value) {
+    if (_error != null || _tooShort) {
+      setState(() {
+        _error = null;
+        _tooShort = false;
+      });
+    }
+    if (value.length == shareCodeLength &&
+        context.read<ShareBloc>().state is! ShareWriteInProgress) {
+      FocusManager.instance.primaryFocus?.unfocus();
+      _open();
+    }
   }
 
   void _open() {
