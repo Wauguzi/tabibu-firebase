@@ -19,6 +19,7 @@
 		97C147101CF9000F007C117D /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97C147111CF9000F007C117D /* SceneDelegate.swift */; };
 		7B1A1106A1F611C005AB1106 /* HybridAiPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1A1106A1F611C004AB1106 /* HybridAiPlugin.swift */; };
 		7B1A1106A1F611C003AB1106 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = 7B1A1106A1F611C002AB1106 /* FirebaseAILogic */; };
+		7B1A1106A1F611C00CAB1106 /* FirebaseCore in Frameworks */ = {isa = PBXBuildFile; productRef = 7B1A1106A1F611C00BAB1106 /* FirebaseCore */; };
 		7B1A1106A1F611C007AB1106 /* FirebaseAILogic in Frameworks */ = {isa = PBXBuildFile; productRef = 7B1A1106A1F611C006AB1106 /* FirebaseAILogic */; };
 		DE5EEC4A2F8C987735D854E0 /* GoogleService-Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 2034CED92003F3EA17CD9CC1 /* GoogleService-Info.plist */; };
 /* End PBXBuildFile section */
@@ -84,6 +85,7 @@
 			files = (
 				78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */,
 				7B1A1106A1F611C003AB1106 /* FirebaseAILogic in Frameworks */,
+				7B1A1106A1F611C00CAB1106 /* FirebaseCore in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -192,6 +194,7 @@
 			packageProductDependencies = (
 				78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */,
 				7B1A1106A1F611C002AB1106 /* FirebaseAILogic */,
+				7B1A1106A1F611C00BAB1106 /* FirebaseCore */,
 			);
 			productName = Runner;
 			productReference = 97C146EE1CF9000F007C117D /* Runner.app */;
@@ -1285,6 +1288,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 7B1A1106A1F611C001AB1106 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
 			productName = FirebaseAILogic;
+		};
+		7B1A1106A1F611C00BAB1106 /* FirebaseCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 7B1A1106A1F611C001AB1106 /* XCRemoteSwiftPackageReference "firebase-ios-sdk" */;
+			productName = FirebaseCore;
 		};
 		7B1A1106A1F611C006AB1106 /* FirebaseAILogic */ = {
 			isa = XCSwiftPackageProductDependency;

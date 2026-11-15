@@ -1,4 +1,5 @@
 import FirebaseAILogic
+import FirebaseCore
 import Flutter
 import UIKit
 import os
@@ -56,8 +57,15 @@ final class HybridAiPlugin: NSObject, FlutterPlugin {
   private static let log = Logger(
     subsystem: "com.tabibukenya.tabibu", category: "hybrid-ai")
 
-  private lazy var firebaseAI = FirebaseAI.firebaseAI(
-    backend: .vertexAI(location: Self.cloudLocation))
+  /// Fresh handle per call; the SDK caches instances behind its own lock, and
+  /// nothing is created at registration, when Dart may not have initialized yet.
+  /// A call before `Firebase.initializeApp()` fails closed instead of trapping.
+  private func makeFirebaseAI() throws -> FirebaseAI {
+    guard FirebaseApp.app() != nil else {
+      throw HybridAiFailure.unavailable
+    }
+    return FirebaseAI.firebaseAI(backend: .vertexAI(location: Self.cloudLocation))
+  }
 
   static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(
@@ -115,12 +123,15 @@ final class HybridAiPlugin: NSObject, FlutterPlugin {
       return FlutterError(code: "unavailable", message: "background", details: nil)
     }
     do {
+      let firebaseAI = try makeFirebaseAI()
       switch plan {
       case .onDeviceOnly:
-        return try await respondOnDevice(input: input, instructions: task.instructions)
+        return try await respondOnDevice(firebaseAI: firebaseAI, input: input,
+                                         instructions: task.instructions)
       case .preferOnDevice:
         return try await respondPreferringOnDevice(
-          input: input, instructions: task.instructions, cloudModel: cloudModel)
+          firebaseAI: firebaseAI, input: input, instructions: task.instructions,
+          cloudModel: cloudModel)
       }
     } catch let failure as HybridAiFailure {
       Self.log.error("generate failed: \(failure.code, privacy: .public)")
@@ -133,7 +144,8 @@ final class HybridAiPlugin: NSObject, FlutterPlugin {
 
   /// System model only; used for `notes_summary` and `ONLY_ON_DEVICE`.
   /// Never constructs a cloud model, so no failure path can leak to the cloud.
-  private func respondOnDevice(input: String, instructions: String) async throws -> Any {
+  private func respondOnDevice(firebaseAI: FirebaseAI, input: String,
+                               instructions: String) async throws -> Any {
     guard #available(iOS 26.0, *),
           FirebaseAI.SystemLanguageModel.default.isAvailable
     else {
@@ -147,7 +159,8 @@ final class HybridAiPlugin: NSObject, FlutterPlugin {
   }
 
   /// System model first with cloud fallback; used for `symptom_tidy`.
-  private func respondPreferringOnDevice(input: String, instructions: String,
+  private func respondPreferringOnDevice(firebaseAI: FirebaseAI, input: String,
+                                         instructions: String,
                                          cloudModel: String) async throws -> Any {
     if #available(iOS 26.0, *) {
       let hybrid = HybridModel(
@@ -162,12 +175,13 @@ final class HybridAiPlugin: NSObject, FlutterPlugin {
       ]
     } else {
       // Older iOS has no on-device model: tidy goes straight to the cloud.
-      return try await respondCloud(input: input, instructions: instructions,
-                                    cloudModel: cloudModel)
+      return try await respondCloud(firebaseAI: firebaseAI, input: input,
+                                    instructions: instructions, cloudModel: cloudModel)
     }
   }
 
-  private func respondCloud(input: String, instructions: String,
+  private func respondCloud(firebaseAI: FirebaseAI, input: String,
+                            instructions: String,
                             cloudModel: String) async throws -> Any {
     let session = firebaseAI.generativeModelSession(
       model: firebaseAI.geminiModel(name: cloudModel), instructions: instructions)
@@ -194,7 +208,7 @@ final class HybridAiPlugin: NSObject, FlutterPlugin {
       // An empty answer is a failure, never a blank proposal.
       throw HybridAiFailure.unknown
     }
-    return (text: response.content, modelVersion: response.rawResponse.modelVersion)
+    return (text: text, modelVersion: response.rawResponse.modelVersion)
   }
 }
 
