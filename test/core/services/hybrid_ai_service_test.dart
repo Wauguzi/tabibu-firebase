@@ -27,8 +27,34 @@ void main() {
     }
   });
 
-  test('a missing plugin reports the model unavailable', () async {
-    expect(await service().status(), HybridStatus.unavailable);
+  test(
+    'a missing plugin is unsupported, so the web tidy does not run',
+    () async {
+      expect(await service().status(), HybridStatus.unsupported);
+    },
+  );
+
+  test('status, download and warmUp send the model option', () async {
+    final calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          calls.add(call);
+          return call.method == 'status' ? 'available' : null;
+        });
+
+    final hybrid = service();
+    expect(await hybrid.status(modelOption: 'preview'), HybridStatus.available);
+    await hybrid.download(modelOption: 'preview');
+    await hybrid.warmUp(modelOption: 'preview');
+
+    expect(calls.map((call) => call.method).toList(), [
+      'status',
+      'download',
+      'warmUp',
+    ]);
+    for (final call in calls) {
+      expect(call.arguments, {'modelOption': 'preview'});
+    }
   });
 
   test('generate maps text and source and keeps the task id', () async {
@@ -169,6 +195,20 @@ void main() {
         expect(request(.notesSummary, text).toMap()['input'], text);
       },
     );
+
+    test('a zero-width or bidi character is removed from both tasks, '
+        'and only a tidy loses its contacts', () {
+      const dirty = 'Head\u200Bache\u202E. Call 0712 345 678.';
+
+      expect(
+        request(.symptomTidy, dirty).toMap()['input'],
+        'Headache. Call [PHONE].',
+      );
+      expect(
+        request(.notesSummary, dirty).toMap()['input'],
+        'Headache. Call 0712 345 678.',
+      );
+    });
   });
 
   group('english heuristic', () {
@@ -225,6 +265,21 @@ void main() {
         text: english,
       );
       expect(offer.visible, isTrue);
+    });
+
+    test('no bridge hides both tasks', () {
+      for (final task in HybridTask.values) {
+        final offer = decideHybridOffer(
+          task: task,
+          settings: const HybridSettings(),
+          status: .unsupported,
+          englishLocale: true,
+          online: true,
+          text: english,
+        );
+        expect(offer.visible, isFalse);
+        expect(offer.reason, HybridHiddenReason.unsupported);
+      }
     });
 
     test('a switched-off task and Kiswahili hide the action', () {

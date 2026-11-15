@@ -3,15 +3,17 @@ import 'dart:async';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/services.dart';
 import 'package:injectable/injectable.dart';
+import 'package:tabibu/core/helpers/paste_sanitizer.dart';
 
 /// Bridge to the native hybrid SDK. Flutter has no hybrid API, so the
 /// native side owns the model and the prompts.
 ///
 /// Method channel `tabibu/hybrid_ai`:
-/// - `status` → `available` | `downloadable` | `downloading` | `unavailable`
-/// - `download` — progress on event channel `tabibu/hybrid_ai/download`
-///   as doubles from 0 to 1
-/// - `warmUp`
+/// - `status` with `modelOption` → `available` | `downloadable` |
+///   `downloading` | `unavailable`
+/// - `download` with `modelOption` — progress on event channel
+///   `tabibu/hybrid_ai/download` as doubles from 0 to 1
+/// - `warmUp` with `modelOption`
 /// - `generate` with `task`, `input`, `mode`, `modelOption`, `cloudModel`
 ///   → `text` and `source` (`on_device` | `in_cloud`)
 ///
@@ -23,14 +25,16 @@ abstract class HybridAiService {
   static const channelName = 'tabibu/hybrid_ai';
   static const downloadChannelName = 'tabibu/hybrid_ai/download';
 
-  Future<HybridStatus> status();
+  /// [modelOption] names the on-device model generation will use, so the
+  /// answer is about that model.
+  Future<HybridStatus> status({String modelOption = 'stable'});
 
   /// Only from an explicit action: neither plugin downloads on its own.
-  Future<void> download();
+  Future<void> download({String modelOption = 'stable'});
 
   Stream<double> get downloadProgress;
 
-  Future<void> warmUp();
+  Future<void> warmUp({String modelOption = 'stable'});
 
   Future<HybridResult> generate(HybridRequest request);
 }
@@ -88,7 +92,10 @@ enum HybridStatus {
   available,
   downloadable,
   downloading,
-  unavailable;
+  unavailable,
+
+  /// No bridge on this platform (the web, desktop): neither path can run.
+  unsupported;
 
   bool get onDeviceReady => this == .available;
 
@@ -148,15 +155,19 @@ class HybridRequest {
   final String modelOption;
   final String cloudModel;
 
-  /// A tidy may reach the cloud, so its input leaves without phone numbers
-  /// or email addresses; a notes summary never leaves the device.
-  Map<String, Object> toMap() => {
-    'task': task.wire,
-    'input': task == .symptomTidy ? stripContactDetails(input) : input,
-    'mode': mode.wire,
-    'modelOption': modelOption,
-    'cloudModel': cloudModel,
-  };
+  /// Every input is sanitised like any free text sent to a model. A tidy may
+  /// also reach the cloud, so it leaves without phone numbers or email
+  /// addresses; a notes summary never leaves the device.
+  Map<String, Object> toMap() {
+    final clean = sanitizePaste(input);
+    return {
+      'task': task.wire,
+      'input': task == .symptomTidy ? stripContactDetails(clean) : clean,
+      'mode': mode.wire,
+      'modelOption': modelOption,
+      'cloudModel': cloudModel,
+    };
+  }
 
   /// The note can identify a patient, so it stays out of logs.
   @override
@@ -326,6 +337,7 @@ const _swahiliMarkers = {
 };
 
 enum HybridHiddenReason {
+  unsupported,
   switchedOff,
   kiswahili,
   notEnglish,
@@ -350,6 +362,9 @@ HybridOffer decideHybridOffer({
   required bool online,
   required String text,
 }) {
+  if (status == .unsupported) {
+    return const HybridOffer(visible: false, reason: .unsupported);
+  }
   if (!settings.enabledFor(task)) {
     return const HybridOffer(visible: false, reason: .switchedOff);
   }
@@ -385,12 +400,14 @@ class ChannelHybridAiService implements HybridAiService {
   final EventChannel _events;
 
   @override
-  Future<HybridStatus> status() async {
+  Future<HybridStatus> status({String modelOption = 'stable'}) async {
     try {
-      final raw = await _channel.invokeMethod<String>('status');
+      final raw = await _channel.invokeMethod<String>('status', {
+        'modelOption': modelOption,
+      });
       return HybridStatus.fromWire(raw);
     } on MissingPluginException {
-      return .unavailable;
+      return .unsupported;
     } on PlatformException catch (error) {
       if (error.code == 'unavailable') return .unavailable;
       throw HybridAiException(HybridFailure.fromCode(error.code));
@@ -398,7 +415,8 @@ class ChannelHybridAiService implements HybridAiService {
   }
 
   @override
-  Future<void> download() => _invoke('download');
+  Future<void> download({String modelOption = 'stable'}) =>
+      _invoke('download', modelOption);
 
   @override
   Stream<double> get downloadProgress =>
@@ -408,11 +426,12 @@ class ChannelHybridAiService implements HybridAiService {
       });
 
   @override
-  Future<void> warmUp() => _invoke('warmUp');
+  Future<void> warmUp({String modelOption = 'stable'}) =>
+      _invoke('warmUp', modelOption);
 
-  Future<void> _invoke(String method) async {
+  Future<void> _invoke(String method, String modelOption) async {
     try {
-      await _channel.invokeMethod<void>(method);
+      await _channel.invokeMethod<void>(method, {'modelOption': modelOption});
     } on MissingPluginException {
       throw const HybridAiException(.unavailable);
     } on PlatformException catch (error) {
@@ -460,11 +479,17 @@ class FakeHybridAiService implements HybridAiService {
 
   final _progress = StreamController<double>.broadcast();
 
-  @override
-  Future<HybridStatus> status() async => statusResult;
+  /// The options each status call asked about.
+  final List<String> statusOptions = [];
 
   @override
-  Future<void> download() async {
+  Future<HybridStatus> status({String modelOption = 'stable'}) async {
+    statusOptions.add(modelOption);
+    return statusResult;
+  }
+
+  @override
+  Future<void> download({String modelOption = 'stable'}) async {
     downloads += 1;
   }
 
@@ -474,7 +499,7 @@ class FakeHybridAiService implements HybridAiService {
   void emitProgress(double value) => _progress.add(value);
 
   @override
-  Future<void> warmUp() async {
+  Future<void> warmUp({String modelOption = 'stable'}) async {
     warmUps += 1;
   }
 

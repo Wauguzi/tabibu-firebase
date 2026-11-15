@@ -161,6 +161,74 @@ void main() {
     expect(find.text('Tidy my notes'), findsNothing);
   });
 
+  testWidgets(
+    'returning to the app shows the summary once the model is ready',
+    (tester) async {
+      final fake = FakeHybridAiService(statusResult: .unavailable);
+      final controller = TextEditingController(text: 'Headache for two days.');
+      addTearDown(controller.dispose);
+
+      await tester.pumpApp(
+        HybridAssist(
+          task: .notesSummary,
+          controller: controller,
+          online: true,
+          service: fake,
+          analytics: analytics,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Summarise my notes'), findsNothing);
+
+      fake.statusResult = .available;
+      tester.binding.handleAppLifecycleStateChanged(.resumed);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Summarise my notes'), findsOneWidget);
+    },
+  );
+
+  testWidgets('an unsupported bridge shows neither action nor a reason', (
+    tester,
+  ) async {
+    final controller = TextEditingController(text: 'Headache for two days.');
+    addTearDown(controller.dispose);
+
+    await tester.pumpApp(
+      Column(
+        children: [
+          HybridAssist(
+            task: .symptomTidy,
+            controller: controller,
+            online: true,
+            writesBack: true,
+            service: FakeHybridAiService(statusResult: .unsupported),
+            analytics: analytics,
+          ),
+          HybridAssist(
+            task: .notesSummary,
+            controller: controller,
+            online: true,
+            service: FakeHybridAiService(statusResult: .unsupported),
+            analytics: analytics,
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Tidy my notes'), findsNothing);
+    expect(find.text('Summarise my notes'), findsNothing);
+    expect(
+      find.text('On-device help is not available on this phone.'),
+      findsNothing,
+    );
+    expect(
+      find.text('This needs a connection, or the on-device model.'),
+      findsNothing,
+    );
+  });
+
   testWidgets('a summary hides offline when the model is unavailable', (
     tester,
   ) async {

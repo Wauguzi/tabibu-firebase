@@ -25,6 +25,11 @@ final class HybridAssistContextChanged extends HybridAssistEvent {
   List<Object?> get props => [englishLocale, online];
 }
 
+/// The app came back to the foreground: read the model's status again.
+final class HybridAssistStatusRefreshed extends HybridAssistEvent {
+  const HybridAssistStatusRefreshed();
+}
+
 final class HybridAssistGenerateRequested extends HybridAssistEvent {
   const HybridAssistGenerateRequested();
 }

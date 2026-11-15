@@ -46,7 +46,8 @@ class HybridAssist extends StatefulWidget {
   State<HybridAssist> createState() => _HybridAssistState();
 }
 
-class _HybridAssistState extends State<HybridAssist> {
+class _HybridAssistState extends State<HybridAssist>
+    with WidgetsBindingObserver {
   HybridAssistBloc? _bloc;
 
   @override
@@ -60,7 +61,15 @@ class _HybridAssistState extends State<HybridAssist> {
       settings: widget.settings ?? HybridSettings.resolve(_registeredLookup()),
       analytics: widget.analytics,
     );
+    // The model can become ready while this screen is open.
+    WidgetsBinding.instance.addObserver(this);
     widget.controller.addListener(_publish);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != .resumed) return;
+    _bloc?.add(const HybridAssistStatusRefreshed());
   }
 
   @override
@@ -94,6 +103,7 @@ class _HybridAssistState extends State<HybridAssist> {
 
   @override
   void dispose() {
+    if (_bloc != null) WidgetsBinding.instance.removeObserver(this);
     widget.controller.removeListener(_publish);
     final bloc = _bloc;
     if (bloc != null) unawaited(bloc.close());

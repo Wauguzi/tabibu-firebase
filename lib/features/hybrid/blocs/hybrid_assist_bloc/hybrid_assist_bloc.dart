@@ -23,6 +23,8 @@ class HybridAssistBloc extends Bloc<HybridAssistEvent, HybridAssistState> {
        _analytics = analytics ?? getIt<AnalyticsService>(),
        super(HybridAssistState(task: task)) {
     on<HybridAssistContextChanged>(_onContext, transformer: restartable());
+    // A refresh while one is reading adds nothing.
+    on<HybridAssistStatusRefreshed>(_onRefresh, transformer: droppable());
     on<HybridAssistGenerateRequested>(_onGenerate, transformer: droppable());
     on<HybridAssistProposalDismissed>(_onDismissed);
   }
@@ -40,6 +42,14 @@ class HybridAssistBloc extends Bloc<HybridAssistEvent, HybridAssistState> {
     HybridAssistContextChanged event,
     Emitter<HybridAssistState> emit,
   ) async {
+    // A cursor move or a selection reaches here too; it must not discard a
+    // proposal the person is comparing with their own words.
+    final unchanged =
+        _status != null &&
+        event.text == _text &&
+        event.englishLocale == _englishLocale &&
+        event.online == _online;
+    if (unchanged) return;
     _text = event.text;
     _englishLocale = event.englishLocale;
     _online = event.online;
@@ -143,9 +153,20 @@ class HybridAssistBloc extends Bloc<HybridAssistEvent, HybridAssistState> {
     text: _text,
   );
 
+  /// The model can become ready while the screen is open (a download ends,
+  /// Apple Intelligence is switched on), so the status is read again.
+  Future<void> _onRefresh(
+    HybridAssistStatusRefreshed event,
+    Emitter<HybridAssistState> emit,
+  ) async {
+    _status = await _readStatus();
+    if (state.phase == .running || state.phase == .proposed) return;
+    emit(_settled());
+  }
+
   Future<HybridStatus> _readStatus() async {
     try {
-      return await _hybrid.status();
+      return await _hybrid.status(modelOption: _settings.modelOption);
     } on HybridAiException {
       return .unavailable;
     }

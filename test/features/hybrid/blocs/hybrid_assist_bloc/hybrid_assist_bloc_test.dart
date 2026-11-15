@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -11,6 +13,20 @@ const _notes = 'Headache for two days, no fever.';
 
 class _MockAnalytics extends Mock implements AnalyticsService {}
 
+class _HeldHybrid extends FakeHybridAiService {
+  final gate = Completer<void>();
+
+  @override
+  Future<HybridResult> generate(HybridRequest request) async {
+    requests.add(request);
+    await gate.future;
+    return const HybridResult(
+      text: '- Headache\n- Two days\n- No fever',
+      source: .onDevice,
+    );
+  }
+}
+
 const _ready = HybridAssistContextChanged(
   text: _notes,
   englishLocale: true,
@@ -19,10 +35,12 @@ const _ready = HybridAssistContextChanged(
 
 void main() {
   late FakeHybridAiService fake;
+  late _HeldHybrid held;
   late _MockAnalytics analytics;
 
   setUp(() {
     fake = FakeHybridAiService();
+    held = _HeldHybrid();
     analytics = _MockAnalytics();
     when(
       () => analytics.logHybridInference(
@@ -208,6 +226,119 @@ void main() {
         ),
       ).called(1);
     },
+  );
+
+  blocTest<HybridAssistBloc, HybridAssistState>(
+    'a selection change keeps a shown proposal',
+    build: () => HybridAssistBloc(
+      hybrid: fake,
+      task: .symptomTidy,
+      analytics: analytics,
+    ),
+    act: (bloc) async {
+      await generateWhenReady(bloc);
+      await bloc.stream.firstWhere((state) => state.showProposal);
+      bloc.add(_ready);
+    },
+    skip: 2,
+    expect: () => [
+      const HybridAssistState(
+        task: .symptomTidy,
+        phase: .proposed,
+        proposal: 'Headache for two days.',
+        source: .onDevice,
+      ),
+    ],
+    verify: (bloc) {
+      expect(bloc.state.phase, HybridAssistPhase.proposed);
+      expect(bloc.state.proposal, 'Headache for two days.');
+    },
+  );
+
+  blocTest<HybridAssistBloc, HybridAssistState>(
+    'a refresh shows the summary once the model is available',
+    build: () => HybridAssistBloc(
+      hybrid: fake,
+      task: .notesSummary,
+      settings: const HybridSettings(modelOption: 'preview'),
+      analytics: analytics,
+    ),
+    act: (bloc) async {
+      fake.statusResult = .unavailable;
+      bloc.add(_ready);
+      await bloc.stream.firstWhere((state) => state.phase == .hidden);
+      fake.statusResult = .available;
+      bloc.add(const HybridAssistStatusRefreshed());
+    },
+    expect: () => [
+      const HybridAssistState(
+        task: .notesSummary,
+        phase: .hidden,
+        reason: .unavailable,
+      ),
+      const HybridAssistState(task: .notesSummary, phase: .ready),
+    ],
+    verify: (_) => expect(fake.statusOptions, ['preview', 'preview']),
+  );
+
+  blocTest<HybridAssistBloc, HybridAssistState>(
+    'a refresh leaves a running assist as it is',
+    build: () => HybridAssistBloc(
+      hybrid: held,
+      task: .notesSummary,
+      analytics: analytics,
+    ),
+    act: (bloc) async {
+      bloc.add(_ready);
+      await bloc.stream.firstWhere((state) => state.showAction);
+      bloc.add(const HybridAssistGenerateRequested());
+      await bloc.stream.firstWhere((state) => state.phase == .running);
+      held.statusResult = .unavailable;
+      bloc.add(const HybridAssistStatusRefreshed());
+      while (held.statusOptions.length < 2) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      held.gate.complete();
+      await bloc.stream.firstWhere((state) => state.phase == .proposed);
+    },
+    expect: () => [
+      const HybridAssistState(task: .notesSummary, phase: .ready),
+      const HybridAssistState(task: .notesSummary, phase: .running),
+      const HybridAssistState(
+        task: .notesSummary,
+        phase: .proposed,
+        proposal: '- Headache\n- Two days\n- No fever',
+        source: .onDevice,
+      ),
+    ],
+  );
+
+  blocTest<HybridAssistBloc, HybridAssistState>(
+    'a refresh leaves a proposal in place',
+    build: () => HybridAssistBloc(
+      hybrid: fake,
+      task: .notesSummary,
+      analytics: analytics,
+    ),
+    act: (bloc) async {
+      await generateWhenReady(bloc);
+      await bloc.stream.firstWhere((state) => state.showProposal);
+      fake.statusResult = .unavailable;
+      bloc.add(const HybridAssistStatusRefreshed());
+      while (fake.statusOptions.length < 2) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    },
+    skip: 2,
+    expect: () => [
+      const HybridAssistState(
+        task: .notesSummary,
+        phase: .proposed,
+        proposal: '- Headache\n- Two days\n- No fever',
+        source: .onDevice,
+      ),
+    ],
+    verify: (bloc) => expect(bloc.state.showProposal, isTrue),
   );
 
   blocTest<HybridAssistBloc, HybridAssistState>(
