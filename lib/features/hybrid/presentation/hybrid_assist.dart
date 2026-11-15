@@ -24,7 +24,7 @@ class HybridAssist extends StatefulWidget {
     required this.controller,
     required this.online,
     this.service,
-    this.settings = const HybridSettings(),
+    this.settings,
     this.analytics,
     this.writesBack = false,
     super.key,
@@ -34,7 +34,9 @@ class HybridAssist extends StatefulWidget {
   final TextEditingController controller;
   final bool online;
   final HybridAiService? service;
-  final HybridSettings settings;
+
+  /// Read from Remote Config when null.
+  final HybridSettings? settings;
   final AnalyticsService? analytics;
 
   /// Patient tidy only. A notes summary must not enter the stored field.
@@ -55,13 +57,17 @@ class _HybridAssistState extends State<HybridAssist> {
     _bloc = HybridAssistBloc(
       hybrid: service,
       task: widget.task,
-      settings: widget.settings,
-      analytics: widget.analytics ?? _registeredAnalytics(),
+      settings: widget.settings ?? HybridSettings.resolve(_registeredLookup()),
+      analytics: widget.analytics,
     );
     widget.controller.addListener(_publish);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _publish();
-    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // The first context, and every locale change after it.
+    _publish();
   }
 
   HybridAiService? _registeredService() {
@@ -69,15 +75,21 @@ class _HybridAssistState extends State<HybridAssist> {
     return getIt<HybridAiService>();
   }
 
-  AnalyticsService? _registeredAnalytics() {
-    if (!getIt.isRegistered<AnalyticsService>()) return null;
-    return getIt<AnalyticsService>();
+  HybridConfigLookup? _registeredLookup() {
+    if (!getIt.isRegistered<HybridConfigLookup>()) return null;
+    return getIt<HybridConfigLookup>();
   }
 
   @override
   void didUpdateWidget(HybridAssist oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.online != widget.online) _publish();
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_publish);
+      widget.controller.addListener(_publish);
+      _publish();
+    } else if (oldWidget.online != widget.online) {
+      _publish();
+    }
   }
 
   @override
@@ -101,13 +113,15 @@ class _HybridAssistState extends State<HybridAssist> {
   }
 
   void _useThis(HybridAssistState state) {
-    if (widget.writesBack && state.proposal.isNotEmpty) {
+    final applies = widget.writesBack && state.proposal.isNotEmpty;
+    // Before the write: the field's listener settles the bloc.
+    _bloc?.add(HybridAssistProposalDismissed(applied: applies));
+    if (applies) {
       widget.controller.text = state.proposal;
       widget.controller.selection = TextSelection.collapsed(
         offset: widget.controller.text.length,
       );
     }
-    _bloc?.add(const HybridAssistProposalDismissed());
   }
 
   @override

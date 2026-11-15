@@ -18,10 +18,9 @@ class HybridAssistBloc extends Bloc<HybridAssistEvent, HybridAssistState> {
     HybridAiService? hybrid,
     HybridSettings? settings,
     AnalyticsService? analytics,
-    void Function(String task, String source)? logInference,
   }) : _hybrid = hybrid ?? getIt<HybridAiService>(),
        _settings = settings ?? const HybridSettings(),
-       _logInference = logInference ?? _logFrom(analytics),
+       _analytics = analytics ?? getIt<AnalyticsService>(),
        super(HybridAssistState(task: task)) {
     on<HybridAssistContextChanged>(_onContext, transformer: restartable());
     on<HybridAssistGenerateRequested>(_onGenerate, transformer: droppable());
@@ -30,16 +29,7 @@ class HybridAssistBloc extends Bloc<HybridAssistEvent, HybridAssistState> {
 
   final HybridAiService _hybrid;
   final HybridSettings _settings;
-  final void Function(String task, String source) _logInference;
-
-  static void Function(String task, String source) _logFrom(
-    AnalyticsService? analytics,
-  ) {
-    if (analytics == null) return (_, _) {};
-    return (task, source) {
-      unawaited(analytics.logHybridInference(task: task, source: source));
-    };
-  }
+  final AnalyticsService _analytics;
 
   var _text = '';
   var _englishLocale = true;
@@ -62,7 +52,8 @@ class HybridAssistBloc extends Bloc<HybridAssistEvent, HybridAssistState> {
     HybridAssistGenerateRequested event,
     Emitter<HybridAssistState> emit,
   ) async {
-    if (state.phase != .ready) return;
+    // A failed run can be tried again without editing the text.
+    if (state.phase != .ready && state.phase != .failed) return;
     final offer = _offer();
     if (!offer.visible) {
       emit(_settled());
@@ -92,7 +83,7 @@ class HybridAssistBloc extends Bloc<HybridAssistEvent, HybridAssistState> {
         emit(_settled());
         return;
       }
-      _log(result.source);
+      _logRun(result.source.wire);
       emit(
         state.copy(
           phase: .proposed,
@@ -103,6 +94,7 @@ class HybridAssistBloc extends Bloc<HybridAssistEvent, HybridAssistState> {
         ),
       );
     } on HybridAiException catch (error) {
+      _logRun(error.failure.name);
       emit(
         state.copy(
           phase: .failed,
@@ -119,6 +111,14 @@ class HybridAssistBloc extends Bloc<HybridAssistEvent, HybridAssistState> {
     HybridAssistProposalDismissed event,
     Emitter<HybridAssistState> emit,
   ) {
+    if (state.phase == .proposed) {
+      unawaited(
+        _analytics.logHybridProposal(
+          task: state.task.wire,
+          action: event.applied ? 'used' : 'dismissed',
+        ),
+      );
+    }
     emit(_settled());
   }
 
@@ -151,7 +151,9 @@ class HybridAssistBloc extends Bloc<HybridAssistEvent, HybridAssistState> {
     }
   }
 
-  void _log(HybridSource source) {
-    _logInference(state.task.wire, source.wire);
+  void _logRun(String outcome) {
+    unawaited(
+      _analytics.logHybridInference(task: state.task.wire, outcome: outcome),
+    );
   }
 }

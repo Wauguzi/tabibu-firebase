@@ -29,6 +29,12 @@ final class HybridAssistGenerateRequested extends HybridAssistEvent {
   const HybridAssistGenerateRequested();
 }
 
+/// The proposal closes; [applied] when a tidy was written into the field.
 final class HybridAssistProposalDismissed extends HybridAssistEvent {
-  const HybridAssistProposalDismissed();
+  const HybridAssistProposalDismissed({this.applied = false});
+
+  final bool applied;
+
+  @override
+  List<Object?> get props => [applied];
 }

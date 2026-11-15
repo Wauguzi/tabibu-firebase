@@ -71,4 +71,38 @@ void main() {
     ).captured.single;
     expect(captured, isNull);
   });
+
+  test('a hybrid run carries the task and its outcome only', () async {
+    await analytics.logHybridInference(
+      task: 'symptom_tidy',
+      outcome: 'in_cloud',
+    );
+
+    final captured =
+        verify(
+              () => firebase.logEvent(
+                name: 'hybrid_inference',
+                parameters: captureAny(named: 'parameters'),
+              ),
+            ).captured.single
+            as Map<String, Object?>?;
+    expect(captured, {'task': 'symptom_tidy', 'outcome': 'in_cloud'});
+  });
+
+  test('a hybrid proposal carries the task and what was done', () async {
+    await analytics.logHybridProposal(
+      task: 'notes_summary',
+      action: 'dismissed',
+    );
+
+    final captured =
+        verify(
+              () => firebase.logEvent(
+                name: 'hybrid_proposal',
+                parameters: captureAny(named: 'parameters'),
+              ),
+            ).captured.single
+            as Map<String, Object?>?;
+    expect(captured, {'task': 'notes_summary', 'action': 'dismissed'});
+  });
 }

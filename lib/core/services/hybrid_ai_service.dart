@@ -25,7 +25,7 @@ abstract class HybridAiService {
 
   Future<HybridStatus> status();
 
-  /// Only from an explicit action, or from the native side on Wi-Fi.
+  /// Only from an explicit action: neither plugin downloads on its own.
   Future<void> download();
 
   Stream<double> get downloadProgress;
@@ -247,7 +247,7 @@ abstract class HybridConfigLookup {
   String? optionalString(String key);
 }
 
-@lazySingleton
+@LazySingleton(as: HybridConfigLookup)
 class FirebaseHybridConfigLookup implements HybridConfigLookup {
   FirebaseHybridConfigLookup({@ignoreParam this._remote});
 

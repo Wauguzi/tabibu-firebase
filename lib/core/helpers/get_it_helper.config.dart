@@ -118,9 +118,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i75.AppUpdateService>(() => _i75.AppUpdateService());
     gh.lazySingleton<_i282.FilePickerService>(() => _i282.FilePickerService());
-    gh.lazySingleton<_i533.FirebaseHybridConfigLookup>(
-      () => _i533.FirebaseHybridConfigLookup(),
-    );
     gh.lazySingleton<_i76.InternetService>(() => _i76.InternetService());
     gh.lazySingleton<_i251.ReportPdfBuilder>(() => _i251.ReportPdfBuilder());
     gh.lazySingleton<_i265.AlertTopicService>(
@@ -128,6 +125,9 @@ extension GetItInjectableX on _i174.GetIt {
         messaging: gh<_i892.FirebaseMessaging>(),
         preferences: gh<_i460.SharedPreferences>(),
       ),
+    );
+    gh.lazySingleton<_i533.HybridConfigLookup>(
+      () => _i533.FirebaseHybridConfigLookup(),
     );
     gh.lazySingleton<_i147.AudioPlayerService>(
       () => _i1072.DeviceAudioPlayerService(),

@@ -22,7 +22,8 @@ class HybridAssistState extends Equatable {
   final HybridSource? source;
   final HybridFailure? failure;
 
-  bool get showAction => phase == .ready || phase == .running;
+  bool get showAction =>
+      phase == .ready || phase == .running || phase == .failed;
 
   bool get showProposal => phase == .proposed && proposal.isNotEmpty;
 
