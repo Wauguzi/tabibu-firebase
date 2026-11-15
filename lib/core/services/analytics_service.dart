@@ -303,6 +303,17 @@ class AnalyticsService {
   Future<void> logNotificationsMarkedRead() =>
       _guard(() => _analytics.logEvent(name: 'notifications_marked_read'));
 
+  /// Where a hybrid task ran. Task id and source only: never the note.
+  Future<void> logHybridInference({
+    required String task,
+    required String source,
+  }) => _guard(
+    () => _analytics.logEvent(
+      name: 'hybrid_inference',
+      parameters: {'task': task, 'source': source},
+    ),
+  );
+
   Future<void> _guard(Future<void> Function() body) async {
     try {
       await body();

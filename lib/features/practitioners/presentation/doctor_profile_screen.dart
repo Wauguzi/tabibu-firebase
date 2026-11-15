@@ -14,6 +14,7 @@ import 'package:tabibu/core/constants/enums.dart';
 import 'package:tabibu/core/routing/app_routes.dart';
 import 'package:tabibu/core/services/analytics_service.dart';
 import 'package:tabibu/core/services/audio_service_contract.dart';
+import 'package:tabibu/core/services/hybrid_ai_service.dart';
 import 'package:tabibu/core/services/recording_cue_service.dart';
 import 'package:tabibu/core/utils/nairobi_time.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
@@ -27,6 +28,7 @@ import 'package:tabibu/features/appointments/presentation/widgets/month_date_she
 import 'package:tabibu/features/appointments/presentation/widgets/slot_chip_row.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
+import 'package:tabibu/features/hybrid/presentation/hybrid_assist.dart';
 import 'package:tabibu/features/practitioners/blocs/directory_bloc/directory_bloc.dart';
 import 'package:tabibu/features/practitioners/blocs/directory_bloc/directory_event.dart';
 import 'package:tabibu/features/practitioners/blocs/directory_bloc/directory_state.dart';
@@ -48,6 +50,7 @@ class DoctorProfileScreen extends StatefulWidget {
     this.recorder,
     this.cues,
     this.analytics,
+    this.hybrid,
     super.key,
   });
 
@@ -56,6 +59,7 @@ class DoctorProfileScreen extends StatefulWidget {
   final AudioRecorderService? recorder;
   final RecordingCueService? cues;
   final AnalyticsService? analytics;
+  final HybridAiService? hybrid;
 
   @override
   State<DoctorProfileScreen> createState() => _DoctorProfileScreenState();
@@ -435,6 +439,14 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
                 showAiNotice: (show) => setState(() {
                   _showAiNotice = show;
                 }),
+              ),
+              HybridAssist(
+                task: .symptomTidy,
+                controller: _symptoms,
+                online: !offline,
+                writesBack: true,
+                service: widget.hybrid,
+                analytics: widget.analytics,
               ),
             ],
           ),

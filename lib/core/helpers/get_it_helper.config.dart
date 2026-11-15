@@ -34,6 +34,7 @@ import 'package:tabibu/core/services/audio_player_service.dart' as _i1072;
 import 'package:tabibu/core/services/audio_recorder_service.dart' as _i93;
 import 'package:tabibu/core/services/audio_service_contract.dart' as _i147;
 import 'package:tabibu/core/services/file_picker_service.dart' as _i282;
+import 'package:tabibu/core/services/hybrid_ai_service.dart' as _i533;
 import 'package:tabibu/core/services/internet_service.dart' as _i76;
 import 'package:tabibu/core/services/notification_service.dart' as _i1051;
 import 'package:tabibu/core/services/rasp_service.dart' as _i390;
@@ -117,6 +118,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i75.AppUpdateService>(() => _i75.AppUpdateService());
     gh.lazySingleton<_i282.FilePickerService>(() => _i282.FilePickerService());
+    gh.lazySingleton<_i533.FirebaseHybridConfigLookup>(
+      () => _i533.FirebaseHybridConfigLookup(),
+    );
     gh.lazySingleton<_i76.InternetService>(() => _i76.InternetService());
     gh.lazySingleton<_i251.ReportPdfBuilder>(() => _i251.ReportPdfBuilder());
     gh.lazySingleton<_i265.AlertTopicService>(
@@ -127,6 +131,9 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i147.AudioPlayerService>(
       () => _i1072.DeviceAudioPlayerService(),
+    );
+    gh.lazySingleton<_i533.HybridAiService>(
+      () => _i533.ChannelHybridAiService(),
     );
     gh.lazySingleton<_i399.AnalyticsService>(
       () => _i399.AnalyticsService(analytics: gh<_i398.FirebaseAnalytics>()),
