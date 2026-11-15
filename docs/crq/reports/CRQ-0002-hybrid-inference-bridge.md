@@ -6,7 +6,7 @@
 | Title | Hybrid inference in the app: an on-device symptom tidy and notes summary |
 | Requested by | Theo — CTO |
 | Date raised | 2026-11-15 |
-| Date implemented | Pending: the Android plugin and the device runs (§7) |
+| Date implemented | Pending: the device runs (§7) |
 | Priority | P2 High — see [`mobile_workflow.md` §7](../../workflow/reports/mobile_workflow.md#7-escalation--severity) |
 | Change type | Normal |
 | Commit(s) / PR | `feat/hybrid-bridge`; the pull request once Android lands |
@@ -69,13 +69,15 @@ for in-app model calls.
 | Security (rules, App Check, RASP, secrets) | Affected | In-app calls rely on App Check enforcement, authenticated users and a per-user quota on AI Logic (T-21); no key in the app |
 | Data protection (PHI, de-identification, model endpoints) | New endpoint | A tidy may reach Gemini in the cloud, after contact details are stripped: the named S-8 exception. Notes never leave the device. Monitoring logs are excluded (T-23) |
 | Design system / UI consistency | Existing pattern | `AiDraftFrame` with a source chip |
-| Localisation (en, sw) | Pending | The copy moves into both ARB files before the pull request |
+| Localisation (en, sw) | Added | Nine `hybrid*` strings in both ARB files; the actions hide in Kiswahili, so the Kiswahili copy shows only in reasons |
 | Existing data | None | |
 
 ## 5. Risk & rollback plan
 
 **Risk level:** Medium. A new endpoint from the client, and a model on the
-device whose quality has not been checked on real phones yet.
+device whose quality has not been checked on real phones yet. Android's
+minimum rises to API 26, the on-device floor, which drops Android 7.0 and
+7.1.
 
 **Rollback plan:** `hybrid_symptom_tidy_enabled` and
 `hybrid_notes_summary_enabled` in Remote Config hide each action without a
@@ -87,8 +89,12 @@ release; reverting the branch's commits removes the bridge.
 2. iOS bridge on `FirebaseAILogic` 12.19.3, wired to the Dart contract.
 3. Contact details stripped from every tidy request; the S-8 exception, the
    threat model and the docs updated.
-4. Android plugin on the same contract and prompts.
-5. Device runs, then the pull request.
+4. Android plugin on the same contract and prompts; an answer cut off at
+   the 200-token cap is refused, so "Use this" never applies part of one.
+5. The hybrid copy into both ARB files; a summary's button reads Done.
+6. Gradle 9.5.0, AGP 9.3.1 and Kotlin 2.4.20, the minimums Flutter asks
+   for; built-in Kotlin waits for FlutterFire (architecture §16 item 12).
+7. Device runs, then the pull request.
 
 ## 7. Testing & verification evidence
 
@@ -96,9 +102,9 @@ release; reverting the branch's commits removes the bridge.
 |---|---|
 | `make analyze` / `make bloc-lint` | Pass |
 | Hybrid and screen tests | Pass — 254, including the stripping tests |
-| iOS RunnerTests (simulator) | Pass — 4: source and status mapping, the routing matrix, the prompts |
+| iOS RunnerTests (simulator) | Pass — 4: source and status mapping, the routing matrix, the prompts; run on one named simulator |
 | iOS simulator build | Pass |
-| Android plugin | Pending |
+| Android plugin | Pass — compiles; 5 JVM contract tests (routing, cut-off, failure codes); debug APK builds on the upgraded toolchain |
 | Manual run | Pending: on-device in airplane mode on an Apple Intelligence device; cloud fallback on the iPhone 14; a physical Android phone |
 | Certification | Pending |
 

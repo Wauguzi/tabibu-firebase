@@ -1025,13 +1025,19 @@ to see. Greptile is pointed at this section.
     | The case, share-code, report, appointment, conversation, notification and alert functions, with the signed-report PDF | Built, with emulator tests |
     | The eight client kill-switch defaults (§10) | Built (`remote_config_defaults.dart`) |
     | The AI jobs (pre-read, risk check and notes translation, symptom intake, report translation, explanation, alert drafting) | Built in Cloud Functions; their model layer is moving to Gemini, and the app gains Firebase AI Logic calls |
-    | The in-app hybrid tasks (symptom tidy, notes summary) | Dart and iOS built; Android in progress |
+    | The in-app hybrid tasks (symptom tidy, notes summary) | Built on Dart, iOS and Android |
     | Voice recording and playback | Built (`record`, `just_audio`) |
     | The blocs and the feature screens | Built |
 
     The deploy order is fixed: indexes (once `READY`), the index smoke check,
     functions, the availability backfill, Firestore rules, Storage rules, the
     server Remote Config template, then the app.
+12. **Built-in Kotlin waits for FlutterFire.** The app builds on Gradle
+    9.5.0, AGP 9.3.1 and Kotlin 2.4.20 with `android.builtInKotlin=false`,
+    because the FlutterFire plugins still apply the Kotlin Gradle Plugin, and
+    an app can switch only once every plugin has migrated. Flutter warns that
+    a future release will refuse plugins that apply it. Migrate the app with
+    the FlutterFire upgrade after submission.
 
 ## 17. Change log
 
