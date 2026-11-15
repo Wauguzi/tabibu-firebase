@@ -8646,5 +8646,41 @@
     "chatVoiceTranscriptUnavailable": "Transcript not available for voice notes.",
     "@chatVoiceTranscriptUnavailable": {
         "description": "Chat: plain line under a voice note; no ASR for m4a"
+    },
+    "hybridTidyNotes": "Tidy my notes",
+    "@hybridTidyNotes": {
+        "description": "Hybrid: tidy action under the symptoms field"
+    },
+    "hybridSummariseNotes": "Summarise my notes",
+    "@hybridSummariseNotes": {
+        "description": "Hybrid: summary action under the clinical notes field"
+    },
+    "hybridUseThis": "Use this",
+    "@hybridUseThis": {
+        "description": "Hybrid: apply the AI proposal"
+    },
+    "hybridDone": "Done",
+    "@hybridDone": {
+        "description": "Hybrid: dismiss a notes summary without writing it into the field"
+    },
+    "hybridOnThisPhone": "On this phone",
+    "@hybridOnThisPhone": {
+        "description": "Hybrid: badge when inference ran on-device"
+    },
+    "hybridInTheCloud": "In the cloud",
+    "@hybridInTheCloud": {
+        "description": "Hybrid: badge when inference ran in the cloud"
+    },
+    "hybridUnavailable": "On-device help is not available on this phone.",
+    "@hybridUnavailable": {
+        "description": "Hybrid: on-device model unavailable"
+    },
+    "hybridOffline": "This needs a connection, or the on-device model.",
+    "@hybridOffline": {
+        "description": "Hybrid: tidy hidden while offline without the model"
+    },
+    "hybridFailed": "Couldn't do that just now.",
+    "@hybridFailed": {
+        "description": "Hybrid: generation failed"
     }
 }

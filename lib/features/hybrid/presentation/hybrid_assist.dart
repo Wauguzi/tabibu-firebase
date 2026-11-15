@@ -10,14 +10,14 @@ import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/hybrid/blocs/hybrid_assist_bloc/hybrid_assist_bloc.dart';
 import 'package:tabibu/features/hybrid/blocs/hybrid_assist_bloc/hybrid_assist_event.dart';
 import 'package:tabibu/features/hybrid/blocs/hybrid_assist_bloc/hybrid_assist_state.dart';
-import 'package:tabibu/features/hybrid/presentation/hybrid_copy.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
 /// The tidy or summary control under a notes field.
 ///
-/// The proposal sits in the AI frame and does not touch [controller] until
-/// "Use this". Notes summaries never write back: they can identify the
-/// patient, and the field is what gets stored with the order.
+/// The tidy proposal stays in the AI frame until "Use this" writes it into
+/// [controller]. A notes summary's button reads "Done" and only dismisses
+/// the proposal: those notes are what the order stores, and the summary
+/// can identify the patient.
 class HybridAssist extends StatefulWidget {
   const HybridAssist({
     required this.task,
@@ -118,7 +118,7 @@ class _HybridAssistState extends State<HybridAssist> {
     return BlocBuilder<HybridAssistBloc, HybridAssistState>(
       bloc: bloc,
       builder: (context, state) {
-        final reason = _reason(state);
+        final reason = _reason(l10n, state);
         if (!state.showAction && !state.showProposal && reason == null) {
           return const SizedBox.shrink();
         }
@@ -129,8 +129,8 @@ class _HybridAssistState extends State<HybridAssist> {
               const SizedBox(height: AppSpacing.sm),
               TabibuButton.ghost(
                 label: widget.task == .symptomTidy
-                    ? HybridCopy.tidyNotes
-                    : HybridCopy.summariseNotes,
+                    ? l10n.hybridTidyNotes
+                    : l10n.hybridSummariseNotes,
                 isLoading: state.phase == .running,
                 onTap: state.phase == .running
                     ? null
@@ -145,13 +145,15 @@ class _HybridAssistState extends State<HybridAssist> {
                   children: [
                     StatusChip(
                       label: state.source == .inCloud
-                          ? HybridCopy.inTheCloud
-                          : HybridCopy.onThisPhone,
+                          ? l10n.hybridInTheCloud
+                          : l10n.hybridOnThisPhone,
                       tone: .aiDraft,
                     ),
                     const Spacer(),
                     TabibuButton.secondary(
-                      label: HybridCopy.useThis,
+                      label: widget.writesBack
+                          ? l10n.hybridUseThis
+                          : l10n.hybridDone,
                       minHeight: 48,
                       onTap: () => _useThis(state),
                     ),
@@ -170,12 +172,12 @@ class _HybridAssistState extends State<HybridAssist> {
     );
   }
 
-  String? _reason(HybridAssistState state) {
-    if (state.phase == .failed) return HybridCopy.failed;
+  String? _reason(AppLocalizations l10n, HybridAssistState state) {
+    if (state.phase == .failed) return l10n.hybridFailed;
     if (!state.showReason) return null;
     return switch (state.reason) {
-      .unavailable => HybridCopy.unavailable,
-      .offline => HybridCopy.offline,
+      .unavailable => l10n.hybridUnavailable,
+      .offline => l10n.hybridOffline,
       _ => null,
     };
   }

@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/services/hybrid_ai_service.dart';
 import 'package:tabibu/features/hybrid/presentation/hybrid_assist.dart';
-import 'package:tabibu/features/hybrid/presentation/hybrid_copy.dart';
 
 import '../../../helpers/helpers.dart';
 
@@ -34,19 +33,19 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text(HybridCopy.tidyNotes));
+    await tester.tap(find.text('Tidy my notes'));
     await tester.pumpAndSettle();
 
     expect(controller.text, 'head ache 2 days');
     expect(find.text('Headache for two days.'), findsOneWidget);
-    expect(find.text(HybridCopy.inTheCloud), findsOneWidget);
+    expect(find.text('In the cloud'), findsOneWidget);
     expect(fake.requests.single.mode, HybridMode.preferOnDevice);
 
-    await tester.tap(find.text(HybridCopy.useThis));
+    await tester.tap(find.text('Use this'));
     await tester.pumpAndSettle();
 
     expect(controller.text, 'Headache for two days.');
-    expect(find.text(HybridCopy.inTheCloud), findsNothing);
+    expect(find.text('In the cloud'), findsNothing);
   });
 
   testWidgets('an on-device summary is badged and never written back', (
@@ -66,13 +65,15 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text(HybridCopy.summariseNotes));
+    await tester.tap(find.text('Summarise my notes'));
     await tester.pumpAndSettle();
 
-    expect(find.text(HybridCopy.onThisPhone), findsOneWidget);
+    expect(find.text('On this phone'), findsOneWidget);
     expect(find.text('- Headache\n- Two days\n- No fever'), findsOneWidget);
+    expect(find.text('Done'), findsOneWidget);
+    expect(find.text('Use this'), findsNothing);
 
-    await tester.tap(find.text(HybridCopy.useThis));
+    await tester.tap(find.text('Done'));
     await tester.pumpAndSettle();
 
     expect(controller.text, 'Headache for two days.');
@@ -94,7 +95,7 @@ void main() {
       locale: const Locale('sw'),
     );
     await tester.pumpAndSettle();
-    expect(find.text(HybridCopy.tidyNotes), findsNothing);
+    expect(find.text('Tidy my notes'), findsNothing);
   });
 
   testWidgets('a switched-off tidy stays hidden', (tester) async {
@@ -112,7 +113,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text(HybridCopy.tidyNotes), findsNothing);
+    expect(find.text('Tidy my notes'), findsNothing);
   });
 
   testWidgets('a summary hides offline when the model is unavailable', (
@@ -130,7 +131,10 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text(HybridCopy.summariseNotes), findsNothing);
-    expect(find.text(HybridCopy.offline), findsOneWidget);
+    expect(find.text('Summarise my notes'), findsNothing);
+    expect(
+      find.text('This needs a connection, or the on-device model.'),
+      findsOneWidget,
+    );
   });
 }
