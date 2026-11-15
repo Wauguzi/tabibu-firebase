@@ -413,7 +413,7 @@ uid.
 | `profilePictureUrl` | String | Owner | Required from sign-up and cannot be removed; public: copied to the directory |
 | `isPathologist` | bool | Server | Chosen on sign-up; fixed after |
 | `specialties` | List\<String\> | Owner | One to five from the role's own list (`Specialty`), stored in list order. A pathologist may report in several areas |
-| `bio` | String | Owner | Plain text through `InputSanitizer` |
+| `bio` | String | Owner | Plain text, trimmed, 1000 chars max; `sanitizePaste` on paste |
 | `kmpdcNumber` | String | Owner until verified | Unique across accounts. Final once `Verified` |
 | `licenseUrls` | List\<String\> | Owner until verified | One or two files (the practising license, and a certificate if needed), each in the owner's `licenses/` folder. Final once `Verified`; never public |
 | `verificationStatus` | String (`VerificationStatus`) | Server | `Pending`, `Verified` or `Rejected` |
@@ -796,8 +796,9 @@ In summary:
   `min_required_version`, so a minimum set ahead of time locks nobody out
   until the switch is flipped.
 - **Input**: free text (symptoms, notes, report edits) goes through
-  `InputSanitizer` at the call site before it is stored or sent to the AI
-  service.
+  `sanitizePaste` (`lib/core/helpers/paste_sanitizer.dart`), as a field
+  formatter on paste and before any model call. The server's `sanitize.ts`
+  runs again before storage and prompts.
 - **Crash reporting**: Crashlytics, release builds only. Framework and
   platform errors are recorded as fatal, bloc errors as non-fatal, and a
   stream torn down after its native handler is gone as non-fatal. Release

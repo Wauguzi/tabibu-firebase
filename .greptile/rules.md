@@ -141,7 +141,7 @@ finding.
   change them after verification is a P1.
 - **`doctorUids` grants a patient's profile, never their cases.** A case read that trusts
   `doctorUids` instead of the case's own participants crosses the boundary.
-- **Free text goes through `InputSanitizer`** before it is stored or sent to the AI service.
+- **Free text goes through `sanitizePaste`** (`lib/core/helpers/paste_sanitizer.dart`), as a field formatter on paste and before any model call; the server's `sanitize.ts` runs again before storage and prompts.
 - **Nothing about a patient reaches Crashlytics.** Exception messages, `reason` strings and custom
   keys carry ids and types, never names, symptoms, results or free text; the user identifier, if
   set, is the uid. Crash reports leave the case and the country.

@@ -142,6 +142,22 @@ test fail:
    name the notes summary's reader; both now match the threat model.
 8. No 2.0x text test; one now runs in English and Kiswahili.
 
+**Greptile round 1 (15 Nov) on PR #14.** Five P2 findings, fixed on this branch
+(commits: this round):
+
+1. The web tidy always failed: a missing plugin read as "no model". `status()`
+   now returns `unsupported` on `MissingPluginException`, hiding both actions.
+2. Android checked STABLE while generating with the configured option. Status,
+   download and warm-up now take `modelOption` and build the model per option.
+3. Moving the cursor discarded a proposal: `_onContext` now returns early when
+   text, locale and `online` are unchanged.
+4. Status read once per screen: the widget re-reads it on foreground resume via
+   `HybridAssistStatusRefreshed`, settling unless running or proposed.
+5. Docs named a sanitiser class that does not exist, and the model path skipped
+   sanitising: `HybridRequest.toMap()` now runs `sanitizePaste` on every input
+   (then strips contact details from a tidy), the architecture and review rules
+   name `sanitizePaste`, and both bio fields sanitise a paste.
+
 Filled in further after the merge.
 
 ## 10. Related records

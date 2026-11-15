@@ -195,6 +195,11 @@ prompts live in the native plugins, so Dart can only name a task.
 - **Both actions show where they ran** ("On this phone" or in the cloud) and
   hide in Kiswahili, for text that is not English, or when switched off
   (`hybrid_symptom_tidy_enabled`, `hybrid_notes_summary_enabled`).
+- **Both actions hide where no bridge exists** (the web, desktop): a missing
+  plugin reads as `unsupported`, which hides both tasks with no reason text.
+- **The status is read again when the app returns to the foreground**, so a
+  model that became ready while the app was away shows its action. A refresh
+  never disturbs a running or proposed state.
 - Nothing logged includes the input or the output.
 
 ## 9. Change log
