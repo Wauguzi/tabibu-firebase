@@ -328,10 +328,7 @@ private enum HybridAiFailureMapper {
   }
 
   private static func isNetwork(_ error: Error) -> Bool {
-    if error is URLError {
-      return true
-    }
-    return (error as NSError).domain == NSURLErrorDomain
+    error is URLError
   }
 }
 

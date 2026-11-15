@@ -1,4 +1,5 @@
 import FirebaseAILogic
+import Flutter
 import XCTest
 
 @testable import Runner
@@ -55,6 +56,22 @@ final class HybridAiPluginTests: XCTestCase {
     // Unknown modes are rejected, never defaulted to cloud.
     XCTAssertNil(HybridAiPlan.resolve(task: .symptomTidy, modeRaw: "PREFER_IN_CLOUD"))
     XCTAssertNil(HybridAiPlan.resolve(task: .symptomTidy, modeRaw: 42))
+  }
+
+  func testStatusAcceptsModelOptionArgument() {
+    // Dart sends {'modelOption': ...} with status; Apple selects its own
+    // model, so the bridge answers regardless of the argument.
+    let plugin = HybridAiPlugin()
+    let call = FlutterMethodCall(
+      methodName: "status", arguments: ["modelOption": "preview"])
+    let replied = expectation(description: "status replies")
+    var reply: Any?
+    plugin.handle(call) { result in
+      reply = result
+      replied.fulfill()
+    }
+    waitForExpectations(timeout: 5)
+    XCTAssertTrue(reply as? String == "available" || reply as? String == "unavailable")
   }
 
   func testPromptsArePresent() {
