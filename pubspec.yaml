@@ -61,7 +61,7 @@ dependencies:
   permission_handler: ^13.0.2
   printing: ^5.15.1
   qr_code_generator: ^1.0.3
-  record: ^6.1.2
+  record: ^7.2.0
   share_plus: ^13.3.1
   shared_preferences: ^2.5.6
   test_api: any
