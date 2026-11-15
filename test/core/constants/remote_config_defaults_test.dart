@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tabibu/core/constants/remote_config_defaults.dart';
+import 'package:tabibu/core/services/hybrid_ai_service.dart';
 
 void main() {
   test('all eight kill switches have a client default', () {
@@ -28,5 +29,20 @@ void main() {
       containsAll(['force_update', 'min_required_version', 'update_message']),
     );
     expect(RemoteConfigDefaults.values['force_update'], isFalse);
+  });
+
+  test('the hybrid defaults match the settings the app falls back to', () {
+    const settings = HybridSettings();
+
+    expect(RemoteConfigDefaults.hybrid, {
+      HybridSettings.symptomTidyKey: settings.symptomTidyEnabled,
+      HybridSettings.notesSummaryKey: settings.notesSummaryEnabled,
+      HybridSettings.modelOptionKey: settings.modelOption,
+      HybridSettings.cloudModelKey: settings.cloudModel,
+    });
+    expect(
+      RemoteConfigDefaults.values,
+      containsPair('hybrid_model_option', 'stable'),
+    );
   });
 }
