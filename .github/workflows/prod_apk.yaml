@@ -85,6 +85,9 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Tags come with the checkout, which holds the token; a later git fetch
+          # has no credentials to read a private repository with.
+          fetch-tags: true
           persist-credentials: false
 
       - name: 🐦 Set up Flutter
@@ -130,12 +133,11 @@ jobs:
 
       # The merge drafts its release from pubspec.yaml and refuses a version that is not past the
       # latest release, so a missing bump blocks the merge here instead of failing after it. The
-      # script reads tags only. Dependabot does not bump the version, so its pull requests skip.
+      # script reads the tags the checkout fetched. Dependabot does not bump the version, so its
+      # pull requests skip.
       - name: 🔢 Version bumped past the latest release
         if: github.actor != 'dependabot[bot]'
-        run: |
-          git fetch --no-tags --depth=1 origin '+refs/tags/*:refs/tags/*'
-          node scripts/next-release.cjs
+        run: node scripts/next-release.cjs
 
       - name: 🔑 Decode Android keystore
         if: env.CAN_SIGN == 'true'
