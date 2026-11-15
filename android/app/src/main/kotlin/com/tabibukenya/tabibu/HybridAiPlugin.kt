@@ -91,13 +91,13 @@ class HybridAiPlugin(
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
-            "status" -> launch(result) { status() }
+            "status" -> launch(result) { status(call.arguments) }
             "download" -> launch(result) {
-                startDownload()
+                startDownload(call.arguments)
                 null
             }
             "warmUp" -> launch(result) {
-                warmUp()
+                warmUp(call.arguments)
                 null
             }
             "generate" -> launch(result) { generate(call.arguments) }
@@ -120,9 +120,9 @@ class HybridAiPlugin(
         }
     }
 
-    private suspend fun status(): String {
+    private suspend fun status(arguments: Any?): String {
         return try {
-            val extension = requireOnDevice()
+            val extension = requireOnDevice(optionFrom(arguments))
             HybridAiContract.statusWire(extension.checkStatus().toString())
         } catch (cancelled: CancellationException) {
             throw cancelled
@@ -137,10 +137,10 @@ class HybridAiPlugin(
      * generate never collect the download flow, so a model is not fetched
      * on mobile data in the background.
      */
-    private suspend fun startDownload() {
+    private suspend fun startDownload(arguments: Any?) {
         ensureForeground()
         if (downloadJob?.isActive == true) throw HybridAiCallException("busy")
-        val extension = requireOnDevice()
+        val extension = requireOnDevice(optionFrom(arguments))
         downloadJob = scope.launch {
             try {
                 var total = 0L
@@ -177,10 +177,14 @@ class HybridAiPlugin(
         }
     }
 
-    private suspend fun warmUp() {
+    private suspend fun warmUp(arguments: Any?) {
         ensureForeground()
-        requireOnDevice().warmUp()
+        requireOnDevice(optionFrom(arguments)).warmUp()
     }
+
+    /** A missing option stays on the stable on-device model. */
+    private fun optionFrom(arguments: Any?): HybridModelOption =
+        HybridAiContract.modelOption((arguments as? Map<*, *>)?.get("modelOption"))
 
     private suspend fun generate(arguments: Any?): Map<String, String> {
         val args = arguments as? Map<*, *> ?: throw HybridAiCallException("invalid_args")
@@ -253,15 +257,17 @@ class HybridAiPlugin(
         }
     }
 
-    /** Status, download and warm-up follow the stable on-device model. */
-    private fun requireOnDevice(): OnDeviceExtension {
-        val key = "status|stable"
-        val model = models.getOrPut(key) {
+    /** Status, download and warm-up use the same on-device option as generate. */
+    private fun requireOnDevice(option: HybridModelOption): OnDeviceExtension {
+        val model = models.getOrPut(HybridAiContract.onDeviceCacheKey(option)) {
             firebaseAi.generativeModel(
                 modelName = HybridAiContract.defaultCloudModel,
                 onDeviceConfig = OnDeviceConfig(
                     mode = InferenceMode.ONLY_ON_DEVICE,
-                    modelOption = OnDeviceModelOption.STABLE,
+                    modelOption = when (option) {
+                        HybridModelOption.Preview -> OnDeviceModelOption.PREVIEW
+                        HybridModelOption.Stable -> OnDeviceModelOption.STABLE
+                    },
                 ),
             )
         }

@@ -98,6 +98,15 @@ class HybridAiContractTest {
         )
         assertEquals(HybridModelOption.Preview, HybridAiContract.modelOption("preview"))
         assertEquals(HybridModelOption.Stable, HybridAiContract.modelOption("nope"))
+        assertEquals(HybridModelOption.Stable, HybridAiContract.modelOption(null))
+        assertEquals(
+            "status|Stable",
+            HybridAiContract.onDeviceCacheKey(HybridModelOption.Stable),
+        )
+        assertEquals(
+            "status|Preview",
+            HybridAiContract.onDeviceCacheKey(HybridModelOption.Preview),
+        )
     }
 
     @Test

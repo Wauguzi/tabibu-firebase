@@ -75,6 +75,9 @@ internal object HybridAiContract {
     fun modelOption(raw: Any?): HybridModelOption =
         if (raw == "preview") HybridModelOption.Preview else HybridModelOption.Stable
 
+    /** Cache key for the on-device model that status, download and warm-up use. */
+    fun onDeviceCacheKey(option: HybridModelOption): String = "status|${option.name}"
+
     /**
      * `notes_summary` is on-device whatever [modeRaw] is, including a missing
      * or prefer-cloud mode: those notes can identify the patient (S-5).
