@@ -9,8 +9,8 @@ and a qualified person always decides.
 Tabibu is a sole-author entry until judging closes. Until then:
 
 - **Bug reports and suggestions are welcome.** Open an issue with the
-  [bug report](https://github.com/Wauguzi/tabibu/issues/new?template=bug_report.yml) or
-  [feature request](https://github.com/Wauguzi/tabibu/issues/new?template=feature_request.yml)
+  [bug report](https://github.com/Wauguzi/tabibu-firebase/issues/new?template=bug_report.yml) or
+  [feature request](https://github.com/Wauguzi/tabibu-firebase/issues/new?template=feature_request.yml)
   form.
 - **Pull requests from others open after judging.** I will close earlier ones with thanks, so
   the entry stays my own work.
