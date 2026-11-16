@@ -46,11 +46,12 @@ void main() {
         'Privacy and data',
         'Help and support',
         'Sign out',
-        'Delete account',
         'v1.0.02',
       ]) {
         expect(find.text(text), findsOneWidget, reason: text);
       }
+      // Hidden while the demo accounts are shared.
+      expect(find.text('Delete account'), findsNothing);
     });
 
     testWidgets('a doctor who approves alerts is told so', (tester) async {
