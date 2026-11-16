@@ -72,7 +72,8 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
         oldWidget.language == widget.language) {
       return;
     }
-    // New words: drop the old clip's cache.
+    // New words: a playing old clip stops, and its cache goes.
+    final wasPlaying = _playing;
     _cache.clear();
     _playing = false;
     _active = false;
@@ -80,11 +81,15 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
     _loading = false;
     _duration = Duration.zero;
     _playId = null;
+    if (wasPlaying) unawaited(_player.stop());
   }
 
   @override
   void dispose() {
+    // Cancel first: nothing is left to hear the stop's own event.
+    final wasPlaying = _playing;
     unawaited(_sub?.cancel());
+    if (wasPlaying) unawaited(_player.stop());
     super.dispose();
   }
 
@@ -95,6 +100,15 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
         _active = false;
         setState(() {});
       }
+      return;
+    }
+    if (event.failed) {
+      // A failed play is not resumable: back to play with the error.
+      _playing = false;
+      _active = false;
+      _loading = false;
+      _error = true;
+      setState(() {});
       return;
     }
     if (event.duration > Duration.zero) _duration = event.duration;
@@ -137,6 +151,7 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
     if (_loading) return;
     if (_playing) {
       await _player.pause();
+      unawaited(_analytics?.logVoicePlaybackPaused());
       return;
     }
     final settings = _settings;
@@ -167,8 +182,9 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
     });
     try {
       final bytes = _cache.get(key) ?? await widget.speech.speak(request);
+      // New words arrived mid-load: the stale reply is dropped, unplayed.
+      if (!mounted || key != _cacheKey) return;
       _cache.put(key, bytes);
-      if (!mounted) return;
       _playId = key;
       await _player.playBytes(bytes, id: key);
       unawaited(_analytics?.logVoicePlaybackStarted(surface: 'explanation'));

@@ -1,15 +1,30 @@
+import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/widgets/asset_icon.dart';
 import 'package:tabibu/core/widgets/circle_icon_button.dart';
+import 'package:tabibu/features/preread/presentation/widgets/region_capture.dart';
 import 'package:tabibu/features/preread/presentation/widgets/slide_viewer.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 
 import '../../../../helpers/helpers.dart';
+
+/// An image that never resolves a frame.
+class _HangingImage extends ImageProvider<_HangingImage> {
+  @override
+  Future<_HangingImage> obtainKey(ImageConfiguration configuration) =>
+      SynchronousFuture<_HangingImage>(this);
+
+  @override
+  ImageStreamCompleter loadImage(
+    _HangingImage key,
+    ImageDecoderCallback decode,
+  ) => OneFrameImageStreamCompleter(Completer<ImageInfo>().future);
+}
 
 void main() {
   // 1x1 PNG.
@@ -20,6 +35,59 @@ void main() {
   );
   final okImage = MemoryImage(Uint8List.fromList(okBytes));
   final badImage = MemoryImage(Uint8List.fromList([1, 2, 3]));
+
+  testWidgets('withholds the ask pill until a frame paints', (tester) async {
+    await tester.pumpApp(
+      SizedBox(
+        width: 390,
+        child: SlideViewer(
+          image: _HangingImage(),
+          heatmapOn: false,
+          onHeatmapChanged: (_) {},
+          heatmapLabel: 'Heat map',
+          tilesLabel: 'Tiles',
+          scaleLabel: '1x',
+          legendLow: 'Low',
+          legendHigh: 'High',
+          zoomInLabel: 'Zoom in',
+          zoomOutLabel: 'Zoom out',
+          askRegionLabel: 'Ask AI about this region',
+          onAskRegion: () {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ask AI about this region'), findsNothing);
+  });
+
+  testWidgets('refuses the capture on the error fallback', (tester) async {
+    final controller = RegionCaptureController();
+    await tester.pumpApp(
+      SizedBox(
+        width: 390,
+        child: SlideViewer(
+          image: badImage,
+          heatmapOn: false,
+          onHeatmapChanged: (_) {},
+          heatmapLabel: 'Heat map',
+          tilesLabel: 'Tiles',
+          scaleLabel: '1x',
+          legendLow: 'Low',
+          legendHigh: 'High',
+          zoomInLabel: 'Zoom in',
+          zoomOutLabel: 'Zoom out',
+          askRegionLabel: 'Ask AI about this region',
+          onAskRegion: () {},
+          regionCaptureController: controller,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Ask AI about this region'), findsNothing);
+    expect(await controller.captureRegion(), isNull);
+  });
 
   Widget viewer({
     required bool heatmapOn,
@@ -97,6 +165,8 @@ void main() {
           onAskRegion: () => taps++,
         ),
       );
+      // The pill waits for the first frame, which decodes asynchronously.
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Ask AI about this region'));
       expect(taps, 1);
     });

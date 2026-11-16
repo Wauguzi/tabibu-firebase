@@ -1,8 +1,3 @@
-import 'dart:convert';
-
-// Transitive only; the brief adds no dependency. Resolved by pubspec.lock.
-// ignore: depend_on_referenced_packages
-import 'package:crypto/crypto.dart';
 import 'package:tabibu/core/services/ai_logic_service.dart';
 
 /// What one explanation narration sends: the approved text plus the voice it
@@ -31,12 +26,9 @@ class SpeechRequest {
     _ => null,
   };
 
-  /// Cache key: sha256 over the four inputs, so a changed voice, model,
+  /// Cache key: the four inputs joined, so a changed voice, model,
   /// language or word re-generates.
-  String get cacheKey {
-    final bytes = utf8.encode('$text\x00$language\x00$voice\x00$model');
-    return sha256.convert(bytes).toString();
-  }
+  String get cacheKey => '$text\x00$language\x00$voice\x00$model';
 }
 
 /// The narration voice and model, from Remote Config with documented

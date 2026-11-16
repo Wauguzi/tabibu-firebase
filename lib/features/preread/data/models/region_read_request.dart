@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:tabibu/core/helpers/paste_sanitizer.dart';
@@ -28,12 +27,4 @@ class RegionReadRequest {
   /// Trims and sanitises a typed question. The field caps length at
   /// [maxQuestionLength]; sanitising only ever shrinks.
   static String cleanQuestion(String raw) => sanitizePaste(raw.trim());
-
-  /// The exact template input map: pixels plus short text, nothing else.
-  Map<String, String> toTemplateInputs() => {
-    'imageMime': imageMime,
-    'imageData': base64Encode(imageBytes),
-    if (question.isNotEmpty) 'question': question,
-    if (stain.isNotEmpty) 'stain': stain,
-  };
 }

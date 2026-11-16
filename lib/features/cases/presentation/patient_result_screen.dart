@@ -44,11 +44,11 @@ import 'package:tabibu/features/reports/presentation/widgets/report_file_card.da
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
-/// P-11b / P-13. Waiting with the doctor, or a shared result (no report text
-/// until released — S-3).
 /// Remote Config switch for "Listen to this summary".
 const listenEnabledKey = 'explanation_listen_enabled';
 
+/// P-11b / P-13. Waiting with the doctor, or a shared result (no report text
+/// until released — S-3).
 class PatientResultScreen extends StatefulWidget {
   const PatientResultScreen({
     required this.caseUid,
@@ -511,8 +511,6 @@ class _SharedBodyState extends State<_SharedBody> {
     unawaited(route.push<void>(context));
   }
 
-  /// The listen card, only for approved text the patient can already read.
-  /// Prefers their locale's approved text, falls back to the first language.
   /// The narration's kill switch. On by default: it reads approved text
   /// aloud. A config that cannot be read keeps the default.
   bool _listenEnabled() {
@@ -525,6 +523,8 @@ class _SharedBodyState extends State<_SharedBody> {
     }
   }
 
+  /// The listen card, only for approved text the patient can already read.
+  /// Prefers their locale's approved text, falls back to the first language.
   List<Widget> _listenCard(BuildContext context, ReportReaderState reader) {
     if (!_listenEnabled()) return const [];
     final approved = reader.approved;

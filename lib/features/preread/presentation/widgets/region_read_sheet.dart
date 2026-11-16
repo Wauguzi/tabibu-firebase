@@ -21,7 +21,7 @@ import 'package:tabibu/l10n/l10n.dart';
 Future<void> showRegionReadSheet({
   required BuildContext context,
   required RegionReadClient client,
-  required GlobalKey boundaryKey,
+  required RegionCaptureController captureController,
   String stain = '',
   AnalyticsService? analytics,
 }) {
@@ -31,7 +31,7 @@ Future<void> showRegionReadSheet({
     title: l10n.regionAskAction,
     builder: (_) => RegionReadSheetBody(
       client: client,
-      boundaryKey: boundaryKey,
+      captureController: captureController,
       stain: stain,
       analytics: analytics,
     ),
@@ -42,7 +42,7 @@ Future<void> showRegionReadSheet({
 class RegionReadSheetBody extends StatefulWidget {
   const RegionReadSheetBody({
     required this.client,
-    required this.boundaryKey,
+    required this.captureController,
     this.stain = '',
     this.analytics,
     this.capture,
@@ -50,7 +50,7 @@ class RegionReadSheetBody extends StatefulWidget {
   });
 
   final RegionReadClient client;
-  final GlobalKey boundaryKey;
+  final RegionCaptureController captureController;
   final String stain;
   final AnalyticsService? analytics;
 
@@ -66,10 +66,26 @@ enum _Phase { question, asking, result, error }
 
 class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
   final _question = TextEditingController();
-  _Phase _phase = _Phase.question;
+  _Phase _phase = .question;
   RegionReadResult? _result;
 
   AnalyticsService? _analyticsOrNull;
+
+  AnalyticsService? get _analytics {
+    final cached = _analyticsOrNull;
+    if (cached != null) return cached;
+    if (widget.analytics != null) return widget.analytics;
+    if (getIt.isRegistered<AnalyticsService>()) {
+      return _analyticsOrNull = getIt<AnalyticsService>();
+    }
+    return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_analytics?.logRegionRead(outcome: 'opened'));
+  }
 
   @override
   void dispose() {
@@ -78,13 +94,13 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
   }
 
   Future<void> _ask() async {
-    setState(() => _phase = _Phase.asking);
-    final analytics = _analyticsOrNull ??=
-        widget.analytics ?? getIt<AnalyticsService>();
+    if (_phase == .asking) return;
+    setState(() => _phase = .asking);
+    final analytics = _analytics;
     final capture = widget.capture;
     final bytes = await (capture != null
         ? capture()
-        : captureRegionBytes(widget.boundaryKey));
+        : widget.captureController.captureRegion());
     if (!mounted) return;
     if (bytes == null) {
       unawaited(_failed(analytics));
@@ -101,18 +117,18 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
       if (!mounted) return;
       setState(() {
         _result = result;
-        _phase = _Phase.result;
+        _phase = .result;
       });
-      await analytics.logRegionRead(outcome: 'shown');
+      await analytics?.logRegionRead(outcome: 'shown');
     } on Object catch (_) {
       if (!mounted) return;
       unawaited(_failed(analytics));
     }
   }
 
-  Future<void> _failed(AnalyticsService analytics) async {
-    setState(() => _phase = _Phase.error);
-    await analytics.logRegionRead(outcome: 'failed');
+  Future<void> _failed(AnalyticsService? analytics) async {
+    setState(() => _phase = .error);
+    await analytics?.logRegionRead(outcome: 'failed');
   }
 
   @override
@@ -120,7 +136,7 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
     final l10n = context.l10n;
     final textTheme = Theme.of(context).textTheme;
     switch (_phase) {
-      case _Phase.question:
+      case .question:
         return Column(
           mainAxisSize: .min,
           crossAxisAlignment: .stretch,
@@ -130,6 +146,7 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
               controller: _question,
               maxLines: 3,
               maxLength: RegionReadRequest.maxQuestionLength,
+              sanitizePaste: true,
               textInputAction: .go,
               onSubmitted: (_) => _ask(),
             ),
@@ -137,12 +154,12 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
             TabibuButton.primary(label: l10n.regionAskSubmit, onTap: _ask),
           ],
         );
-      case _Phase.asking:
+      case .asking:
         return const SizedBox(
           height: 160,
           child: Center(child: CircularProgressIndicator()),
         );
-      case _Phase.result:
+      case .result:
         final result = _result;
         if (result == null) return const SizedBox.shrink();
         return AiDraftFrame(
@@ -170,7 +187,7 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
             ],
           ),
         );
-      case _Phase.error:
+      case .error:
         return Column(
           mainAxisSize: .min,
           crossAxisAlignment: .stretch,

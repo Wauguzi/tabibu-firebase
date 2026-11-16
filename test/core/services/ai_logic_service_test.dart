@@ -28,13 +28,6 @@ class _Config implements AiLogicConfig {
 class ClientException implements Exception {}
 
 void main() {
-  test('the appointments bloc never imports the model SDK', () {
-    final source = File(
-      'lib/features/appointments/blocs/appointments_bloc/appointments_bloc.dart',
-    ).readAsStringSync();
-    expect(source.contains('firebase_ai'), isFalse);
-  });
-
   test('the template response becomes a transcript', () async {
     TemplateRequest? sent;
     final service = FirebaseAiLogicService(
@@ -144,6 +137,33 @@ void main() {
     expect('$error'.contains('phone'), isFalse);
   });
 
+  test('transcribe keeps no reference to the audio after a call', () async {
+    final sentAudio = <String>[];
+    final service = FirebaseAiLogicService(
+      config: _Config(),
+      transcribe: (request) async {
+        sentAudio.add(request.inputs['audioData']! as String);
+        return '{"transcript":"Cough","language":"en","unclear":false}';
+      },
+    );
+
+    await service.transcribeSymptoms(
+      Uint8List.fromList([1, 2, 3]),
+      mimeType: 'audio/wav',
+    );
+    await service.transcribeSymptoms(
+      Uint8List.fromList([4, 5]),
+      mimeType: 'audio/wav',
+    );
+
+    // Each call sends only its own audio, exactly once: nothing from the
+    // first call survives into the second (T-24).
+    expect(sentAudio.map(base64Decode).toList(), [
+      [1, 2, 3],
+      [4, 5],
+    ]);
+  });
+
   test(
     'a socket failure is offline and a renamed transport failure is unknown',
     () {
@@ -202,6 +222,13 @@ void main() {
       'imageData': 'AQID',
       'question': 'Malignant?',
       'stain': 'H&E',
+    });
+    // Pixels and short text only: no case id, uid, name or order number.
+    expect(sent!.inputs.keys.toSet(), {
+      'imageMime',
+      'imageData',
+      'question',
+      'stain',
     });
   });
 

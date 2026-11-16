@@ -93,6 +93,7 @@ void main() {
       String caseUid = 'c1',
       ReportDownload? reportDownload,
       bool listenEnabled = true,
+      FakeSpeechClient? speech,
     }) async {
       when(() => blocs.cases.state).thenReturn(cases);
       when(
@@ -109,7 +110,7 @@ void main() {
             caseUid: caseUid,
             download: reportDownload ?? download,
             player: player,
-            speech: FakeSpeechClient(),
+            speech: speech ?? FakeSpeechClient(),
             listenEnabled: () => listenEnabled,
           ),
         ),
@@ -673,6 +674,7 @@ void main() {
         ThemeMode themeMode = ThemeMode.light,
         Locale? locale,
         bool listenEnabled = true,
+        FakeSpeechClient? speech,
       }) async {
         _useTallSurface(tester);
         when(() => blocs.reportReader.state).thenReturn(state);
@@ -682,6 +684,7 @@ void main() {
           themeMode: themeMode,
           locale: locale,
           listenEnabled: listenEnabled,
+          speech: speech,
         );
       }
 
@@ -744,6 +747,32 @@ void main() {
 
         expect(find.text(l10n.resultDetailListenTitle), findsOneWidget);
         expect(find.text(l10n.resultDetailListenComputerVoice), findsOneWidget);
+      });
+
+      testWidgets('narrates exactly the approved text, in its language', (
+        tester,
+      ) async {
+        final speech = FakeSpeechClient();
+        await pumpWith(
+          tester,
+          state: reader(approved: approved),
+          speech: speech,
+        );
+
+        await tester.tap(
+          find
+              .descendant(
+                of: find.byType(ListenCard),
+                matching: find.byType(Tappable),
+              )
+              .first,
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(speech.requests, hasLength(1));
+        expect(speech.requests.single.text, 'Approved text');
+        expect(speech.requests.single.language, 'en');
       });
 
       testWidgets('the kill switch hides the listen card', (tester) async {

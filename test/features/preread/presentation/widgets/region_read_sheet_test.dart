@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -8,12 +9,28 @@ import 'package:tabibu/core/widgets/tabibu_button.dart';
 import 'package:tabibu/features/preread/data/models/region_read_request.dart';
 import 'package:tabibu/features/preread/data/models/region_read_result.dart';
 import 'package:tabibu/features/preread/data/region_read_client.dart';
+import 'package:tabibu/features/preread/presentation/widgets/region_capture.dart';
 import 'package:tabibu/features/preread/presentation/widgets/region_read_sheet.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
 import '../../../../helpers/helpers.dart';
 
 class _MockAnalytics extends Mock implements AnalyticsService {}
+
+/// Holds every read open on the gated answer, so a second ask lands
+/// mid-flight.
+class _GatedClient implements RegionReadClient {
+  _GatedClient(this._answer);
+
+  final Future<RegionReadResult> _answer;
+  int calls = 0;
+
+  @override
+  Future<RegionReadResult> readRegion(RegionReadRequest request) {
+    calls++;
+    return _answer;
+  }
+}
 
 class _ScriptedClient implements RegionReadClient {
   _ScriptedClient(this._script);
@@ -33,7 +50,7 @@ class _ScriptedClient implements RegionReadClient {
 const _read = RegionReadResult(
   impression: 'Calm lymphocytes.',
   features: ['Even spacing', 'Round nuclei'],
-  uncertainty: RegionUncertainty.medium,
+  uncertainty: .medium,
   caveat: 'One region, not a diagnosis.',
 );
 
@@ -55,7 +72,7 @@ void main() {
   }) {
     return RegionReadSheetBody(
       client: client,
-      boundaryKey: GlobalKey(),
+      captureController: RegionCaptureController(),
       capture: capture ?? () async => _bytes,
       analytics: analytics,
     );
@@ -78,7 +95,7 @@ void main() {
               onPressed: () => showRegionReadSheet(
                 context: context,
                 client: FakeRegionReadClient(result: _read),
-                boundaryKey: GlobalKey(),
+                captureController: RegionCaptureController(),
                 analytics: analytics,
               ),
               child: const Text('open'),
@@ -103,6 +120,35 @@ void main() {
       expect(find.text('One region, not a diagnosis.'), findsOneWidget);
       expect(find.text('AI draft'), findsWidgets);
       verify(() => analytics.logRegionRead(outcome: 'shown')).called(1);
+    });
+
+    testWidgets('a second ask while asking is ignored', (tester) async {
+      final gate = Completer<RegionReadResult>();
+      final client = _GatedClient(gate.future);
+      await tester.pumpApp(body(client: client));
+
+      await tester.tap(find.text('Ask'));
+      await tester.tap(find.text('Ask'));
+      gate.complete(_read);
+      await tester.pumpAndSettle();
+
+      expect(client.calls, 1);
+    });
+
+    testWidgets('the question field cleans pasted text', (tester) async {
+      await tester.pumpApp(body(client: FakeRegionReadClient(result: _read)));
+
+      await tester.enterText(find.byType(TextField), 'Malignant?\u200b');
+      await tester.pump();
+
+      expect(find.text('Malignant?'), findsOneWidget);
+    });
+
+    testWidgets('opening the sheet logs it', (tester) async {
+      await tester.pumpApp(body(client: FakeRegionReadClient(result: _read)));
+      await tester.pumpAndSettle();
+
+      verify(() => analytics.logRegionRead(outcome: 'opened')).called(1);
     });
 
     testWidgets('the result carries no action at all', (tester) async {
@@ -135,7 +181,7 @@ void main() {
       expect(sent, isNotNull);
       expect(sent!.question, 'Malignant?');
       expect(sent.imageBytes, _bytes);
-      expect(sent.toTemplateInputs().keys, hasLength(3));
+      expect(sent.stain, isEmpty);
     });
 
     for (final locale in const [Locale('en'), Locale('sw')]) {

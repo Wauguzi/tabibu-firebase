@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:flutter/rendering.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/constants/app_colors.dart';
 import 'package:tabibu/core/constants/app_radii.dart';
@@ -6,6 +9,7 @@ import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/constants/app_status_colors.dart';
 import 'package:tabibu/core/constants/app_styles.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
+import 'package:tabibu/features/preread/presentation/widgets/region_capture.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 
 /// Pan/zoom slide panel: optional heatmap overlay, tiles and region-read
@@ -26,7 +30,7 @@ class SlideViewer extends StatefulWidget {
     this.heatmap,
     this.askRegionLabel = '',
     this.onAskRegion,
-    this.regionBoundaryKey,
+    this.regionCaptureController,
     super.key,
   });
 
@@ -43,9 +47,10 @@ class SlideViewer extends StatefulWidget {
   final VoidCallback? onAskRegion;
   final String askRegionLabel;
 
-  /// When set, wraps the base image so the region read captures exactly what
-  /// shows. Heatmap and controls stay outside and never reach the model.
-  final GlobalKey? regionBoundaryKey;
+  /// When set, binds region capture: the base image renders inside a
+  /// boundary, and captures cut the visible region from it. Heatmap and
+  /// controls stay outside and never reach the model.
+  final RegionCaptureController? regionCaptureController;
   final String scaleLabel;
   final String legendLow;
   final String legendHigh;
@@ -63,17 +68,47 @@ class SlideViewer extends StatefulWidget {
 
 class _SlideViewerState extends State<SlideViewer> {
   late final TransformationController _transform;
+  final GlobalKey _boundaryKey = GlobalKey();
+  final GlobalKey _viewportKey = GlobalKey();
+  var _hasFrame = false;
 
   @override
   void initState() {
     super.initState();
     _transform = TransformationController();
+    widget.regionCaptureController?.capture = _captureRegion;
+  }
+
+  @override
+  void didUpdateWidget(covariant SlideViewer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.regionCaptureController != widget.regionCaptureController) {
+      oldWidget.regionCaptureController?.capture = null;
+      widget.regionCaptureController?.capture = _captureRegion;
+    }
+    if (oldWidget.image != widget.image) _hasFrame = false;
   }
 
   @override
   void dispose() {
+    widget.regionCaptureController?.capture = null;
     _transform.dispose();
     super.dispose();
+  }
+
+  Future<Uint8List?> _captureRegion() {
+    // No frame, no pixels: placeholders and the error fallback refuse.
+    if (!_hasFrame) return Future.value();
+    final boundary =
+        _boundaryKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
+    final viewport = _viewportKey.currentContext?.size;
+    if (boundary == null || viewport == null) return Future.value();
+    return captureVisibleRegion(
+      boundary: boundary,
+      transform: _transform.value,
+      viewportSize: viewport,
+    );
   }
 
   double get _scale => _transform.value.getMaxScaleOnAxis();
@@ -91,9 +126,8 @@ class _SlideViewerState extends State<SlideViewer> {
   }
 
   Widget _regionBoundary(Widget child) {
-    final key = widget.regionBoundaryKey;
-    if (key == null) return child;
-    return RepaintBoundary(key: key, child: child);
+    if (widget.regionCaptureController == null) return child;
+    return RepaintBoundary(key: _boundaryKey, child: child);
   }
 
   Widget _fallback(ColorScheme scheme) {
@@ -145,6 +179,7 @@ class _SlideViewerState extends State<SlideViewer> {
               crossAxisAlignment: .stretch,
               children: [
                 SizedBox(
+                  key: _viewportKey,
                   width: width,
                   height: imageHeight,
                   child: ClipRRect(
@@ -164,6 +199,19 @@ class _SlideViewerState extends State<SlideViewer> {
                                   Image(
                                     image: widget.image,
                                     fit: .cover,
+                                    frameBuilder: (context, child, frame, _) {
+                                      if (frame != null && !_hasFrame) {
+                                        WidgetsBinding.instance
+                                            .addPostFrameCallback((_) {
+                                              if (mounted && !_hasFrame) {
+                                                setState(
+                                                  () => _hasFrame = true,
+                                                );
+                                              }
+                                            });
+                                      }
+                                      return child;
+                                    },
                                     errorBuilder: (_, _, _) =>
                                         _fallback(scheme),
                                   ),
@@ -206,7 +254,7 @@ class _SlideViewerState extends State<SlideViewer> {
                                         label: widget.tilesLabel,
                                         onTap: widget.onTiles!,
                                       ),
-                                    if (widget.onAskRegion != null)
+                                    if (widget.onAskRegion != null && _hasFrame)
                                       _ActionPill(
                                         label: widget.askRegionLabel,
                                         onTap: widget.onAskRegion!,

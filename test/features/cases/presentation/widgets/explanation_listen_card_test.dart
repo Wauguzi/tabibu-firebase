@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:typed_data';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
@@ -14,6 +17,31 @@ import '../../../../helpers/helpers.dart';
 
 class _MockAnalytics extends Mock implements AnalyticsService {}
 
+/// Holds speak open until the gated answer completes.
+class _GatedSpeechClient implements SpeechClient {
+  _GatedSpeechClient(this._answer);
+
+  final Future<Uint8List> _answer;
+
+  @override
+  Future<Uint8List> speak(SpeechRequest request) => _answer;
+}
+
+/// Fails the first speak, then answers.
+class _FailOnceSpeechClient implements SpeechClient {
+  _FailOnceSpeechClient([Uint8List? audio])
+    : audio = audio ?? Uint8List.fromList([9]);
+
+  final Uint8List audio;
+  var _calls = 0;
+
+  @override
+  Future<Uint8List> speak(SpeechRequest request) async {
+    if (_calls++ == 0) throw Exception('down');
+    return audio;
+  }
+}
+
 void main() {
   late _MockAnalytics analytics;
   late FakeAudioPlayerService player;
@@ -26,6 +54,7 @@ void main() {
     when(
       () => analytics.logVoicePlaybackStarted(surface: any(named: 'surface')),
     ).thenAnswer((_) async {});
+    when(() => analytics.logVoicePlaybackPaused()).thenAnswer((_) async {});
     player = FakeAudioPlayerService();
     speech = FakeSpeechClient();
     addTearDown(player.dispose);
@@ -83,6 +112,80 @@ void main() {
       );
     });
 
+    testWidgets('a failed play returns to play with its error', (tester) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      await tester.pumpApp(card());
+      await tapPlay(tester, l10n);
+      final ownId = speech.requests.single.cacheKey;
+
+      // Another clip's failure is not this card's.
+      player.failClip('another-clip');
+      await tester.pump();
+      expect(find.text(l10n.resultDetailListenFailed), findsNothing);
+
+      player.failClip(ownId);
+      await tester.pump();
+
+      expect(find.text(l10n.resultDetailListenFailed), findsOneWidget);
+      expect(
+        tester.widget<AssetIcon>(find.byType(AssetIcon)).asset.path,
+        Assets.icons.playIcon.path,
+      );
+    });
+
+    testWidgets('unmounting while playing stops the player', (tester) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      await tester.pumpApp(card());
+      await tapPlay(tester, l10n);
+      await tester.pumpWidget(Container());
+
+      expect(player.stopCount, 1);
+    });
+
+    testWidgets('changing the text stops a playing clip', (tester) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      await tester.pumpApp(card());
+      await tapPlay(tester, l10n);
+      await tester.pumpApp(card(text: 'Your scan looks clear.'));
+
+      expect(player.stopCount, 1);
+    });
+
+    testWidgets('a superseded load never plays', (tester) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final gate = Completer<Uint8List>();
+      Widget gated(String text) => ExplanationListenCard(
+        text: text,
+        language: 'en',
+        online: true,
+        speech: _GatedSpeechClient(gate.future),
+        player: player,
+        analytics: analytics,
+        settings: settings,
+      );
+      await tester.pumpApp(gated('Your test found no cancer.'));
+      await tester.tap(find.bySemanticsLabel(l10n.resultDetailListenPlay));
+      await tester.pump();
+
+      // New words arrive mid-load.
+      await tester.pumpApp(gated('Your scan looks clear.'));
+      gate.complete(Uint8List.fromList([1, 2, 3]));
+      await tester.pumpAndSettle();
+
+      expect(player.playBytesCalls, isEmpty);
+    });
+
+    testWidgets('pausing logs it', (tester) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      await tester.pumpApp(card());
+      await tapPlay(tester, l10n);
+
+      await tester.tap(find.bySemanticsLabel(l10n.resultDetailListenPause));
+      await tester.pumpAndSettle();
+
+      verify(() => analytics.logVoicePlaybackPaused()).called(1);
+    });
+
     testWidgets('replay hits the cache, not the service', (tester) async {
       final l10n = lookupAppLocalizations(const Locale('en'));
       await tester.pumpApp(card());
@@ -116,13 +219,12 @@ void main() {
       tester,
     ) async {
       final l10n = lookupAppLocalizations(const Locale('en'));
-      final failing = FakeSpeechClient(error: Exception('down'));
       await tester.pumpApp(
         ExplanationListenCard(
           text: 'Your test found no cancer.',
           language: 'en',
           online: true,
-          speech: failing,
+          speech: _FailOnceSpeechClient(),
           player: player,
           analytics: analytics,
           settings: settings,
@@ -133,6 +235,11 @@ void main() {
 
       expect(find.text(l10n.resultDetailListenFailed), findsOneWidget);
       expect(player.playBytesCalls, isEmpty);
+
+      await tapPlay(tester, l10n);
+
+      expect(find.text(l10n.resultDetailListenFailed), findsNothing);
+      expect(player.playBytesCalls, hasLength(1));
     });
 
     testWidgets('offline without cache shows the offline line', (tester) async {

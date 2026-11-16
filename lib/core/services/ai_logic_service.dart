@@ -9,8 +9,8 @@ import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:injectable/injectable.dart';
 import 'package:tabibu/core/constants/enums.dart';
 
-/// Client calls that go through a server prompt template. A bloc never sees
-/// the SDK types; bundle 04 adds the later methods on this interface.
+/// Model calls a bloc can use: server template calls plus narration.
+/// A bloc never sees the SDK types.
 abstract interface class AiLogicService {
   /// The model named in `prompts/symptom-transcribe-v1-0-0.prompt`. The
   /// template owns the model; this is only what the transcript record stores.
@@ -29,11 +29,6 @@ abstract interface class AiLogicService {
 
   static const regionTemplateKey = 'ai_template_slide_region';
   static const defaultRegionTemplateId = 'slide-region-read-v1-0-0';
-
-  static const ttsModelKey = 'ai_tts_model';
-  static const ttsVoiceKey = 'ai_tts_voice';
-  static const defaultTtsModel = 'gemini-3.8-flash-tts';
-  static const defaultTtsVoice = 'Achernar';
 
   /// Transcribes [wav] in the caller's language. The bytes stay in memory
   /// for this call only.
