@@ -117,7 +117,7 @@ release; reverting the branch's commits removes the bridge.
 | Author | Always | Theo | 2026-11-15 | — |
 | Engineering reviewer | Always, on the pull request | Greptile | 2026-11-16 | Approved: 5/5 after one round, held on the final head |
 | Clinical Reviewer | §4 flags clinical-safety impact or changes clinical wording | Covered by CTO | 2026-11-15 | Approved: AI-labelled, applied only on the person's tap, never stored |
-| Security Analyst | §4 flags security impact | Covered by CTO | — | Pending the console steps (T-21, T-23) |
+| Security Analyst | §4 flags security impact | Covered by CTO | 2026-11-16 | Approved: T-21 in place (App Check enforced on AI Logic, authenticated users only, 20 a minute per user, a $20 spend cap); T-23 waits until AI monitoring is turned on |
 | Compliance Officer | §4 flags data protection impact | Covered by CTO | 2026-11-15 | Approved: the S-8 exception, with contact details stripped |
 | Lead Designer | §4 flags design-system impact | N/A | — | — |
 

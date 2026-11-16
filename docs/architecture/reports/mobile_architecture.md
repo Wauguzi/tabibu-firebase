@@ -739,7 +739,10 @@ In summary:
   Firebase Auth custom claims**, set by an admin-only Cloud Function or seeding
   script. They are never a field a client can write.
 - **App Check**: Play Integrity on Android, App Attest on iOS, reCAPTCHA
-  Enterprise on the web demo. Enforced on Firestore, Storage and Functions.
+  Enterprise on the web demo. Enforced on Firebase AI Logic; Firestore,
+  Storage and Authentication are enforced once their metrics show the app's
+  requests verified (threat model T-7), and the callables once they set
+  `enforceAppCheck`.
   Activated in `bootstrap`: release builds use the attestation
   providers, debug and profile builds the debug provider, with a token from
   the Keychain (`make app-check-token`, injected by `make run-dev`).
