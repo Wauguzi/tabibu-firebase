@@ -660,10 +660,10 @@ export interface SymptomTranscriptResult {
 const TRANSCRIPT_LANGUAGES = ['en', 'sw', 'other'] as const;
 
 /**
- * Records a symptom transcript the app transcribed on the device. No audio is accepted or
- * stored: the server checks the caller, the switch, the rate and the text shape, then writes
- * the transcription document a Voice booking links, so `requestAppointment`'s
- * `transcriptionUid` and the edit-distance metric keep working.
+ * Records a symptom transcript the app got from an AI Logic template and the patient checked.
+ * No audio is accepted or stored: the server checks the caller, the switch, the rate and the
+ * text shape, then writes the transcription document a Voice booking links, so
+ * `requestAppointment`'s `transcriptionUid` and the edit-distance metric keep working.
  */
 export async function recordSymptomTranscriptHandler(
   deps: AppointmentDeps,
