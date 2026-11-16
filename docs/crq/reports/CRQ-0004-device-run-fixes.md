@@ -6,10 +6,10 @@
 | Title | Fixes from the first device run: the risk check, pre-read timing, audio controls and App Check on iOS |
 | Requested by | Theo — CTO |
 | Date raised | 2026-11-16 |
-| Date implemented | Pending the device run on this branch |
+| Date implemented | 2026-11-16 |
 | Priority | P2 High — see [`mobile_workflow.md` §7](../../workflow/reports/mobile_workflow.md#7-escalation--severity) |
 | Change type | Normal |
-| Commit(s) / PR | `feat/ai-logic-templates`; the pull request follows |
+| Commit(s) / PR | [PR #17](https://github.com/Wauguzi/tabibu-firebase/pull/17), merged to `main` as `3916705` on 2026-11-16; the fixes are `1a3b5e2` (risk check), `e351d51` (notification time), `ce14c7c` and `eb896ae` (audio), `b81aa21` (App Check), `eb09218` (Delete account) and `1f51447` (the pre-read wait) |
 
 ## 1. Description of change
 
@@ -106,7 +106,7 @@ deploy to roll back, which restores the defects they fixed.
 | Check | Result |
 |---|---|
 | `make analyze` / `make bloc-lint` | Pass — no issues |
-| `make test` (`TZ=UTC`) | Pass — the full suite |
+| `make test` (`TZ=UTC`) | Pass — 3,673 on the merged branch |
 | `make functions-test` | Pass — 660, including the empty-enum guard and the notification time |
 | Red proofs | Each new guard fails with its fix removed |
 | Live calls | The risk check with and without notes returns `inputLanguage` `en` and `''` |
@@ -119,7 +119,7 @@ deploy to roll back, which restores the defects they fixed.
 | Role | Required when | Name | Date | Decision |
 |---|---|---|---|---|
 | Author | Always | Theo | 2026-11-16 | — |
-| Engineering reviewer | Always, on the pull request | Greptile — pending | — | — |
+| Engineering reviewer | Always, on the pull request | Greptile — [PR #17](https://github.com/Wauguzi/tabibu-firebase/pull/17) | 2026-11-16 | 5/5 — Approved after one round |
 | Clinical Reviewer | §4 flags clinical-safety impact or changes clinical wording | Covered by CTO | 2026-11-16 | Approved: the pre-read wording now matches what happens |
 | Security Analyst | §4 flags security impact | Covered by CTO | 2026-11-16 | Approved: App Check uses the intended provider |
 | Compliance Officer | §4 flags data protection impact | N/A | — | — |
