@@ -28,9 +28,11 @@
 
 **Speech.** Voice input for symptoms is off (`voice_input_enabled`). The
 server accepts no audio: the app sends the recording to an AI Logic template
-(§9) and `recordSymptomTranscript` stores the transcript the patient checked,
-after checking the caller, the switch, a daily cap and its shape; the booking
-links it. Chat voice notes are recorded and played and never sent
+(§9) and `recordSymptomTranscript` stores the machine transcript, readable by
+no client, after checking the caller, the switch, a daily cap and its shape.
+The patient edits it before booking; the booking carries their text and
+links the transcript, and the edit distance between the two is a model
+signal. Chat voice notes are recorded and played and never sent
 to a model; their transcript is marked `Failed` with `UnsupportedFormat`.
 
 Every output is written to Firestore for a person to act on; none goes to
@@ -219,7 +221,7 @@ per-user quota. No prompt is written in the app.
 
 | Call | Who | How | Output | Switch |
 |---|---|---|---|---|
-| **Symptom transcription** | The patient, booking | Server prompt template `symptom-transcribe-v1-0-0`, the WAV held in memory for the one call | JSON `transcript` and `language`; an unclear recording fails closed. The patient checks the text before it is recorded | `voice_input_enabled`, off |
+| **Symptom transcription** | The patient, booking | Server prompt template `symptom-transcribe-v1-0-0`, the WAV held in memory for the one call | JSON `transcript` and `language`; an unclear recording fails closed. The patient checks the text before booking | `voice_input_enabled`, off |
 | **Region read** | The case's pathologist, in the viewer | Server prompt template `slide-region-read-v1-0-0`, the crop the pathologist framed (at most 1024 px) and an optional question, no case field | Impression, features, uncertainty in words and a caveat, in the AI frame; never saved, no copy action | `region_read_enabled`, off |
 | **Listen to this summary** | The patient, on their result | `gemini-3.8-flash-tts` (`ai_tts_model`), voice `Achernar` (`ai_tts_voice`), the approved explanation verbatim, no system instruction or temperature | A WAV played in the app, labelled as a computer-generated voice, cached in memory for the screen | `explanation_listen_enabled`, on; shown only for an approved explanation |
 

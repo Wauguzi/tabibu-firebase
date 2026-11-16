@@ -56,7 +56,7 @@ authoritative for what resolved.
 | Dependency injection | `get_it ^9.3.0`, `injectable ^3.0.0` | Annotation-driven, code-generated (§7). |
 | Immutable models | `freezed ^3.2.6-dev.1`, `freezed_annotation ^3.1.0`, `json_serializable ^6.15.2` | |
 | Local persistence | `hive_ce ^2.22.0`, `hive_ce_flutter ^2.5.0`, `hive_ce_generator ^1.11.2` | An encrypted, offline-first cache, not a key-value store (§6). |
-| Backend | Firebase: `firebase_core`, `firebase_auth`, `cloud_firestore`, `firebase_storage`, `cloud_functions`, `firebase_messaging`, `firebase_remote_config`, `firebase_app_check`, `firebase_crashlytics`, `firebase_analytics`, `firebase_performance`; natively, `FirebaseAILogic` 12.19.3 on iOS for hybrid inference | The app talks **only** to Firebase, and calls a model only through Firebase AI Logic (§3). |
+| Backend | Firebase: `firebase_core`, `firebase_auth`, `cloud_firestore`, `firebase_storage`, `cloud_functions`, `firebase_messaging`, `firebase_remote_config`, `firebase_app_check`, `firebase_crashlytics`, `firebase_analytics`, `firebase_performance`, `firebase_ai` (server prompt templates and speech); natively, `FirebaseAILogic` 12.19.3 on iOS for hybrid inference | The app talks **only** to Firebase, and calls a model only through Firebase AI Logic (§3). |
 | Notifications | `firebase_messaging ^16.7.1`, `flutter_local_notifications ^22.3.3` | Push for alerts and case updates; local banners for foreground arrivals. See [`notifications_engine.md`](./notifications_engine.md). |
 | Anti-tamper | `freerasp ^8.2.4` | Root/jailbreak, repackaging, debugger and hook detection (§10). |
 | Secure storage | `flutter_secure_storage 11.2.0` (exact pin) | Holds the Hive encryption key. On the cold-start path; see §15 rule 2. |
@@ -100,10 +100,14 @@ Three rules follow from the diagram and are not negotiable:
 1. **The app calls a model only through Firebase, and holds no model key.**
    The jobs run in the functions, which call Gemini as their service
    account: the app writes a request (a case opened, a result signed, an
-   intake recorded) and reads back a draft the functions wrote. Two short
-   tasks run in the app through Firebase AI Logic's native hybrid SDKs over
-   `tabibu/hybrid_ai`, which take a task id, never a prompt
-   ([AI service §8](./ai_preread_service.md#8-in-the-app-hybrid-inference)).
+   intake recorded) and reads back a draft the functions wrote. The app has
+   three in-app paths, each fixed by an id, never a prompt it writes: two
+   short tasks through Firebase AI Logic's native hybrid SDKs over
+   `tabibu/hybrid_ai`, which take a task id
+   ([AI service §8](./ai_preread_service.md#8-in-the-app-hybrid-inference));
+   server prompt templates through `AiLogicService`, named by Remote Config;
+   and text-to-speech of an approved explanation
+   ([AI service §9](./ai_preread_service.md#9-in-the-app-templates-and-speech)).
 2. **The helper, not the bloc and not the datasource, decides cache versus
    remote.** A bloc asks its helper. It never reaches into Hive or Firestore
    directly.
@@ -786,7 +790,11 @@ In summary:
   The P1 runbook flips **both** templates, server first. This is the first
   step of a P1 response. The app's defaults for all eight live in
   `lib/core/constants/remote_config_defaults.dart`, passed to `setDefaults`
-  in `bootstrap.dart`, with a test that lists all eight.
+  in `bootstrap.dart`, with a test that lists all eight. The in-app AI calls
+  have their own client switches, with no server job behind them:
+  `hybrid_symptom_tidy_enabled`, `hybrid_notes_summary_enabled`,
+  `region_read_enabled` (off) and `explanation_listen_enabled`
+  ([AI service §7](./ai_preread_service.md#7-kill-switches)).
 - **Remote Config at startup**: `bootstrap` sets in-app defaults,
   then fetches and activates within the bootstrap timeout; on any failure
   the defaults stand. Every parameter the app reads has a default there.

@@ -19,8 +19,9 @@ through it:
 
 - **Symptom transcription** replaces the retired server speech-to-text. The
   WAV goes, in memory, to the server prompt template
-  `symptom-transcribe-v1-0-0`; the transcript comes back as JSON, the patient
-  checks it, and `recordSymptomTranscript` stores it. An unclear recording or
+  `symptom-transcribe-v1-0-0`; the transcript comes back as JSON and
+  `recordSymptomTranscript` stores it server-side, readable by no client. The
+  patient edits it before booking, and the booking carries their text. An unclear recording or
   a blank transcript fails closed. A Swahili transcript is kept, with the
   line "Voice works best in English."
 - **The slide-region read** lets the case's pathologist ask about the region
@@ -116,7 +117,27 @@ branch removes the service.
 
 ## 9. Post-implementation review
 
-Filled in after the device run.
+**Pre-review pass (16 Nov), before the pull request.** A local Greptile-style
+pass over the branch found these, each fixed with a test that fails without
+the fix:
+
+- **The region read sent the wrong pixels.** The capture took the whole slide
+  viewer, not the zoomed region on screen, so the model could describe tissue
+  the pathologist was not looking at. It now crops what is visible, and
+  refuses to capture until a frame has painted, so a blank image is never
+  sent.
+- **The region sheet** could open twice on a double tap; its fields are
+  trimmed, and the pathologist's question is fenced in the template as a
+  question, never instructions.
+- **The narration** kept playing after the patient left the result or the
+  approved text changed, and a reply that arrived after the text changed
+  could still play. Leaving or a change now stops it, and a stale reply is
+  dropped. A failed play shows the listen error and returns to play.
+- **Smaller items:** the pause is logged as on voice notes, the speech cache
+  key is the request's own fields, unused TTS constants are gone, and a test
+  shows each transcription sends only its own audio (T-24).
+
+The device run follows.
 
 ## 10. Related records
 

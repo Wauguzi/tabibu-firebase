@@ -11,8 +11,8 @@ abstract final class RemoteConfigDefaults {
     'alerts_delivery_enabled': true,
     'symptom_intake_enabled': true,
     'report_translation_enabled': true,
-    // Off until speech to text runs in the app; the server no longer takes
-    // symptom audio.
+    // Off until a device run has heard the transcription template; the
+    // server takes no audio.
     'voice_input_enabled': false,
     'alert_drafting_enabled': true,
   };
@@ -28,8 +28,9 @@ abstract final class RemoteConfigDefaults {
 
   /// AI Logic calls: symptom speech, explanation speech, the region read.
   /// Template ids match `prompts/` without the extension. Limited-use tokens
-  /// stay off until a live call has proved them; the region read stays off
-  /// until Theo switches it on.
+  /// stay off until a live call has proved them, and the region read until a
+  /// device run has checked it; the narration reads approved text, so it is
+  /// on.
   static const ai = <String, Object>{
     'ai_location': 'global',
     'ai_template_symptom_transcribe': 'symptom-transcribe-v1-0-0',

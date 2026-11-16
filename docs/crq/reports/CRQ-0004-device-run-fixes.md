@@ -31,8 +31,11 @@ defects. Each is fixed here.
    met a failure screen. The button now reads "Awaiting pre-read" and is
    disabled, under a notice that it takes about three minutes; the
    pre-read's inbox row reopens the workspace, so the button turns on by
-   itself. The doctor's note on ordering now says when the pre-read starts
-   and how long it takes.
+   itself, and "Check again" reads the case from the server. A case queued
+   for more than 30 minutes, the server's own stale window, is offered as
+   usual, so a lost run cannot strand it, and a refusal now names the
+   pre-read (`prereadPending`) instead of a generic error. The doctor's note
+   on ordering now says when the pre-read starts and how long it takes.
 4. **Pause did nothing during a voice note's first playback, and the MDT
    preview's icon lagged.** The player awaited `just_audio`'s `play()`,
    which completes only when playback pauses or ends. It now returns once
@@ -46,8 +49,9 @@ defects. Each is fixed here.
    DeviceCheck, which this app does not register. The App Check plugin now
    registers first in `AppDelegate`, so the debug token and App Attest work
    as `bootstrap` asks.
-6. **"Delete account" could disable a shared demo account.** The entry is
-   commented out until a real deletion flow exists.
+6. **"Delete account" was offered with nothing behind it.** The row had no
+   action, and the seeded demo accounts are shared, so none should be offered
+   for deletion. It is commented out until a real deletion flow exists.
 
 ## 2. Business justification
 
@@ -65,8 +69,9 @@ pause, and an iPhone whose cloud features App Check refuses.
   It is queued with its fix (`.briefs`), P3.
 - **App Attest in release builds:** the signing team is a free Personal
   Team, which cannot add the entitlement. Judges install the Android APK.
-- **Six event triggers still bind `META_API_KEY`:** the CLI keeps a binding
-  it did not create. The secret stays; the bindings go after submission.
+- **Six event triggers still carry a secret binding from an earlier model
+  provider:** no code reads it, and the CLI keeps a binding it did not
+  create. The bindings go after submission.
 
 ## 4. Impact assessment
 
@@ -79,7 +84,7 @@ pause, and an iPhone whose cloud features App Check refuses.
 | Security (rules, App Check, RASP, secrets) | Affected | App Check on iOS now uses the provider `bootstrap` names |
 | Data protection (PHI, de-identification, model endpoints) | None | |
 | Design system / UI consistency | Existing pattern | `NoticeCard`, `TabibuButton`, the existing play and pause icons |
-| Localisation (en, sw) | Added | Three `workspaceAwaitingPreread*` strings; `orderPathologistAiNote` reworded |
+| Localisation (en, sw) | Added | Four `workspaceAwaitingPreread*` strings and `errorPrereadPending`; `orderPathologistAiNote` reworded |
 | Existing data | None | |
 
 ## 5. Risk & rollback plan
@@ -122,7 +127,22 @@ deploy to roll back, which restores the defects they fixed.
 
 ## 9. Post-implementation review
 
-Filled in after the device run.
+**Pre-review pass (16 Nov), before the pull request.** A local Greptile-style
+pass found the awaiting state could strand a case: a pre-read lost after
+queueing kept the button off for good, and a case opened from the cache
+never learned the pre-read had landed. The wait now ends at the server's
+30-minute stale window, opening a queued case reads the server, "Check
+again" asks for the case, and an inbox row already present when the case
+loads reopens it. Each has a test that fails without it.
+
+The same pass tightened the audio fixes of §1.4: the recording cue waits for
+its beep to end before the microphone opens, a clip that fails to play says
+so instead of sitting on pause, a voice note retried after a failure
+reloads, MDT playback is counted as MDT, and signing out stops any clip, so
+a narrated result does not play on for the next person to use the phone. It
+also corrected the docs that described the in-app AI paths.
+
+The device run follows.
 
 ## 10. Related records
 
