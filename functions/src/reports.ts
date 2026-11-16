@@ -1261,7 +1261,6 @@ export async function requestReportTextHandler(
  */
 export async function onPrereadWrittenHandler(deps: Deps, caseUid: string, runUid: string): Promise<void> {
   const { db } = deps;
-  const now = nowOf(deps);
 
   // Live worker: process a Queued run to Ready/Failed, then the stage move below.
   const before = (
@@ -1270,6 +1269,9 @@ export async function onPrereadWrittenHandler(deps: Deps, caseUid: string, runUi
   if (before && str(before.status) === 'Queued') {
     await processQueuedPreread(deps, caseUid, runUid);
   }
+  // Read after the run: the stage move and the "ready" notification are dated when the run
+  // finished, or the app treats a long run's notification as already old and never shows it.
+  const now = nowOf(deps);
 
   await db.runTransaction(async (tx) => {
     const caseSnap = await tx.get(db.collection('cases').doc(caseUid));
