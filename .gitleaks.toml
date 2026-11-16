@@ -23,3 +23,14 @@ regexes = ['''^symptom_voice_consent_v1$''']
 paths = [
   '''^lib/features/practitioners/presentation/widgets/symptom_voice_controls\.dart$''',
 ]
+
+[[allowlists]]
+description = "AI Logic template ids (name-vN or name-vN-N-N), not credentials"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^[a-z][a-z-]*-v[0-9]+(-[0-9]+)*$''']
+paths = [
+  '''^lib/core/services/ai_logic_service\.dart$''',
+  '''^test/core/services/ai_logic_[a-z_]+_test\.dart$''',
+]
