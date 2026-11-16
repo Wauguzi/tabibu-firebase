@@ -46,45 +46,12 @@ jobs:
       - name: 🧾 Type-check everything, tests and seed included
         run: npx tsc --noEmit -p tsconfig.json
 
-  build:
-    # Pinned: on the newer Ubuntu image Gradle was killed mid-build (exit 143).
+  # Checks and tests run beside the APK build, on their own runner; a private repository's
+  # runner has 2 CPUs and 8 GB, too small to do both in one job inside an hour.
+  test:
     runs-on: ubuntu-24.04
-    # The tests take about 28 minutes and a cold signed release build about 15; the rest is
-    # headroom for a slow runner.
-    timeout-minutes: 90
-    env:
-      # Empty for Dependabot and fork PRs, which receive no secrets; the signed steps skip.
-      CAN_SIGN: ${{ secrets.RELEASE_KEYSTORE != '' }}
-      FIREBASE_ANDROID_APP_ID: "1:270369739916:android:488605da76eaf0aa7f17a9"
+    timeout-minutes: 45
     steps:
-      - name: 🧹 Free disk space
-        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
-        with:
-          preinstalled-runtimes: true
-          android: false
-          dotnet: true
-          haskell: true
-          large-packages: true
-          docker-images: true
-          swap-storage: true
-
-      # The step above deletes the runner's swap. Give the release build (Gradle, the Kotlin
-      # daemon, R8, gen_snapshot) 8 GB of headroom instead of an OOM kill.
-      - name: 💾 Add swap
-        run: |
-          sudo fallocate -l 8G /swapfile-ci
-          sudo chmod 600 /swapfile-ci
-          sudo mkswap /swapfile-ci
-          sudo swapon /swapfile-ci
-          free -h
-
-      # AGP 9.3's release lint needs a Java 21 runtime; the code still targets Java 17.
-      - name: ☕ Set up JDK 21
-        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
-        with:
-          java-version: "21"
-          distribution: "temurin"
-
       - name: 📥 Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -142,6 +109,69 @@ jobs:
         if: github.actor != 'dependabot[bot]'
         run: node scripts/next-release.cjs
 
+  build:
+    # Pinned: on the newer Ubuntu image Gradle was killed mid-build (exit 143).
+    runs-on: ubuntu-24.04
+    # A cold signed release build takes about 15 minutes; the rest is headroom for a slow runner.
+    timeout-minutes: 90
+    env:
+      # Empty for Dependabot and fork PRs, which receive no secrets; the signed steps skip.
+      CAN_SIGN: ${{ secrets.RELEASE_KEYSTORE != '' }}
+    outputs:
+      signed: ${{ steps.signed.outputs.signed }}
+    steps:
+      - name: 🧹 Free disk space
+        if: env.CAN_SIGN == 'true'
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          preinstalled-runtimes: true
+          android: false
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      # The step above deletes the runner's swap. Give the release build (Gradle, the Kotlin
+      # daemon, R8, gen_snapshot) 8 GB of headroom instead of an OOM kill.
+      - name: 💾 Add swap
+        if: env.CAN_SIGN == 'true'
+        run: |
+          sudo fallocate -l 8G /swapfile-ci
+          sudo chmod 600 /swapfile-ci
+          sudo mkswap /swapfile-ci
+          sudo swapon /swapfile-ci
+          free -h
+
+      # AGP 9.3's release lint needs a Java 21 runtime; the code still targets Java 17.
+      - name: ☕ Set up JDK 21
+        if: env.CAN_SIGN == 'true'
+        uses: actions/setup-java@77dd5b2ce225ea11469928ac317850245a74ae78 # v6.2.0
+        with:
+          java-version: "21"
+          distribution: "temurin"
+
+      - name: 📥 Checkout repository
+        if: env.CAN_SIGN == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: 🐦 Set up Flutter
+        if: env.CAN_SIGN == 'true'
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          flutter-version: "3.50.0"
+          cache: true
+
+      - name: 📦 Install dependencies
+        if: env.CAN_SIGN == 'true'
+        run: flutter pub get
+
+      - name: 🌐 Generate localization files
+        if: env.CAN_SIGN == 'true'
+        run: flutter gen-l10n
+
       - name: 🔑 Decode Android keystore
         if: env.CAN_SIGN == 'true'
         env:
@@ -151,22 +181,18 @@ jobs:
           echo "ANDROID_KEYSTORE_PATH=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
 
       # gradle.properties asks for an 8 GB heap, which starves the OS, the Kotlin daemon and the
-      # compilers on a hosted runner and ends in an OOM kill (exit 143).
+      # compilers on a hosted runner. One worker keeps R8 and the three gen_snapshot compiles
+      # from running at once: together they outgrew 8 GB and the runner stopped responding.
       - name: 🧠 Tune Gradle for hosted runner memory
         if: env.CAN_SIGN == 'true'
         run: |
-          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8/' android/gradle.properties
-          if grep -q '^org.gradle.parallel=' android/gradle.properties; then
-            sed -i 's/^org.gradle.parallel=.*/org.gradle.parallel=false/' android/gradle.properties
-          else
-            echo 'org.gradle.parallel=false' >> android/gradle.properties
-          fi
-          if ! grep -q '^org.gradle.workers.max=' android/gradle.properties; then
-            echo 'org.gradle.workers.max=2' >> android/gradle.properties
-          fi
-          if ! grep -q '^kotlin.daemon.jvmargs=' android/gradle.properties; then
-            echo 'kotlin.daemon.jvmargs=-Xmx1024m' >> android/gradle.properties
-          fi
+          sed -i 's/^org.gradle.jvmargs=.*/org.gradle.jvmargs=-Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8/' android/gradle.properties
+          {
+            echo 'org.gradle.parallel=false'
+            echo 'org.gradle.workers.max=1'
+            echo 'kotlin.daemon.jvmargs=-Xmx1024m'
+          } >> android/gradle.properties
+          grep -v '^#' android/gradle.properties
 
       - name: 🏗️ Build release APK
         if: env.CAN_SIGN == 'true'
@@ -182,6 +208,14 @@ jobs:
           --obfuscate
           --split-debug-info=debug-symbols
 
+      - name: 📦 Upload the APK
+        if: env.CAN_SIGN == 'true'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apk-${{ github.run_number }}
+          path: build/app/outputs/flutter-apk/app-production-release.apk
+          retention-days: 7
+
       - name: 📦 Upload debug symbols
         if: env.CAN_SIGN == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -190,8 +224,43 @@ jobs:
           path: debug-symbols/
           retention-days: 90
 
+      - name: ✅ Signed build ready
+        id: signed
+        run: echo "signed=$CAN_SIGN" >> "$GITHUB_OUTPUT"
+
+      - name: 🧽 Remove signing material
+        if: always()
+        run: rm -f "$RUNNER_TEMP/release.jks"
+
+  # Testers get a build only when its checks and tests passed.
+  distribute:
+    needs: [test, build]
+    if: needs.build.outputs.signed == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      FIREBASE_ANDROID_APP_ID: "1:270369739916:android:488605da76eaf0aa7f17a9"
+    steps:
+      - name: 📥 Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: pubspec.yaml
+          sparse-checkout-cone-mode: false
+
+      - name: 📥 Download the APK
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: apk-${{ github.run_number }}
+          path: apk/
+
+      - name: 📥 Download debug symbols
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: debug-symbols-${{ github.run_number }}
+          path: debug-symbols/
+
       - name: 🔥 Upload Dart symbols to Crashlytics
-        if: env.CAN_SIGN == 'true'
         env:
           CREDENTIAL_FILE_CONTENT: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
           GOOGLE_APPLICATION_CREDENTIALS: ${{ runner.temp }}/service-account.json
@@ -205,7 +274,6 @@ jobs:
       # are the contributor's text, so they reach the file through env and jq, never the shell.
       # App Distribution caps notes at 16,000 characters.
       - name: 📝 Release notes from the pull request
-        if: env.CAN_SIGN == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -226,15 +294,14 @@ jobs:
           cat release-notes.txt
 
       - name: 🚀 Upload to Firebase App Distribution
-        if: env.CAN_SIGN == 'true'
         uses: wzieba/Firebase-Distribution-Github-Action@bd494989dd4bec0343f78adee87fe66e48279ad6 # v1.7.1
         with:
           appId: ${{ env.FIREBASE_ANDROID_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
           groups: internal-production
-          file: build/app/outputs/flutter-apk/app-production-release.apk
+          file: apk/app-production-release.apk
           releaseNotesFile: release-notes.txt
 
       - name: 🧽 Remove signing material
         if: always()
-        run: rm -f "$RUNNER_TEMP/release.jks" "$RUNNER_TEMP/service-account.json"
+        run: rm -f "$RUNNER_TEMP/service-account.json"
