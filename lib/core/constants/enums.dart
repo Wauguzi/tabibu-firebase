@@ -304,7 +304,7 @@ enum AppError implements Exception {
   // Thrown directly by the auth flow, not from a Firebase code.
   practitionerPendingVerification,
   noRoleAssigned,
-  // Speech kill switch off (`voiceDisabled` from transcribeSymptoms).
+  // Speech kill switch off (`voiceDisabled` from recordSymptomTranscript).
   voiceUnavailable,
   unknown;
 
