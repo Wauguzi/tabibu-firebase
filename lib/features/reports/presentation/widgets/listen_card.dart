@@ -56,7 +56,9 @@ class ListenCard extends StatelessWidget {
             Semantics(
               label: label,
               button: true,
-              enabled: onToggle != null,
+              // Loading keeps the in-progress mark, and must not announce
+              // as a control that can be pressed.
+              enabled: onToggle != null && !loading,
               onTap: onToggle,
               excludeSemantics: true,
               child: SizedBox(

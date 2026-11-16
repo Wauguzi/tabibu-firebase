@@ -20,12 +20,14 @@ class _FakePlayerPlatform implements AudioPlayerPlatform {
 
   /// just_audio's play() completes only when playback pauses, stops or ends;
   /// the fake does the same, so a caller that awaits it is caught waiting.
-  Completer<void>? _playing;
+  /// Each play() is its own future. [stop] leaves it open so a test can
+  /// deliver a failure after a newer play of the same id has started.
+  final plays = <Completer<void>>[];
 
   void _endPlay() {
-    final current = _playing;
-    _playing = null;
-    if (current != null && !current.isCompleted) current.complete();
+    if (plays.isEmpty) return;
+    final current = plays.last;
+    if (!current.isCompleted) current.complete();
   }
 
   @override
@@ -56,7 +58,9 @@ class _FakePlayerPlatform implements AudioPlayerPlatform {
   Future<void> play() {
     playing = true;
     stateController.add(PlayerState(true, ProcessingState.ready));
-    return (_playing ??= Completer<void>()).future;
+    final play = Completer<void>();
+    plays.add(play);
+    return play.future;
   }
 
   @override
@@ -71,7 +75,6 @@ class _FakePlayerPlatform implements AudioPlayerPlatform {
   Future<void> stop() async {
     stopCount += 1;
     playing = false;
-    _endPlay();
   }
 
   @override
@@ -173,4 +176,38 @@ void main() {
     expect(await service.resume('A'), isFalse);
     expect(await service.resume('B'), isTrue);
   });
+
+  test('a failed play is reported for that clip', () async {
+    final events = <AudioPlayback>[];
+    final sub = service.playback.listen(events.add);
+
+    await service.playBytes(Uint8List(4), id: 'clip');
+    platform.plays.single.completeError(StateError('speaker'));
+    await Future<void>.delayed(Duration.zero);
+
+    expect(
+      events.where((e) => e.id == 'clip' && e.failed && !e.playing),
+      isNotEmpty,
+    );
+    await sub.cancel();
+  });
+
+  test(
+    'a late failure of an earlier play does not stop the newer one',
+    () async {
+      final events = <AudioPlayback>[];
+      final sub = service.playback.listen(events.add);
+
+      await service.playBytes(Uint8List(4), id: 'clip');
+      final first = platform.plays.single;
+      await service.playBytes(Uint8List(8), id: 'clip');
+      events.clear();
+      first.completeError(StateError('late'));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(events.where((e) => e.failed), isEmpty);
+      expect(platform.playing, isTrue);
+      await sub.cancel();
+    },
+  );
 }

@@ -24,6 +24,7 @@ enum _ComposerVoiceStatus {
   startFailed,
   recordFailed,
   sendFailed,
+  playFailed,
 }
 
 /// Sends once for text (clears the box) and once for a voice note (droppable
@@ -111,10 +112,20 @@ class _MdtComposerState extends State<MdtComposer> {
   /// The preview's button follows the shared player: it ends, or a bubble
   /// takes the player, and the icon goes back to play on its own.
   void _onPlayback(AudioPlayback event) {
-    final playing =
-        event.id == _previewPlayerId && event.playing && !event.completed;
-    if (playing == _previewPlaying || !mounted) return;
-    setState(() => _previewPlaying = playing);
+    if (!mounted || event.id != _previewPlayerId) return;
+    if (event.failed) {
+      setState(() {
+        _previewPlaying = false;
+        _status = .playFailed;
+      });
+      return;
+    }
+    final playing = event.playing && !event.completed;
+    if (playing == _previewPlaying) return;
+    setState(() {
+      _previewPlaying = playing;
+      if (playing && _status == .playFailed) _status = .none;
+    });
   }
 
   @override
@@ -319,6 +330,7 @@ class _MdtComposerState extends State<MdtComposer> {
     .startFailed => l10n.chatVoiceStartFailed,
     .recordFailed => l10n.chatVoiceRecordFailed,
     .sendFailed => l10n.chatVoiceSendFailed,
+    .playFailed => l10n.chatVoicePlayFailed,
   };
 
   @override

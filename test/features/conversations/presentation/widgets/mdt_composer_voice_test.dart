@@ -266,4 +266,22 @@ void main() {
       expect(player.playedIds.last, 'composer-preview');
     },
   );
+
+  testWidgets('a failed preview shows the play error', (tester) async {
+    await pumpComposer(tester);
+    await tester.tap(find.bySemanticsLabel(l10n.chatVoiceRecordLabel));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.bySemanticsLabel(l10n.chatVoiceStopLabel));
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel(l10n.chatVoicePlayLabel));
+    await tester.pump();
+
+    player.failClip('composer-preview');
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text(l10n.chatVoicePlayFailed), findsOneWidget);
+    expect(find.bySemanticsLabel(l10n.chatVoicePlayLabel), findsOneWidget);
+  });
 }

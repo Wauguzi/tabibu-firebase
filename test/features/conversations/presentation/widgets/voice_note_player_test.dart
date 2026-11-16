@@ -43,6 +43,7 @@ void main() {
     WidgetTester tester, {
     required Future<Uint8List> Function(MessageModel) loadBytes,
     AnalyticsService? analyticsService,
+    String surface = 'chat',
   }) async {
     tester.view.physicalSize = const Size(1170, 2000);
     tester.view.devicePixelRatio = 3;
@@ -54,6 +55,7 @@ void main() {
         loadBytes: loadBytes,
         player: player,
         analytics: analyticsService,
+        surface: surface,
       ),
     );
     await tester.pump();
@@ -75,6 +77,63 @@ void main() {
     await tester.tap(find.bySemanticsLabel(l10n.chatVoicePauseLabel));
     await tester.pump();
     verify(() => analytics.logVoicePlaybackPaused()).called(1);
+  });
+
+  testWidgets('mdt playback logs mdt, not chat', (tester) async {
+    await pumpPlayer(
+      tester,
+      loadBytes: (_) async => Uint8List.fromList([1, 2, 3]),
+      analyticsService: analytics,
+      surface: 'mdt',
+    );
+
+    await tester.tap(find.bySemanticsLabel(l10n.chatVoicePlayLabel));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    verify(() => analytics.logVoicePlaybackStarted(surface: 'mdt')).called(1);
+    verifyNever(() => analytics.logVoicePlaybackStarted(surface: 'chat'));
+  });
+
+  testWidgets('a failed clip shows the play error', (tester) async {
+    await pumpPlayer(
+      tester,
+      loadBytes: (_) async => Uint8List.fromList([1, 2, 3]),
+    );
+
+    await tester.tap(find.bySemanticsLabel(l10n.chatVoicePlayLabel));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    player.failClip(message.uid);
+    // The failure is delivered as a microtask, which only schedules the
+    // rebuild. The second pump paints it.
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text(l10n.chatVoicePlayFailed), findsOneWidget);
+    expect(find.bySemanticsLabel(l10n.chatVoicePlayLabel), findsOneWidget);
+  });
+
+  testWidgets('after a failure, play again reloads and clears the error', (
+    tester,
+  ) async {
+    await pumpPlayer(
+      tester,
+      loadBytes: (_) async => Uint8List.fromList([1, 2, 3]),
+    );
+
+    await tester.tap(find.bySemanticsLabel(l10n.chatVoicePlayLabel));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    player.failClip(message.uid);
+    await tester.pump();
+    await tester.pump();
+
+    await tester.tap(find.bySemanticsLabel(l10n.chatVoicePlayLabel));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(find.text(l10n.chatVoicePlayFailed), findsNothing);
+    expect(player.playBytesCalls, hasLength(2));
   });
 
   testWidgets('replays use the cached bytes without a second fetch', (

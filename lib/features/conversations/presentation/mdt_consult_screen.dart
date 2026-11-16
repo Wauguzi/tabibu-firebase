@@ -299,6 +299,7 @@ class _MdtConsultScreenState extends State<MdtConsultScreen> {
           sender:
               consult.members[m.senderUid] ?? const ConversationMemberModel(),
           loadVoiceBytes: _loadVoice,
+          voiceSurface: 'mdt',
         ),
       );
     }

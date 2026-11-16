@@ -85,6 +85,31 @@ void main() {
       );
     });
 
+    testWidgets('loading disables the button and keeps the in-progress mark', (
+      tester,
+    ) async {
+      await tester.pumpApp(
+        const ListenCard(
+          title: 'Listen to this summary',
+          supporting: 'English · 40 s',
+          playing: false,
+          loading: true,
+          playLabel: 'Play summary',
+          pauseLabel: 'Pause summary',
+          onToggle: _noop,
+        ),
+      );
+
+      expect(
+        tester.widget<AssetIcon>(find.byType(AssetIcon)).asset.path,
+        Assets.icons.inProgressIcon.path,
+      );
+      expect(
+        tester.getSemantics(find.bySemanticsLabel('Play summary')),
+        isSemantics(label: 'Play summary', isButton: true, isEnabled: false),
+      );
+    });
+
     testWidgets('renders in light and dark', (tester) async {
       for (final mode in [ThemeMode.light, ThemeMode.dark]) {
         await tester.pumpApp(

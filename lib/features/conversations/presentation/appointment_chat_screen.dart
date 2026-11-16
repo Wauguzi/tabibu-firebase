@@ -201,6 +201,7 @@ class _AppointmentChatScreenState extends State<AppointmentChatScreen> {
               conversation.members[m.senderUid] ??
               const ConversationMemberModel(),
           loadVoiceBytes: _loadVoice,
+          voiceSurface: 'chat',
         ),
     ];
   }

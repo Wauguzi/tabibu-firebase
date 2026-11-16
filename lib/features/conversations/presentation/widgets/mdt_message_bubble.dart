@@ -21,6 +21,7 @@ class MdtMessageBubble extends StatelessWidget {
     required this.message,
     required this.mine,
     required this.sender,
+    required this.voiceSurface,
     this.loadVoiceBytes,
     this.player,
     super.key,
@@ -29,6 +30,10 @@ class MdtMessageBubble extends StatelessWidget {
   final MessageModel message;
   final bool mine;
   final ConversationMemberModel sender;
+
+  /// `'chat'` on an appointment thread, `'mdt'` on a consult. Forwarded to
+  /// the voice note so playback is not logged as chat for both.
+  final String voiceSurface;
   final Future<Uint8List> Function(MessageModel message)? loadVoiceBytes;
   final AudioPlayerService? player;
 
@@ -66,6 +71,7 @@ class MdtMessageBubble extends StatelessWidget {
               foreground: foreground,
               loadBytes: loadVoiceBytes!,
               player: player,
+              surface: voiceSurface,
             )
           else if (isVoice)
             Text(
