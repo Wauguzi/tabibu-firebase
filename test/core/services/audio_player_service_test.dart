@@ -18,6 +18,16 @@ class _FakePlayerPlatform implements AudioPlayerPlatform {
   bool disposed = false;
   bool playing = false;
 
+  /// just_audio's play() completes only when playback pauses, stops or ends;
+  /// the fake does the same, so a caller that awaits it is caught waiting.
+  Completer<void>? _playing;
+
+  void _endPlay() {
+    final current = _playing;
+    _playing = null;
+    if (current != null && !current.isCompleted) current.complete();
+  }
+
   @override
   Stream<PlayerState> get playerStateStream => stateController.stream;
 
@@ -43,9 +53,10 @@ class _FakePlayerPlatform implements AudioPlayerPlatform {
   }
 
   @override
-  Future<void> play() async {
+  Future<void> play() {
     playing = true;
     stateController.add(PlayerState(true, ProcessingState.ready));
+    return (_playing ??= Completer<void>()).future;
   }
 
   @override
@@ -53,12 +64,14 @@ class _FakePlayerPlatform implements AudioPlayerPlatform {
     pauseCount += 1;
     playing = false;
     stateController.add(PlayerState(false, ProcessingState.ready));
+    _endPlay();
   }
 
   @override
   Future<void> stop() async {
     stopCount += 1;
     playing = false;
+    _endPlay();
   }
 
   @override
@@ -82,6 +95,21 @@ void main() {
 
   tearDown(() async {
     await service.dispose();
+  });
+
+  test('playBytes and resume return while the clip is still playing', () async {
+    // With the real player, awaiting play() would wait out the whole clip and
+    // a pause tapped meanwhile would be ignored or the icon would lag.
+    await service
+        .playBytes(Uint8List(4), id: 'a')
+        .timeout(const Duration(seconds: 1));
+    expect(platform.playing, isTrue);
+    await service.pause();
+    expect(
+      await service.resume('a').timeout(const Duration(seconds: 1)),
+      isTrue,
+    );
+    expect(platform.playing, isTrue);
   });
 
   test('starting B reports A not playing', () async {

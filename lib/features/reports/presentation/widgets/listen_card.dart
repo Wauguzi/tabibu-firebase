@@ -17,6 +17,7 @@ class ListenCard extends StatelessWidget {
     required this.onToggle,
     required this.playLabel,
     required this.pauseLabel,
+    this.loading = false,
     super.key,
   });
 
@@ -26,6 +27,9 @@ class ListenCard extends StatelessWidget {
   final VoidCallback? onToggle;
   final String playLabel;
   final String pauseLabel;
+
+  /// The clip is being fetched: the in-progress mark, not pause.
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
@@ -64,10 +68,11 @@ class ListenCard extends StatelessWidget {
                   child: Tappable(
                     onTap: onToggle,
                     child: Center(
-                      // No pause glyph yet: playing keeps the in-progress mark.
                       child: AssetIcon(
-                        playing
+                        loading
                             ? Assets.icons.inProgressIcon
+                            : playing
+                            ? Assets.icons.pauseIcon
                             : Assets.icons.playIcon,
                         size: 24,
                         color: onInk,

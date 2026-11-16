@@ -179,7 +179,7 @@ class DeviceAudioPlayerService implements AudioPlayerService {
     if (duration != null) _duration = duration;
     _playing = true;
     _emit(id: id, playing: true, completed: false);
-    await _platform.play();
+    _start(id);
   }
 
   @override
@@ -187,8 +187,21 @@ class DeviceAudioPlayerService implements AudioPlayerService {
     if (_currentId != id) return false;
     _playing = true;
     _emit(id: id, playing: true, completed: false);
-    await _platform.play();
+    _start(id);
     return true;
+  }
+
+  /// The platform's play() completes only when playback pauses, stops or
+  /// ends, so it is not awaited: callers return once the clip has started,
+  /// and the [playback] stream reports how it ends.
+  void _start(String id) {
+    unawaited(
+      _platform.play().catchError((Object _) {
+        if (_currentId == id) {
+          _emit(id: id, playing: false, completed: false);
+        }
+      }),
+    );
   }
 
   @override

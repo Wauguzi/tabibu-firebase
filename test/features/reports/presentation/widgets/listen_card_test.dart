@@ -1,6 +1,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/reports/presentation/widgets/listen_card.dart';
+import 'package:tabibu/gen/assets.gen.dart';
 
 import '../../../../helpers/helpers.dart';
 
@@ -53,6 +55,34 @@ void main() {
       );
       expect(find.bySemanticsLabel('Pause summary'), findsOneWidget);
       expect(find.bySemanticsLabel('Play summary'), findsNothing);
+    });
+
+    testWidgets('shows play when stopped, pause while playing, and the '
+        'in-progress mark while loading', (tester) async {
+      Future<String> iconFor({
+        required bool playing,
+        bool loading = false,
+      }) async {
+        await tester.pumpApp(
+          ListenCard(
+            title: 'Listen to this summary',
+            supporting: 'English · 40 s',
+            playing: playing,
+            loading: loading,
+            playLabel: 'Play summary',
+            pauseLabel: 'Pause summary',
+            onToggle: _noop,
+          ),
+        );
+        return tester.widget<AssetIcon>(find.byType(AssetIcon)).asset.path;
+      }
+
+      expect(await iconFor(playing: false), Assets.icons.playIcon.path);
+      expect(await iconFor(playing: true), Assets.icons.pauseIcon.path);
+      expect(
+        await iconFor(playing: false, loading: true),
+        Assets.icons.inProgressIcon.path,
+      );
     });
 
     testWidgets('renders in light and dark', (tester) async {
