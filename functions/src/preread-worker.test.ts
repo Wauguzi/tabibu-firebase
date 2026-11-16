@@ -637,7 +637,7 @@ describe('labelling prompt', () => {
     assert.equal(PREREAD_PROMPT_VERSION, 'preread-classify-v4');
     // Proven setting until the tuning run says otherwise (the live 36-tile run took about 9 s).
     assert.equal(TILE_UPSCALE_FACTOR, 1);
-    assert.equal(TILE_THINKING_LEVEL, ThinkingLevel.MINIMAL);
+    assert.equal(TILE_THINKING_LEVEL, ThinkingLevel.LOW);
     assert.match(PREREAD_PCAM_LABEL_RULE, /central 32 by 32/i);
     assert.match(PREREAD_PCAM_LABEL_RULE, /Most tiles are Normal/i);
     const instructions = buildClassifyInstructions('Cancer');
@@ -737,8 +737,8 @@ describe('parallel batches and thinking level', () => {
     assert.ok(elapsed < delayMs * requests * 0.5, `expected overlap, got ${elapsed}ms`);
   });
 
-  it('worker budget is 240 s and tiles think at the minimal level', () => {
-    assert.equal(TILE_THINKING_LEVEL, ThinkingLevel.MINIMAL);
+  it('worker budget is 240 s and tiles think at the lowest accepted level', () => {
+    assert.equal(TILE_THINKING_LEVEL, ThinkingLevel.LOW);
     assert.equal(PREREAD_WORKER_TIMEOUT_MS, 240_000);
   });
 
@@ -832,7 +832,7 @@ describe('guarded write, log, seed race', () => {
     assert.equal((await runRef.get()).get('failureReason'), '');
   });
 
-  it('tile classify request thinks at the minimal level with a JSON schema', async () => {
+  it('tile classify request thinks at the lowest accepted level with a JSON schema', async () => {
     const requests: GeminiGenerateRequest[] = [];
     const generate: GeminiGenerate = async (req) => {
       requests.push(req);
@@ -895,7 +895,7 @@ describe('guarded write, log, seed race', () => {
     assert.ok(requests.length >= 1);
     assert.equal(requests[0].model, GEMINI_TEXT_MODEL);
     assert.deepEqual(requests[0].config?.thinkingConfig, {
-      thinkingLevel: ThinkingLevel.MINIMAL,
+      thinkingLevel: ThinkingLevel.LOW,
     });
     assert.equal(requests[0].config?.responseMimeType, 'application/json');
     assert.ok(requests[0].config?.responseSchema);

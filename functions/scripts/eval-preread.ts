@@ -17,11 +17,11 @@
  *   npx ts-node scripts/eval-preread.ts
  *   npx ts-node scripts/eval-preread.ts --live --tune
  *   npx ts-node scripts/eval-preread.ts --live --tune --variants
- *   npx ts-node scripts/eval-preread.ts --live --tune --variants v3_minimal,v3_upscale3_minimal --yes-spend
+ *   npx ts-node scripts/eval-preread.ts --live --tune --variants v3_thinking_low,v3_upscale3_thinking_low --yes-spend
  *   npx ts-node scripts/eval-preread.ts --live --demo-mosaics
  *   npx ts-node scripts/eval-preread.ts --live
- *   npx ts-node scripts/eval-preread.ts --live --held-out-variant v3_fewshot_minimal
- *   npx ts-node scripts/eval-preread.ts --live --tune --variants v3_minimal,v3_fewshot_minimal --batch-size 16
+ *   npx ts-node scripts/eval-preread.ts --live --held-out-variant v3_fewshot_thinking_low
+ *   npx ts-node scripts/eval-preread.ts --live --tune --variants v3_thinking_low,v3_fewshot_thinking_low --batch-size 16
  *
  * `--held-out-variant <id>` scores one variant, chosen on the tuning set beforehand, on the
  * held-out tiles once, and writes `eval-held-out-variant-results.json` so the baseline held-out
@@ -302,26 +302,10 @@ function variantGrid(): VariantSpec[] {
   const v3 = instructionsV3();
   const all: VariantSpec[] = [
     {
-      id: 'v3_minimal',
+      id: 'v3_upscale4_thinking_low',
       promptVersion: PREREAD_PROMPT_VERSION_V3,
       instructions: v3,
-      thinkingLevel: ThinkingLevel.MINIMAL,
-      upscale: 1,
-      fewShot: false,
-    },
-    {
-      id: 'v3_upscale3_minimal',
-      promptVersion: PREREAD_PROMPT_VERSION_V3,
-      instructions: v3,
-      thinkingLevel: ThinkingLevel.MINIMAL,
-      upscale: 3,
-      fewShot: false,
-    },
-    {
-      id: 'v3_upscale4_minimal',
-      promptVersion: PREREAD_PROMPT_VERSION_V3,
-      instructions: v3,
-      thinkingLevel: ThinkingLevel.MINIMAL,
+      thinkingLevel: TILE_THINKING_LEVEL,
       upscale: 4,
       fewShot: false,
     },
@@ -342,18 +326,18 @@ function variantGrid(): VariantSpec[] {
       fewShot: false,
     },
     {
-      id: 'v3_fewshot_minimal',
+      id: 'v3_fewshot_thinking_low',
       promptVersion: PREREAD_PROMPT_VERSION_V3,
       instructions: v3,
-      thinkingLevel: ThinkingLevel.MINIMAL,
+      thinkingLevel: TILE_THINKING_LEVEL,
       upscale: 1,
       fewShot: true,
     },
     {
-      id: 'v3_upscale3_fewshot_minimal',
+      id: 'v3_upscale3_fewshot_thinking_low',
       promptVersion: PREREAD_PROMPT_VERSION_V3,
       instructions: v3,
-      thinkingLevel: ThinkingLevel.MINIMAL,
+      thinkingLevel: TILE_THINKING_LEVEL,
       upscale: 3,
       fewShot: true,
     },
@@ -813,15 +797,15 @@ async function main(): Promise<void> {
     // Legacy two-way: v2 vs live v4 instructions (no upscale in this path — use --variants).
     assertSpend(tune.length * 2);
     const v2Spec: VariantSpec = {
-      id: 'v2_minimal',
+      id: 'v2_thinking_low',
       promptVersion: PREREAD_PROMPT_VERSION_V2,
       instructions: instructionsV2(),
-      thinkingLevel: ThinkingLevel.MINIMAL,
+      thinkingLevel: TILE_THINKING_LEVEL,
       upscale: 1,
       fewShot: false,
     };
     const liveSpec: VariantSpec = {
-      id: 'live_v4_upscale3_minimal',
+      id: 'live_v4',
       promptVersion: PREREAD_PROMPT_VERSION,
       instructions: instructionsV3(),
       thinkingLevel: TILE_THINKING_LEVEL,

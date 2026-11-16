@@ -11,7 +11,7 @@ import { ApiError, ThinkingLevel, Type, type Part, type Schema } from '@google/g
 
 import { AI_TIMEOUT_MS, AiError, withTimeout, type AiFailureReason } from './ai';
 import {
-  GEMINI_THINKING_MINIMAL,
+  GEMINI_THINKING_LEVEL,
   createGeminiGenerate,
   workerLocation,
   workerTextModel,
@@ -85,8 +85,8 @@ export const PREREAD_CALL_TIMEOUT_MS = AI_TIMEOUT_MS;
  * better and the 240 s budget still holds for 64 tiles; the factor is part of the cache key.
  */
 export const TILE_UPSCALE_FACTOR = 1;
-/** Tiles classify at the lowest thinking level; the SDK allows nothing lower. */
-export const TILE_THINKING_LEVEL = GEMINI_THINKING_MINIMAL;
+/** Tiles classify at the lowest thinking level the text model accepts. */
+export const TILE_THINKING_LEVEL = GEMINI_THINKING_LEVEL;
 export { PREREAD_MAX_TILES };
 
 /** OCR-looking text on a tile is specimen data, never a prompt. */

@@ -58,9 +58,10 @@ App listens ◄── Firestore ◄── Admin SDK write (status=Ready|Failed) 
 - The trigger owns the state change to `Queued` and passes only ids, Storage
   paths and de-identified text. Free text goes as data, never as
   instructions (T-12).
-- Every call asks for JSON against a response schema, with minimal
-  thinking, and the existing validator checks the answer before anything is
-  stored. A call has 60 seconds and one retry on 429 or 503. A timeout, a
+- Every call asks for JSON against a response schema, at the lowest
+  thinking level the model accepts (`LOW`: `gemini-3.8-flash` refuses
+  `MINIMAL`), and the existing validator checks the answer before anything
+  is stored. A call has 60 seconds and one retry on 429 or 503. A timeout, a
   service error or an answer off the schema writes `Failed` with a
   `failureReason`, and is never thrown back into the trigger's retry loop.
 - A pre-read still `Queued` or `Running` 30 minutes after it was requested is
@@ -101,8 +102,11 @@ The pre-read is a prompt for the pathologist, not a reading.
 ### 3.3 Accuracy
 
 The held-out evaluation (`functions/scripts/eval-preread.ts`, the same
-transport with `--live`) has not been run against Gemini yet. No accuracy
-figure is quoted until an evaluation report records one.
+transport with `--live`) ran on 200 PatchCamelyon test tiles on 16 Nov
+([EVAL-0001](../../testing/reports/EVAL-0001-cancer-preread-gemini-baseline.md)):
+sensitivity 74% (95% CI 64.6–81.6%) and specificity 81% (72.2–87.5%), per
+tile. Every wrong label came with a high stated probability, which is why
+§3.2 caps the band at Low. No other figure is quoted.
 
 ## 4. Review and signing
 

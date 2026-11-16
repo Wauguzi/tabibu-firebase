@@ -6,6 +6,7 @@ import { AiError, type CaseAiRequest } from './ai';
 import {
   GEMINI_LOCATION_DEFAULT,
   GEMINI_TEXT_MODEL,
+  GEMINI_THINKING_LEVEL,
   createGeminiAiClient,
   resolveAlertAiClient,
   resolveGeminiAiClient,
@@ -327,7 +328,7 @@ describe('ai-gemini', () => {
       assert.ok(String(req.config?.systemInstruction).includes('CLINICAL_NOTES_BEGIN'));
     });
 
-    it('risk check and symptom summary think at the minimal level', async () => {
+    it('risk check and symptom summary think at the lowest level the model accepts', async () => {
       const assessCap = captureGenerate(async () =>
         jsonReply({
           inputLanguage: 'en',
@@ -338,7 +339,7 @@ describe('ai-gemini', () => {
       );
       await createGeminiAiClient({ generate: assessCap.generate }).assessCase(baseRequest);
       assert.deepEqual(assessCap.requests[0].config?.thinkingConfig, {
-        thinkingLevel: ThinkingLevel.MINIMAL,
+        thinkingLevel: ThinkingLevel.LOW,
       });
 
       const summaryCap = captureGenerate(async () => jsonReply({ en: 'Fever.', sw: 'Homa.' }));
@@ -346,8 +347,13 @@ describe('ai-gemini', () => {
         generate: summaryCap.generate,
       }).summarizeSymptoms!({ inputText: 'Fever' });
       assert.deepEqual(summaryCap.requests[0].config?.thinkingConfig, {
-        thinkingLevel: ThinkingLevel.MINIMAL,
+        thinkingLevel: ThinkingLevel.LOW,
       });
+    });
+
+    it('never asks for MINIMAL thinking, which gemini-3.8-flash refuses', () => {
+      assert.notEqual(GEMINI_THINKING_LEVEL, ThinkingLevel.MINIMAL);
+      assert.equal(GEMINI_THINKING_LEVEL, ThinkingLevel.LOW);
     });
 
     it('alert draft serialises only AlertDraftInput fields', async () => {
