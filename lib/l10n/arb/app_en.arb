@@ -68,6 +68,14 @@
     "@errorPermissionDenied": {
         "description": "Shown when the server refuses an action for lack of permission"
     },
+    "errorPrereadPending": "The AI pre-read is still running. Try again in a few minutes.",
+    "@errorPrereadPending": {
+        "description": "Shown when a report cannot start because the pre-read is still running"
+    },
+    "workspaceAwaitingPrereadCheck": "Check again",
+    "@workspaceAwaitingPrereadCheck": {
+        "description": "Pathologist: re-reads the case while waiting for the pre-read"
+    },
     "errorDataNotFound": "The requested data was not found.",
     "@errorDataNotFound": {
         "description": "Shown when a requested record does not exist"

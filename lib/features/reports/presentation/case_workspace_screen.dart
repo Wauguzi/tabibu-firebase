@@ -22,6 +22,7 @@ import 'package:tabibu/features/preread/data/ai_logic_region_read_client.dart';
 import 'package:tabibu/features/preread/data/datasources/preread_storage.dart';
 import 'package:tabibu/features/preread/data/models/preread_model.dart';
 import 'package:tabibu/features/preread/data/region_read_client.dart';
+import 'package:tabibu/features/preread/presentation/widgets/region_capture.dart';
 import 'package:tabibu/features/preread/presentation/widgets/region_read_gating.dart';
 import 'package:tabibu/features/preread/presentation/widgets/region_read_sheet.dart';
 import 'package:tabibu/features/preread/presentation/widgets/slide_viewer.dart';
@@ -76,7 +77,7 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
   late final bool _isPathologist;
   late final ReferenceDataHelper _reference;
   late final PrereadStorage _storage;
-  final GlobalKey _regionKey = GlobalKey();
+  final RegionCaptureController _captureController = RegionCaptureController();
 
   final _diagnosis = TextEditingController();
   final _comments = TextEditingController();
@@ -281,7 +282,7 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
       showRegionReadSheet(
         context: context,
         client: client,
-        boundaryKey: _regionKey,
+        captureController: _captureController,
       ),
     );
   }
@@ -475,10 +476,14 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
   }
 
   /// The pre-read's result reaches the live inbox; while this case waits for
-  /// it, that row reopens the workspace so recording the sample unlocks.
+  /// it, that row reopens the workspace so recording the sample unlocks. It
+  /// runs when the inbox changes and when a load lands, so a row that came
+  /// while the case was loading or closed still counts.
   void _onInbox(BuildContext context, NotificationsState inbox) {
     final workspace = context.read<CaseWorkspaceBloc>();
-    if (workspace.state.caseModel?.awaitsPreread != true) return;
+    if (workspace.state.caseModel?.awaitsPrereadAt(DateTime.now()) != true) {
+      return;
+    }
     for (final row in inbox.items) {
       final template = NotificationTemplate.fromValue(row.templateKey);
       if (row.resourceUid != widget.caseUid ||
@@ -514,6 +519,9 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
           current is CaseWorkspaceWriteFailure ||
           current is CaseWorkspaceLoadFailure,
       listener: (context, state) {
+        if (state is CaseWorkspaceLoadSuccess) {
+          _onInbox(context, context.read<NotificationsBloc>().state);
+        }
         _syncFields(state.draft);
         unawaited(_loadTemplate(state.draft));
         unawaited(_loadRegister(state));
@@ -685,7 +693,9 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                         firstName: _me.firstName,
                         lastName: _me.lastName,
                       ),
-                      awaitingPreread: asked.awaitsPreread,
+                      awaitingPreread: asked.awaitsPrereadAt(DateTime.now()),
+                      onCheckAgain: () =>
+                          _add(CasePrereadSettled(caseUid: widget.caseUid)),
                       onRecord: (accession) =>
                           _add(CaseSampleReceived(labAccessionNo: accession)),
                     ),
@@ -782,7 +792,7 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                                 tilesLabel: '',
                                 askRegionLabel: l10n.regionAskAction,
                                 onAskRegion: canAskRegion ? _askRegion : null,
-                                regionBoundaryKey: _regionKey,
+                                regionCaptureController: _captureController,
                                 scaleLabel: workspaceScaleLabel(
                                   preread?.micronsPerPixel ?? 0,
                                 ),

@@ -171,9 +171,21 @@ abstract class CaseModel with _$CaseModel {
         _ => false,
       };
 
-  /// The AI pre-read is still running. The server refuses to start the
-  /// report until it is in (`prereadPending`), so recording the sample waits.
-  bool get awaitsPreread => currentStageValue == .prereadQueued;
+  /// How long a queued pre-read is waited for: the server's stale window
+  /// (`PREREAD_STALE_MS`), after which starting the report fails the run as
+  /// `Stale` and moves on, so waiting longer would strand the case.
+  static const prereadStaleAfter = Duration(minutes: 30);
+
+  /// The AI pre-read is running and still within [prereadStaleAfter]. The
+  /// server refuses to start the report until it is in (`prereadPending`),
+  /// so recording the sample waits. An unreadable entry time still waits;
+  /// "Check again" re-reads the case.
+  bool awaitsPrereadAt(DateTime now) {
+    if (currentStageValue != .prereadQueued) return false;
+    final entered = DateTime.tryParse(stageEnteredAt);
+    if (entered == null) return true;
+    return now.toUtc().difference(entered.toUtc()) < prereadStaleAfter;
+  }
 
   /// Signed and waiting for the doctor to discuss it with the patient.
   bool get needsDoctor =>

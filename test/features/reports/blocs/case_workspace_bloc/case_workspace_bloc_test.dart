@@ -240,6 +240,27 @@ void main() {
     );
 
     blocTest<CaseWorkspaceBloc, CaseWorkspaceState>(
+      'a case cached as queued is read from the server, which may have it',
+      setUp: () {
+        final cached = asked.copyWith(
+          requestedPathologistUid: '',
+          pathologistUid: _me,
+          currentStage: 'PrereadQueued',
+        );
+        when(() => cases.getCases(_me)).thenAnswer((_) async => [cached]);
+        when(() => cases.syncCases(_me)).thenAnswer(
+          (_) async => [cached.copyWith(currentStage: 'PrereadReady')],
+        );
+      },
+      build: build,
+      act: (bloc) => bloc.add(open),
+      verify: (bloc) {
+        verify(() => cases.syncCases(_me)).called(1);
+        expect(bloc.state.caseModel?.currentStage, 'PrereadReady');
+      },
+    );
+
+    blocTest<CaseWorkspaceBloc, CaseWorkspaceState>(
       "another case's pre-read changes nothing here",
       build: build,
       seed: () => CaseWorkspaceLoadSuccess(

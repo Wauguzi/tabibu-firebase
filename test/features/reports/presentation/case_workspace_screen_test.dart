@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -51,6 +52,80 @@ import '../../../helpers/helpers.dart';
 class MockReferenceDataHelper extends Mock implements ReferenceDataHelper {}
 
 class MockPrereadStorage extends Mock implements PrereadStorage {}
+
+// 1x1 PNG, served as the slide image: NetworkImage reads the status,
+// length, compression state and bytes.
+final Uint8List _slideBytes = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
+  // cspell:disable-next-line
+  '+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+);
+
+class _SlideHttpClient implements HttpClient {
+  @override
+  Future<HttpClientRequest> getUrl(Uri url) async => _SlideHttpRequest();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SlideHttpRequest implements HttpClientRequest {
+  final _headers = _SlideHttpHeaders();
+
+  @override
+  HttpHeaders get headers => _headers;
+
+  @override
+  Future<HttpClientResponse> close() async => _SlideHttpResponse(_slideBytes);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SlideHttpHeaders implements HttpHeaders {
+  final _values = <String, List<String>>{};
+
+  @override
+  void add(String name, Object value, {bool preserveHeaderCase = false}) {
+    _values.putIfAbsent(name, () => []).add('$value');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SlideHttpResponse extends Stream<List<int>>
+    implements HttpClientResponse {
+  _SlideHttpResponse(this.bytes);
+
+  final Uint8List bytes;
+
+  @override
+  int get statusCode => HttpStatus.ok;
+
+  @override
+  int get contentLength => bytes.length;
+
+  @override
+  HttpClientResponseCompressionState get compressionState =>
+      HttpClientResponseCompressionState.notCompressed;
+
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int> event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => Stream<List<int>>.value(bytes).listen(
+    onData,
+    onError: onError,
+    onDone: onDone,
+    cancelOnError: cancelOnError,
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 const _caseUid = 'case-1';
 const _runUid = 'run-1';
@@ -570,6 +645,56 @@ void main() {
         );
         expect(field.controller?.text, matches(RegExp(r'^LAB-WK-\d{8}-005$')));
       });
+
+      testWidgets(
+        'a pre-read row already in the inbox when the load lands reopens it',
+        (tester) async {
+          final base = RoleSessions.pathologist;
+          when(() => authBloc.state).thenReturn(
+            SignInSuccess(
+              session: PractitionerSession(
+                doctor: base.doctor.copyWith(uid: 'path-1'),
+                roles: base.roles,
+              ),
+            ),
+          );
+          const ready = NotificationModel(
+            uid: 'n-early',
+            templateKey: 'prereadReady',
+            resourceType: 'Case',
+            resourceUid: _caseUid,
+          );
+          whenListen(
+            blocs.notifications,
+            const Stream<NotificationsState>.empty(),
+            initialState: const NotificationsLoadSuccess(items: [ready]),
+          );
+          await pumpScreen(
+            tester,
+            const CaseWorkspaceLoadInProgress(caseUid: _caseUid),
+          );
+
+          await emit(
+            tester,
+            const CaseWorkspaceLoadSuccess(
+              caseUid: _caseUid,
+              pathologistUid: 'path-1',
+              caseModel: CaseModel(
+                uid: _caseUid,
+                orderNumber: 'ODR-AO-AO-03112026-005',
+                currentStage: 'PrereadQueued',
+                pathologistUid: 'path-1',
+              ),
+            ),
+          );
+
+          verify(
+            () => blocs.caseWorkspace.add(
+              const CasePrereadSettled(caseUid: _caseUid),
+            ),
+          ).called(1);
+        },
+      );
 
       testWidgets(
         "waits for the pre-read, and the pre-read's inbox row reopens it",
@@ -1999,6 +2124,11 @@ void main() {
         WidgetTester tester, {
         bool Function()? regionReadEnabled,
       }) async {
+        // Before the first pump: a failed load never retries, so the
+        // slide client must be in place before NetworkImage reads.
+        // The ask pill waits for the slide's first frame.
+        debugNetworkImageHttpClientProvider = _SlideHttpClient.new;
+        addTearDown(() => debugNetworkImageHttpClientProvider = null);
         when(
           () => storage.downloadUrl('slides/smear.png'),
         ).thenAnswer((_) async => 'https://example.test/slide.png');
@@ -2010,6 +2140,8 @@ void main() {
         );
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
+        await tester.runAsync(pumpEventQueue);
+        await tester.pumpAndSettle();
       }
 
       testWidgets('shows the ask pill when on', (tester) async {

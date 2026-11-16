@@ -20,6 +20,7 @@ void main() {
     String suggested = 'LAB-WK-03112026-005',
     bool busy = false,
     bool awaitingPreread = false,
+    VoidCallback? onCheckAgain,
     Locale locale = const Locale('en'),
     ThemeMode mode = ThemeMode.light,
     double scale = 1,
@@ -37,6 +38,7 @@ void main() {
         busy: busy,
         suggested: suggested,
         awaitingPreread: awaitingPreread,
+        onCheckAgain: onCheckAgain,
         onRecord: recorded.add,
       ),
       locale: locale,
@@ -156,6 +158,17 @@ void main() {
     await tester.tap(find.byType(TabibuButton), warnIfMissed: false);
     await tester.pump();
     expect(recorded, isEmpty);
+  });
+
+  testWidgets('Check again asks for the case again while waiting', (
+    tester,
+  ) async {
+    var checks = 0;
+    await pump(tester, awaitingPreread: true, onCheckAgain: () => checks++);
+
+    await tester.tap(find.text(en.workspaceAwaitingPrereadCheck));
+    await tester.pump();
+    expect(checks, 1);
   });
 
   testWidgets('the waiting state fits at 2.0x in both languages', (

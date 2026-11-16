@@ -17,6 +17,7 @@ class SampleReceivedView extends StatefulWidget {
     required this.onRecord,
     this.suggested = '',
     this.awaitingPreread = false,
+    this.onCheckAgain,
     super.key,
   });
 
@@ -30,6 +31,9 @@ class SampleReceivedView extends StatefulWidget {
   /// The pre-read is still running, and the report cannot start until it is
   /// in, so recording the sample waits for it.
   final bool awaitingPreread;
+
+  /// Re-reads the case while waiting, for when no notification arrives.
+  final VoidCallback? onCheckAgain;
 
   @override
   State<SampleReceivedView> createState() => _SampleReceivedViewState();
@@ -127,6 +131,13 @@ class _SampleReceivedViewState extends State<SampleReceivedView> {
             title: l10n.workspaceAwaitingPrereadTitle,
             body: l10n.workspaceAwaitingPrereadBody,
           ),
+          if (widget.onCheckAgain != null) ...[
+            const SizedBox(height: AppSpacing.sm),
+            TabibuButton.secondary(
+              label: l10n.workspaceAwaitingPrereadCheck,
+              onTap: widget.busy ? null : widget.onCheckAgain,
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
         ],
         TabibuButton.primary(

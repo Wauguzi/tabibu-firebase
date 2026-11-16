@@ -17,6 +17,8 @@
     "errorInvalidActionCode": "Kiungo hiki si sahihi. Tafadhali omba kipya.",
     "errorUserTokenExpired": "Kipindi chako kimeisha muda wake. Tafadhali ingia tena.",
     "errorPermissionDenied": "Huna ruhusa ya kufanya kitendo hiki.",
+    "errorPrereadPending": "Usomaji wa awali wa AI bado unaendelea. Jaribu tena baada ya dakika chache.",
+    "workspaceAwaitingPrereadCheck": "Angalia tena",
     "errorDataNotFound": "Taarifa zilizoombwa hazikupatikana.",
     "errorServiceUnavailable": "Huduma haipatikani kwa sasa. Tafadhali jaribu tena.",
     "errorRequestTimeout": "Ombi limechukua muda mrefu sana. Tafadhali jaribu tena.",

@@ -124,12 +124,18 @@ class CaseWorkspaceBloc extends Bloc<CaseWorkspaceEvent, CaseWorkspaceState> {
       var caseModel = (await _cases.getCases(
         event.pathologistUid,
       )).firstWhereOrNull((c) => c.uid == event.caseUid);
-      // A case opened from a notification may not be on the phone yet.
-      if (caseModel == null && online) {
+      // A case opened from a notification may not be on the phone yet, and a
+      // cached pre-read still queued may have finished while the screen was
+      // closed: either way the server's copy decides.
+      final stale =
+          caseModel == null || caseModel.currentStageValue == .prereadQueued;
+      if (stale && online) {
         try {
-          caseModel = (await _cases.syncCases(
-            event.pathologistUid,
-          )).firstWhereOrNull((c) => c.uid == event.caseUid);
+          caseModel =
+              (await _cases.syncCases(
+                event.pathologistUid,
+              )).firstWhereOrNull((c) => c.uid == event.caseUid) ??
+              caseModel;
         } on Object catch (_) {
           // The read below fails the same way and says why.
         }
@@ -414,16 +420,11 @@ class CaseWorkspaceBloc extends Bloc<CaseWorkspaceEvent, CaseWorkspaceState> {
     Emitter<CaseWorkspaceState> emit,
   ) async {
     if (event.caseUid != state.caseUid || state.pathologistUid.isEmpty) return;
-    final pathologistUid = state.pathologistUid;
-    try {
-      await _cases.syncCases(pathologistUid);
-    } on Object catch (_) {
-      // Offline: the cached case reopens, and the next open syncs.
-    }
+    // Opening a case still cached as queued reads the server's copy.
     add(
       CaseWorkspaceOpened(
         caseUid: event.caseUid,
-        pathologistUid: pathologistUid,
+        pathologistUid: state.pathologistUid,
       ),
     );
   }
