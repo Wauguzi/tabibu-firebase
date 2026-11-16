@@ -10,6 +10,7 @@ import 'package:tabibu/core/helpers/facilities_helper.dart';
 import 'package:tabibu/core/helpers/notifications_helper.dart';
 import 'package:tabibu/core/helpers/role_helper.dart';
 import 'package:tabibu/core/services/analytics_service.dart';
+import 'package:tabibu/core/services/audio_service_contract.dart';
 import 'package:tabibu/core/services/internet_service.dart';
 import 'package:tabibu/core/services/notification_service.dart';
 import 'package:tabibu/core/services/rasp_service.dart';
@@ -24,6 +25,8 @@ import 'package:tabibu/features/auth/data/models/upload_file.dart';
 import 'package:tabibu/features/facilities/data/models/county_model.dart';
 import 'package:tabibu/features/patients/data/models/patient_model.dart';
 import 'package:tabibu/features/profile/data/models/doctor_model.dart';
+
+import '../../../../helpers/fake_audio_services.dart';
 
 class _MockAuthHelper extends Mock implements AuthHelper {}
 
@@ -40,6 +43,29 @@ class _MockRasp extends Mock implements RaspService {}
 class _MockAlertTopics extends Mock implements AlertTopicService {}
 
 class _MockFacilities extends Mock implements FacilitiesHelper {}
+
+class _StopFails implements AudioPlayerService {
+  @override
+  Future<void> stop() async => throw StateError('speaker');
+
+  @override
+  Stream<AudioPlayback> get playback => const Stream.empty();
+
+  @override
+  Future<void> dispose() async {}
+
+  @override
+  Future<void> pause() async {}
+
+  @override
+  Future<void> playBytes(Uint8List bytes, {required String id}) async {}
+
+  @override
+  Future<void> playUrl(Uri url, {required String id}) async {}
+
+  @override
+  Future<bool> resume(String id) async => false;
+}
 
 final _patient = PatientSession(
   patient: PatientModel.empty(),
@@ -81,6 +107,7 @@ void main() {
   late _MockRasp rasp;
   late _MockAlertTopics topics;
   late _MockFacilities facilities;
+  late FakeAudioPlayerService player;
   late StreamController<String> tokenRefreshes;
 
   AuthBloc build() => AuthBloc(
@@ -92,6 +119,7 @@ void main() {
     raspService: rasp,
     alertTopicService: topics,
     facilitiesHelper: facilities,
+    player: player,
   );
 
   setUpAll(() {
@@ -118,6 +146,7 @@ void main() {
     rasp = _MockRasp();
     topics = _MockAlertTopics();
     facilities = _MockFacilities();
+    player = FakeAudioPlayerService();
     tokenRefreshes = StreamController<String>.broadcast();
 
     when(
@@ -143,7 +172,10 @@ void main() {
     when(() => notices.notifyWelcomeBack()).thenAnswer((_) async {});
   });
 
-  tearDown(() => tokenRefreshes.close());
+  tearDown(() async {
+    await tokenRefreshes.close();
+    await player.dispose();
+  });
 
   group('SessionRequested', () {
     blocTest<AuthBloc, AuthState>(
@@ -661,7 +693,35 @@ void main() {
       verify(() => topics.unsubscribeBeforeSignOut()).called(1);
       verify(() => auth.signOut(session: _patient)).called(1);
       verify(() => analytics.setRole(null)).called(1);
+      expect(player.stopCount, 1);
     },
+  );
+
+  blocTest<AuthBloc, AuthState>(
+    'a player that cannot stop does not block sign-out',
+    setUp: () {
+      when(() => topics.unsubscribeBeforeSignOut()).thenAnswer((_) async {});
+      when(
+        () => auth.signOut(session: any(named: 'session')),
+      ).thenAnswer((_) async {});
+    },
+    build: () => AuthBloc(
+      authHelper: auth,
+      internetService: internet,
+      analyticsService: analytics,
+      notificationsHelper: notices,
+      notificationService: notifications,
+      raspService: rasp,
+      alertTopicService: topics,
+      facilitiesHelper: facilities,
+      player: _StopFails(),
+    ),
+    seed: () => SignInSuccess(session: _patient),
+    act: (bloc) => bloc.add(const SignOutRequested()),
+    expect: () => [
+      SignOutInProgress(session: _patient),
+      const SignOutSuccess(),
+    ],
   );
 
   blocTest<AuthBloc, AuthState>(

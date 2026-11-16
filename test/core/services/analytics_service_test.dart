@@ -48,16 +48,18 @@ void main() {
     expect(captured, {'surface': 'mdt'});
   });
 
-  test('playback started carries no parameters', () async {
-    await analytics.logVoicePlaybackStarted();
+  test('playback started carries its surface', () async {
+    await analytics.logVoicePlaybackStarted(surface: 'explanation');
 
-    final captured = verify(
-      () => firebase.logEvent(
-        name: 'voice_playback_started',
-        parameters: captureAny(named: 'parameters'),
-      ),
-    ).captured.single;
-    expect(captured, isNull);
+    final captured =
+        verify(
+              () => firebase.logEvent(
+                name: 'voice_playback_started',
+                parameters: captureAny(named: 'parameters'),
+              ),
+            ).captured.single
+            as Map<String, Object?>?;
+    expect(captured, {'surface': 'explanation'});
   });
 
   test('playback paused carries no parameters', () async {
@@ -104,5 +106,19 @@ void main() {
             ).captured.single
             as Map<String, Object?>?;
     expect(captured, {'task': 'notes_summary', 'action': 'dismissed'});
+  });
+
+  test('a region read carries its outcome only', () async {
+    await analytics.logRegionRead(outcome: 'shown');
+
+    final captured =
+        verify(
+              () => firebase.logEvent(
+                name: 'region_read',
+                parameters: captureAny(named: 'parameters'),
+              ),
+            ).captured.single
+            as Map<String, Object?>?;
+    expect(captured, {'outcome': 'shown'});
   });
 }

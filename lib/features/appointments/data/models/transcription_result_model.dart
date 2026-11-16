@@ -3,7 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'transcription_result_model.freezed.dart';
 part 'transcription_result_model.g.dart';
 
-/// Response from `transcribeSymptoms`. Never cached.
+/// The recorded symptom transcript. Never cached. The audio is not stored.
 @freezed
 abstract class TranscriptionResultModel with _$TranscriptionResultModel {
   const factory TranscriptionResultModel({

@@ -202,6 +202,39 @@ void main() {
   });
 
   testWidgets(
+    'the preview button follows playback: pause while it plays, play when '
+    'it ends or another clip takes the player',
+    (tester) async {
+      await pumpComposer(tester);
+      await tester.tap(find.bySemanticsLabel(l10n.chatVoiceRecordLabel));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      await tester.tap(find.bySemanticsLabel(l10n.chatVoiceStopLabel));
+      await tester.pump();
+
+      await tester.tap(find.bySemanticsLabel(l10n.chatVoicePlayLabel));
+      await tester.pump();
+      expect(find.bySemanticsLabel(l10n.chatVoicePauseLabel), findsOneWidget);
+
+      // The clip plays to its end: the button offers play again by itself.
+      player.completeCurrent();
+      await tester.pump();
+      // The player's events arrive on a stream: one more frame draws them.
+      await tester.pump();
+      expect(find.bySemanticsLabel(l10n.chatVoicePlayLabel), findsOneWidget);
+
+      // Playing again, then a bubble takes the player: back to play.
+      await tester.tap(find.bySemanticsLabel(l10n.chatVoicePlayLabel));
+      await tester.pump();
+      await player.playBytes(Uint8List.fromList([1, 2]), id: 'bubble-1');
+      await tester.pump();
+      // The player's events arrive on a stream: one more frame draws them.
+      await tester.pump();
+      expect(find.bySemanticsLabel(l10n.chatVoicePlayLabel), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'after a bubble takes the player, preview play reloads its own bytes',
     (tester) async {
       await pumpComposer(tester);
@@ -233,4 +266,22 @@ void main() {
       expect(player.playedIds.last, 'composer-preview');
     },
   );
+
+  testWidgets('a failed preview shows the play error', (tester) async {
+    await pumpComposer(tester);
+    await tester.tap(find.bySemanticsLabel(l10n.chatVoiceRecordLabel));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.bySemanticsLabel(l10n.chatVoiceStopLabel));
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel(l10n.chatVoicePlayLabel));
+    await tester.pump();
+
+    player.failClip('composer-preview');
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text(l10n.chatVoicePlayFailed), findsOneWidget);
+    expect(find.bySemanticsLabel(l10n.chatVoicePlayLabel), findsOneWidget);
+  });
 }

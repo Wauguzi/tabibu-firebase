@@ -155,6 +155,10 @@ class DeviceAudioPlayerService implements AudioPlayerService {
   Duration _position = Duration.zero;
   Duration _duration = Duration.zero;
 
+  /// Each play() gets its own number. A failure from an earlier play of the
+  /// same clip must not mark the newer one failed.
+  int _generation = 0;
+
   @override
   Stream<AudioPlayback> get playback => _controller.stream;
 
@@ -179,7 +183,7 @@ class DeviceAudioPlayerService implements AudioPlayerService {
     if (duration != null) _duration = duration;
     _playing = true;
     _emit(id: id, playing: true, completed: false);
-    await _platform.play();
+    _start(id);
   }
 
   @override
@@ -187,8 +191,21 @@ class DeviceAudioPlayerService implements AudioPlayerService {
     if (_currentId != id) return false;
     _playing = true;
     _emit(id: id, playing: true, completed: false);
-    await _platform.play();
+    _start(id);
     return true;
+  }
+
+  /// The platform's play() completes only when playback pauses, stops or
+  /// ends, so it is not awaited: callers return once the clip has started,
+  /// and the [playback] stream reports how it ends.
+  void _start(String id) {
+    final generation = ++_generation;
+    unawaited(
+      _platform.play().catchError((Object _) {
+        if (_generation != generation || _currentId != id) return;
+        _emit(id: id, playing: false, completed: false, failed: true);
+      }),
+    );
   }
 
   @override
@@ -228,6 +245,7 @@ class DeviceAudioPlayerService implements AudioPlayerService {
     required String id,
     required bool playing,
     required bool completed,
+    bool failed = false,
   }) {
     if (_controller.isClosed) return;
     _playing = playing;
@@ -238,6 +256,7 @@ class DeviceAudioPlayerService implements AudioPlayerService {
         position: _position,
         duration: _duration,
         completed: completed,
+        failed: failed,
       ),
     );
   }

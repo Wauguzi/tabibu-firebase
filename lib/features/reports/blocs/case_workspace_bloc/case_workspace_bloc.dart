@@ -57,6 +57,7 @@ class CaseWorkspaceBloc extends Bloc<CaseWorkspaceEvent, CaseWorkspaceState> {
     on<CaseRequestAccepted>(_onAccepted, transformer: droppable());
     on<CaseRequestDeclined>(_onDeclined, transformer: droppable());
     on<CaseSampleReceived>(_onSampleReceived, transformer: droppable());
+    on<CasePrereadSettled>(_onPrereadSettled, transformer: droppable());
     // One revision at a time; a double tap must not open two drafts.
     on<CaseRevisionStarted>(_onRevision, transformer: droppable());
     // One discard; a double tap on the confirm must not repeat it.
@@ -123,12 +124,18 @@ class CaseWorkspaceBloc extends Bloc<CaseWorkspaceEvent, CaseWorkspaceState> {
       var caseModel = (await _cases.getCases(
         event.pathologistUid,
       )).firstWhereOrNull((c) => c.uid == event.caseUid);
-      // A case opened from a notification may not be on the phone yet.
-      if (caseModel == null && online) {
+      // A case opened from a notification may not be on the phone yet, and a
+      // cached pre-read still queued may have finished while the screen was
+      // closed: either way the server's copy decides.
+      final stale =
+          caseModel == null || caseModel.currentStageValue == .prereadQueued;
+      if (stale && online) {
         try {
-          caseModel = (await _cases.syncCases(
-            event.pathologistUid,
-          )).firstWhereOrNull((c) => c.uid == event.caseUid);
+          caseModel =
+              (await _cases.syncCases(
+                event.pathologistUid,
+              )).firstWhereOrNull((c) => c.uid == event.caseUid) ??
+              caseModel;
         } on Object catch (_) {
           // The read below fails the same way and says why.
         }
@@ -406,6 +413,20 @@ class CaseWorkspaceBloc extends Bloc<CaseWorkspaceEvent, CaseWorkspaceState> {
     unawaited(_analytics.logCaseRequestAccepted());
     // Now theirs: the workspace opens on the case as it always does.
     add(CaseWorkspaceOpened(caseUid: caseUid, pathologistUid: pathologistUid));
+  }
+
+  Future<void> _onPrereadSettled(
+    CasePrereadSettled event,
+    Emitter<CaseWorkspaceState> emit,
+  ) async {
+    if (event.caseUid != state.caseUid || state.pathologistUid.isEmpty) return;
+    // Opening a case still cached as queued reads the server's copy.
+    add(
+      CaseWorkspaceOpened(
+        caseUid: event.caseUid,
+        pathologistUid: state.pathologistUid,
+      ),
+    );
   }
 
   Future<void> _onSampleReceived(

@@ -28,9 +28,13 @@ class DeviceRecordingCueService implements RecordingCueService {
     @ignoreParam CueVibrator? vibrate,
     @ignoreParam CueAssetLoader? loadAsset,
     @ignoreParam CueQuietCheck? cuesDisabled,
+    @ignoreParam Duration? beepHold,
+    @ignoreParam Duration? endTimeout,
   }) : _vibrate = vibrate ?? _platformVibrate,
        _loadAsset = loadAsset ?? _bundleLoad,
-       _cuesDisabled = cuesDisabled ?? _platformQuiet;
+       _cuesDisabled = cuesDisabled ?? _platformQuiet,
+       _beepHold = beepHold ?? DeviceRecordingCueService.beepHold,
+       _endTimeout = endTimeout ?? cueEndTimeout;
 
   /// Generated paths, so a sound rename breaks the build instead of
   /// failing silently at runtime. Loaded through the bundle (full path),
@@ -39,12 +43,18 @@ class DeviceRecordingCueService implements RecordingCueService {
   static String get stopAsset => Assets.sounds.recordStop;
   static const cueId = 'recording-cue';
   static const beepHold = Duration(milliseconds: 120);
+
+  /// How long to wait for the player to report the beep ended. Past this,
+  /// the mic opens anyway.
+  static const cueEndTimeout = Duration(seconds: 1);
   static const vibrateMs = 40;
 
   final AudioPlayerService _player;
   final CueVibrator _vibrate;
   final CueAssetLoader _loadAsset;
   final CueQuietCheck _cuesDisabled;
+  final Duration _beepHold;
+  final Duration _endTimeout;
 
   @override
   Future<void> started() => _cue(startAsset);
@@ -68,13 +78,31 @@ class DeviceRecordingCueService implements RecordingCueService {
   }
 
   Future<void> _safeBeep(String asset) async {
+    StreamSubscription<AudioPlayback>? subscription;
     try {
       final bytes = await _loadAsset(asset);
+      // playBytes returns when playback starts. Holding from there cuts the
+      // beep short, or leaves it running into the microphone.
+      final ended = Completer<void>();
+      subscription = _player.playback.listen((event) {
+        if (event.id != cueId || ended.isCompleted) return;
+        if (!event.completed && !event.failed) {
+          return;
+        }
+        ended.complete();
+      });
       await _player.playBytes(bytes, id: cueId);
-      await Future<void>.delayed(beepHold);
+      try {
+        await ended.future.timeout(_endTimeout);
+      } on TimeoutException {
+        // The beep never reported an end. Stop it below anyway.
+      }
+      await Future<void>.delayed(_beepHold);
       await _player.stop();
     } on Object catch (_) {
       // Best-effort; recording proceeds either way.
+    } finally {
+      await subscription?.cancel();
     }
   }
 

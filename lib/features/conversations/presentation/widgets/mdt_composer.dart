@@ -24,6 +24,7 @@ enum _ComposerVoiceStatus {
   startFailed,
   recordFailed,
   sendFailed,
+  playFailed,
 }
 
 /// Sends once for text (clears the box) and once for a voice note (droppable
@@ -72,6 +73,7 @@ class _MdtComposerState extends State<MdtComposer> {
   late final RecordingCueService _cues;
   AnalyticsService? _analyticsOrNull;
   StreamSubscription<double>? _levelsSub;
+  StreamSubscription<AudioPlayback>? _playbackSub;
   Timer? _tick;
   RecordedAudio? _preview;
   var _recording = false;
@@ -92,6 +94,7 @@ class _MdtComposerState extends State<MdtComposer> {
     _recorder = widget.recorder ?? getIt<AudioRecorderService>();
     _player = widget.player ?? getIt<AudioPlayerService>();
     _cues = widget.cues ?? getIt<RecordingCueService>();
+    _playbackSub = _player.playback.listen(_onPlayback);
     _analyticsOrNull = widget.analytics;
     _controller.addListener(() => setState(() {}));
   }
@@ -106,10 +109,30 @@ class _MdtComposerState extends State<MdtComposer> {
     return null;
   }
 
+  /// The preview's button follows the shared player: it ends, or a bubble
+  /// takes the player, and the icon goes back to play on its own.
+  void _onPlayback(AudioPlayback event) {
+    if (!mounted || event.id != _previewPlayerId) return;
+    if (event.failed) {
+      setState(() {
+        _previewPlaying = false;
+        _status = .playFailed;
+      });
+      return;
+    }
+    final playing = event.playing && !event.completed;
+    if (playing == _previewPlaying) return;
+    setState(() {
+      _previewPlaying = playing;
+      if (playing && _status == .playFailed) _status = .none;
+    });
+  }
+
   @override
   void dispose() {
     _tick?.cancel();
     unawaited(_levelsSub?.cancel());
+    unawaited(_playbackSub?.cancel());
     // Cancel an open or in-flight start so the mic does not stay hot after
     // the person leaves the thread.
     if (_recording || _starting) unawaited(_recorder.cancel());
@@ -273,7 +296,9 @@ class _MdtComposerState extends State<MdtComposer> {
       await _player.playBytes(clip.bytes, id: _previewPlayerId);
       _previewLoaded = true;
     }
-    unawaited(_analytics?.logVoicePlaybackStarted());
+    unawaited(
+      _analytics?.logVoicePlaybackStarted(surface: widget.voiceSurface),
+    );
     if (mounted) setState(() => _previewPlaying = true);
   }
 
@@ -305,6 +330,7 @@ class _MdtComposerState extends State<MdtComposer> {
     .startFailed => l10n.chatVoiceStartFailed,
     .recordFailed => l10n.chatVoiceRecordFailed,
     .sendFailed => l10n.chatVoiceSendFailed,
+    .playFailed => l10n.chatVoicePlayFailed,
   };
 
   @override

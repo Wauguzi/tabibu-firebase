@@ -208,6 +208,7 @@ void main() {
             recorder: recorder,
             cues: FakeRecordingCueService(),
             analytics: analytics,
+            voiceInputEnabled: () => true,
           ),
         ),
         locale: locale,
@@ -267,6 +268,16 @@ void main() {
       expect(find.textContaining(RegExp('times? free')), findsOneWidget);
       expect(find.text('Choose a time'), findsOneWidget);
       verifyNever(() => directory.add(const DirectoryRequested()));
+    });
+
+    testWidgets('the voice flag off hides the mic', (tester) async {
+      _useTallSurface(tester);
+      await tester.pumpApp(screen());
+      await tester.pumpAndSettle();
+
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      expect(find.bySemanticsLabel(l10n.symptomVoiceRecordLabel), findsNothing);
+      expect(find.text(l10n.symptomVoiceUnavailable), findsOneWidget);
     });
 
     testWidgets('Read more expands the bio', (tester) async {

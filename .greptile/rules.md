@@ -41,20 +41,26 @@ finding.
 - **AI output used without an approval is limited to the readers S-8 names** (S-8): the symptom
   summary and the risk advice to the doctor, the notes translation to the doctor and the
   pathologist, the on-device notes summary to the doctor who wrote the notes, a speaker's own
-  transcript, and any voice-note transcript to the clinicians in that conversation, who also hear
-  the audio. Each is labelled as AI. A patient reads a clinician's transcript only after the sender
-  shares it. The server accepts no audio. Every input is de-identified except two: the notes
-  summary's, which never leaves the device, and the patient's own words in the in-app symptom tidy,
-  which are stripped of phone numbers and emails and replace the field only on "Use this". Any
+  transcript, any voice-note transcript to the clinicians in that conversation, who also hear the
+  audio, and the slide-region read to the case's pathologist. A narrated explanation is the text the
+  doctor already approved, read aloud, not new model text. Each is labelled as AI. A patient reads a
+  clinician's transcript only after the sender shares it. The server accepts no audio; a patient's
+  spoken symptoms go from the app to an AI Logic template and come back as text the patient checks
+  before booking. Every input is de-identified except the patient's own words (the symptom tidy,
+  stripped of phone numbers and emails, and the recorded voice, which cannot be), the notes
+  summary's, which never leaves the device, and the pathologist's optional region question. Any
   other path from model output to a person without an approval is the P1 above.
 
 ## Architecture boundaries
 
 - **The app calls a model only through Firebase.** A model key, a model endpoint or a non-Firebase
   model SDK anywhere under `lib/` is a defect. Jobs belong to the AI service in Cloud Functions.
-  The one in-app path is the native hybrid plugins behind `tabibu/hybrid_ai`, which take a task id,
-  never a prompt: a `notes_summary` stays `ONLY_ON_DEVICE` and builds no cloud model, and every
-  tidy input passes `stripContactDetails` (S-8).
+  The app has three in-app paths, each fixed by an id, never a prompt it writes: the native hybrid
+  plugins behind `tabibu/hybrid_ai`, which take a task id (a `notes_summary` stays
+  `ONLY_ON_DEVICE` and builds no cloud model, and every tidy input passes `stripContactDetails`);
+  server prompt templates through `AiLogicService` (`prompts/*.prompt`, ids from Remote Config);
+  and the text-to-speech call in `AiLogicService.speakExplanation`, which sends approved text only.
+  Template-only mode stays off, because the hybrid tidy and text-to-speech are direct calls (S-8).
 - **The app talks to the backend only through the Firebase SDKs.** A raw HTTP client (`dio`,
   `http`, `HttpClient`) under `lib/` or in `pubspec.yaml` needs a CRQ that justifies the endpoint;
   without one it is a defect. A `badCertificateCallback` that returns `true` is a P1 finding in any

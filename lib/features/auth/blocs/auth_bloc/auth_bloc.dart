@@ -9,6 +9,7 @@ import 'package:tabibu/core/helpers/facilities_helper.dart';
 import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/core/helpers/notifications_helper.dart';
 import 'package:tabibu/core/services/analytics_service.dart';
+import 'package:tabibu/core/services/audio_service_contract.dart';
 import 'package:tabibu/core/services/internet_service.dart';
 import 'package:tabibu/core/services/notification_service.dart';
 import 'package:tabibu/core/services/rasp_service.dart';
@@ -29,6 +30,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     RaspService? raspService,
     AlertTopicService? alertTopicService,
     FacilitiesHelper? facilitiesHelper,
+    AudioPlayerService? player,
   }) : _auth = authHelper ?? getIt<AuthHelper>(),
        _internet = internetService ?? getIt<InternetService>(),
        _analytics = analyticsService ?? getIt<AnalyticsService>(),
@@ -36,6 +38,9 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
        _rasp = raspService ?? getIt<RaspService>(),
        _topics = alertTopicService ?? getIt<AlertTopicService>(),
        _facilities = facilitiesHelper ?? getIt<FacilitiesHelper>(),
+       // Public parameter name, private field.
+       // ignore: prefer_initializing_formals
+       _player = player,
        super(const AuthInitial()) {
     // A cold start and a "check again" tap must not resolve twice at once.
     on<SessionRequested>(_onSessionRequested, transformer: droppable());
@@ -106,6 +111,10 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   final RaspService _rasp;
   final AlertTopicService _topics;
   final FacilitiesHelper _facilities;
+
+  /// Null in production: resolved when signing out, so the bloc does not
+  /// open the audio session just by being created.
+  final AudioPlayerService? _player;
   late final StreamSubscription<String> _tokenRefreshes;
 
   // Each sign-out moves this on, so a session read that started before it
@@ -290,6 +299,12 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
     // retry and must not keep the person signed in.
     try {
       await _topics.unsubscribeBeforeSignOut();
+    } on Object catch (_) {}
+    // Any clip still in the shared player, a narrated result included, must
+    // stop before the next person uses this phone. A failure here must not
+    // keep this person signed in.
+    try {
+      await (_player ?? getIt<AudioPlayerService>()).stop();
     } on Object catch (_) {}
     try {
       await _auth.signOut(session: state.session);

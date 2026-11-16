@@ -292,5 +292,37 @@ void main() {
       expect(at('Cancelled').isDone, isTrue);
       expect(at('ReportSigned').isDone, isFalse);
     });
+
+    test('awaitsPrereadAt waits while queued, up to the stale window', () {
+      final now = DateTime.utc(2026, 11, 16, 12);
+      CaseModel at(String stage, {Duration? ago}) => CaseModel.empty().copyWith(
+        currentStage: stage,
+        stageEnteredAt: ago == null ? '' : now.subtract(ago).toIso8601String(),
+      );
+      expect(
+        at(
+          'PrereadQueued',
+          ago: const Duration(minutes: 3),
+        ).awaitsPrereadAt(now),
+        isTrue,
+      );
+      // Past the server's stale window the report may start; waiting longer
+      // would strand the case.
+      expect(
+        at(
+          'PrereadQueued',
+          ago: const Duration(minutes: 31),
+        ).awaitsPrereadAt(now),
+        isFalse,
+      );
+      expect(
+        at('PrereadQueued').awaitsPrereadAt(now),
+        isTrue,
+        reason: 'an unreadable entry time still waits',
+      );
+      for (final stage in ['PrereadReady', 'PrereadFailed', 'SlidesUploaded']) {
+        expect(at(stage).awaitsPrereadAt(now), isFalse, reason: stage);
+      }
+    });
   });
 }

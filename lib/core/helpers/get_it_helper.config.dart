@@ -28,6 +28,7 @@ import 'package:tabibu/core/helpers/hive_helper.dart' as _i418;
 import 'package:tabibu/core/helpers/notifications_helper.dart' as _i210;
 import 'package:tabibu/core/helpers/reference_data_helper.dart' as _i762;
 import 'package:tabibu/core/helpers/theme_helper.dart' as _i655;
+import 'package:tabibu/core/services/ai_logic_service.dart' as _i534;
 import 'package:tabibu/core/services/analytics_service.dart' as _i399;
 import 'package:tabibu/core/services/app_update_service.dart' as _i75;
 import 'package:tabibu/core/services/audio_player_service.dart' as _i1072;
@@ -166,11 +167,21 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i655.ThemeHelper>(
       () => _i655.ThemeHelper(preferences: gh<_i460.SharedPreferences>()),
     );
+    gh.lazySingleton<_i534.AiLogicService>(
+      () => _i534.FirebaseAiLogicService(),
+    );
     gh.lazySingleton<_i82.AuthFirebase>(
       () => _i82.AuthFirebase(
         auth: gh<_i59.FirebaseAuth>(),
         firestore: gh<_i974.FirebaseFirestore>(),
         functions: gh<_i809.FirebaseFunctions>(),
+      ),
+    );
+    gh.lazySingleton<_i656.AppointmentFirebase>(
+      () => _i656.AppointmentFirebase(
+        firestore: gh<_i974.FirebaseFirestore>(),
+        functions: gh<_i809.FirebaseFunctions>(),
+        ai: gh<_i534.AiLogicService>(),
       ),
     );
     gh.lazySingleton<_i147.AudioRecorderService>(
@@ -215,6 +226,12 @@ extension GetItInjectableX on _i174.GetIt {
     gh.lazySingleton<_i377.LockStorage>(
       () => _i377.LockStorage(secureStorage: gh<_i558.FlutterSecureStorage>()),
     );
+    gh.lazySingleton<_i393.AppointmentCacheHelper>(
+      () => _i393.AppointmentCacheHelper(
+        db: gh<_i705.DBHelper>(),
+        remote: gh<_i656.AppointmentFirebase>(),
+      ),
+    );
     gh.singleton<_i418.HiveHelper>(
       () => _i418.HiveHelperImpl(
         dbHelper: gh<_i705.DBHelper>(),
@@ -229,13 +246,6 @@ extension GetItInjectableX on _i174.GetIt {
     );
     gh.lazySingleton<_i434.PrereadStorage>(
       () => _i434.PrereadStorage(storage: gh<_i457.FirebaseStorage>()),
-    );
-    gh.lazySingleton<_i656.AppointmentFirebase>(
-      () => _i656.AppointmentFirebase(
-        firestore: gh<_i974.FirebaseFirestore>(),
-        functions: gh<_i809.FirebaseFunctions>(),
-        storage: gh<_i457.FirebaseStorage>(),
-      ),
     );
     gh.lazySingleton<_i746.ConversationFirebase>(
       () => _i746.ConversationFirebase(
@@ -273,12 +283,6 @@ extension GetItInjectableX on _i174.GetIt {
         db: gh<_i705.DBHelper>(),
         remote: gh<_i746.ConversationFirebase>(),
         hive: gh<_i418.HiveHelper>(),
-      ),
-    );
-    gh.lazySingleton<_i393.AppointmentCacheHelper>(
-      () => _i393.AppointmentCacheHelper(
-        db: gh<_i705.DBHelper>(),
-        remote: gh<_i656.AppointmentFirebase>(),
       ),
     );
     gh.lazySingleton<_i569.AuthHelper>(

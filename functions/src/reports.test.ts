@@ -957,6 +957,28 @@ describe('reports', () => {
       assert.equal((await docData(w, 'modelSignals/20261027'))?.prereadReadyCount, 1);
     });
 
+    it('dates the notification when a long run finished, not when it started', async () => {
+      const { caseUid, runUid } = await prereadQueuedCase(w);
+      // Each read of the clock is a minute later, as a run that takes minutes would see.
+      let tick = Date.parse('2026-10-27T10:00:00.000Z');
+      const deps = {
+        ...w.deps,
+        config: { enabled: (key: string) => key === 'preread_enabled' },
+        now: () => new Date((tick += 60_000)),
+      };
+      await onPrereadWrittenHandler(deps, caseUid, runUid);
+      const run = (await w.deps.db.collection('cases').doc(caseUid).collection('preread').doc(runUid).get()).data();
+      assert.ok(run && (run.status === 'Ready' || run.status === 'Failed'), 'the Queued run was processed');
+      const doc = await caseDoc(w, caseUid);
+      const template = run?.status === 'Ready' ? 'prereadReady' : 'prereadFailed';
+      const note = await docData(w, noteId(template, `${caseUid}-r${doc.stageSeq as number}`, w.pathologist.uid));
+      assert.ok(note, 'the pathologist is told');
+      assert.ok(
+        String(note?.creationDate) >= String(run?.readyAt),
+        `notification ${String(note?.creationDate)} is dated before the run finished at ${String(run?.readyAt)}`,
+      );
+    });
+
     it('a late write of an old run touches neither the stage nor the worklist', async () => {
       const { caseUid, runUid } = await prereadQueuedCase(w);
       await w.deps.db.collection('cases').doc(caseUid).update({ prereadRunUid: 'a-newer-run' });

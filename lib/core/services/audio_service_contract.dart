@@ -89,6 +89,7 @@ class AudioPlayback {
     required this.position,
     required this.duration,
     required this.completed,
+    this.failed = false,
   });
 
   final String id;
@@ -96,6 +97,10 @@ class AudioPlayback {
   final Duration position;
   final Duration duration;
   final bool completed;
+
+  /// The clip with [id] could not be played. A late failure from an earlier
+  /// play of the same id is not reported, so it cannot stop a newer one.
+  final bool failed;
 }
 
 /// Plays one clip at a time: starting a new one stops the previous.

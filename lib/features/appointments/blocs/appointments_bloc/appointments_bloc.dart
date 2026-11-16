@@ -10,6 +10,7 @@ import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointment
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_state.dart';
 import 'package:tabibu/features/appointments/data/cache/appointment_cache_helper.dart';
 import 'package:tabibu/features/appointments/data/models/appointment_model.dart';
+import 'package:tabibu/features/appointments/symptom_duration.dart';
 import 'package:uuid/uuid.dart';
 
 /// The signed-in patient's or doctor's appointments, and the writes on them.
@@ -237,11 +238,9 @@ class AppointmentsBloc extends Bloc<AppointmentsEvent, AppointmentsState> {
       ),
     );
     try {
-      final audioUid = _uuid.v4();
       final result = await _cache.transcribeSymptoms(
-        uid: event.uid,
-        audioUid: audioUid,
         bytes: event.audio.bytes,
+        durationMs: event.audio.durationMs,
         contentType: event.audio.contentType,
       );
       final transcript = result.transcript.trim();
@@ -263,7 +262,7 @@ class AppointmentsBloc extends Bloc<AppointmentsEvent, AppointmentsState> {
           language.contains('swahili');
       unawaited(
         _analytics.logSymptomVoiceTranscribed(
-          durationBucket: _durationBucket(event.audio.durationMs),
+          durationBucket: symptomDurationBucket(event.audio.durationMs),
           englishOrSwahili: enOrSw,
         ),
       );
@@ -287,14 +286,6 @@ class AppointmentsBloc extends Bloc<AppointmentsEvent, AppointmentsState> {
         ),
       );
     }
-  }
-
-  /// Coarse buckets only — never the raw duration.
-  String _durationBucket(int durationMs) {
-    if (durationMs < 15000) return '0_15';
-    if (durationMs < 30000) return '15_30';
-    if (durationMs < 60000) return '30_60';
-    return '60_plus';
   }
 
   Future<void> _onDecision(

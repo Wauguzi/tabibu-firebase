@@ -1,0 +1,16 @@
+---
+model: gemini-3.8-flash
+input:
+  schema:
+    audioMime: string, the audio MIME type
+    audioData: string, base64-encoded audio, one recording
+output:
+  format: json
+  schema:
+    transcript: string, the words spoken, verbatim
+    language: string, en or sw or other
+    unclear: boolean, true when the audio is unintelligible
+---
+Transcribe the audio verbatim. Do not summarise, translate or add anything. Keep the speaker's language. Set language to en, sw or other. Set unclear to true when the audio is unintelligible, and leave transcript empty in that case.
+
+{{media type="audioMime" data="audioData"}}

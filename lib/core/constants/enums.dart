@@ -306,6 +306,8 @@ enum AppError implements Exception {
   noRoleAssigned,
   // Speech kill switch off (`voiceDisabled` from recordSymptomTranscript).
   voiceUnavailable,
+  // The report waits for a running pre-read (`prereadPending`).
+  prereadPending,
   unknown;
 
   /// Maps a callable's `message` reason key to its [AppError], falling back
@@ -368,6 +370,7 @@ enum AppError implements Exception {
       'slideNotReserved' => AppError.slideNotReserved,
       'invalidSlides' || 'invalidCount' => AppError.invalidSlides,
       'voiceDisabled' => AppError.voiceUnavailable,
+      'prereadPending' => AppError.prereadPending,
       _ => null,
     };
     return reason ?? fromFirebaseCode(e.code);
@@ -478,6 +481,7 @@ enum AppError implements Exception {
       l10n.errorPractitionerPendingVerification,
     .noRoleAssigned => l10n.errorNoRoleAssigned,
     .voiceUnavailable => l10n.symptomVoiceUnavailable,
+    .prereadPending => l10n.errorPrereadPending,
     .unknown => l10n.errorUnknown,
   };
 }

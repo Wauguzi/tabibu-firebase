@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
@@ -7,6 +8,7 @@ import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/constants/enums.dart';
 import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/core/helpers/reference_data_helper.dart';
+import 'package:tabibu/core/services/ai_logic_service.dart';
 import 'package:tabibu/core/utils/nairobi_time.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/alerts/data/models/notifiable_disease_model.dart';
@@ -14,8 +16,15 @@ import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
 import 'package:tabibu/features/cases/presentation/widgets/case_history_row.dart';
 import 'package:tabibu/features/cases/presentation/widgets/slides_card.dart';
+import 'package:tabibu/features/notifications/blocs/notifications_bloc/notifications_bloc.dart';
+import 'package:tabibu/features/notifications/blocs/notifications_bloc/notifications_state.dart';
+import 'package:tabibu/features/preread/data/ai_logic_region_read_client.dart';
 import 'package:tabibu/features/preread/data/datasources/preread_storage.dart';
 import 'package:tabibu/features/preread/data/models/preread_model.dart';
+import 'package:tabibu/features/preread/data/region_read_client.dart';
+import 'package:tabibu/features/preread/presentation/widgets/region_capture.dart';
+import 'package:tabibu/features/preread/presentation/widgets/region_read_gating.dart';
+import 'package:tabibu/features/preread/presentation/widgets/region_read_sheet.dart';
 import 'package:tabibu/features/preread/presentation/widgets/slide_viewer.dart';
 import 'package:tabibu/features/profile/data/models/doctor_model.dart';
 import 'package:tabibu/features/reports/blocs/case_workspace_bloc/case_workspace_bloc.dart';
@@ -45,12 +54,16 @@ class CaseWorkspaceScreen extends StatefulWidget {
     required this.caseUid,
     @visibleForTesting this.reference,
     @visibleForTesting this.storage,
+    @visibleForTesting this.regionReadEnabled,
+    @visibleForTesting this.regionClient,
     super.key,
   });
 
   final String caseUid;
   final ReferenceDataHelper? reference;
   final PrereadStorage? storage;
+  final bool Function()? regionReadEnabled;
+  final RegionReadClient? regionClient;
 
   static const int fieldMax = 2000;
 
@@ -61,8 +74,10 @@ class CaseWorkspaceScreen extends StatefulWidget {
 class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
   late final String _uid;
   late final DoctorModel _me;
+  late final bool _isPathologist;
   late final ReferenceDataHelper _reference;
   late final PrereadStorage _storage;
+  final RegionCaptureController _captureController = RegionCaptureController();
 
   final _diagnosis = TextEditingController();
   final _comments = TextEditingController();
@@ -82,6 +97,9 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
   String? _tilesVerdict;
   int? _overall;
 
+  /// Inbox rows already acted on, so a pre-read result reopens once.
+  final _settledNotes = <String>{};
+
   bool _heatmapOn = true;
   bool _writeOwn = false;
   String? _slideUrl;
@@ -99,6 +117,8 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
       _ => DoctorModel.empty(),
     };
     _uid = _me.uid;
+    _isPathologist =
+        session is PractitionerSession && session.roles.isPathologist;
     _reference = widget.reference ?? getIt<ReferenceDataHelper>();
     _storage = widget.storage ?? getIt<PrereadStorage>();
 
@@ -253,6 +273,29 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
             !_missingRequired(),
       .initial => _diagnosis.text.trim().isNotEmpty && !_missingRequired(),
     };
+  }
+
+  void _askRegion() {
+    final client =
+        widget.regionClient ?? AiLogicRegionReadClient(getIt<AiLogicService>());
+    unawaited(
+      showRegionReadSheet(
+        context: context,
+        client: client,
+        captureController: _captureController,
+      ),
+    );
+  }
+
+  bool _readRegionReadEnabled() {
+    final injected = widget.regionReadEnabled;
+    if (injected != null) return injected();
+    try {
+      return FirebaseRemoteConfig.instance.getBool(regionReadEnabledKey);
+    } on Object catch (_) {
+      // The client default is off. A missing config must not show the action.
+      return false;
+    }
   }
 
   /// Sign opens once the diagnosis and every required answer are typed. What
@@ -432,10 +475,39 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
     if (signed && mounted) setState(() {});
   }
 
+  /// The pre-read's result reaches the live inbox; while this case waits for
+  /// it, that row reopens the workspace so recording the sample unlocks. It
+  /// runs when the inbox changes and when a load lands, so a row that came
+  /// while the case was loading or closed still counts.
+  void _onInbox(BuildContext context, NotificationsState inbox) {
+    final workspace = context.read<CaseWorkspaceBloc>();
+    if (workspace.state.caseModel?.awaitsPrereadAt(DateTime.now()) != true) {
+      return;
+    }
+    for (final row in inbox.items) {
+      final template = NotificationTemplate.fromValue(row.templateKey);
+      if (row.resourceUid != widget.caseUid ||
+          (template != .prereadReady && template != .prereadFailed) ||
+          !_settledNotes.add(row.uid)) {
+        continue;
+      }
+      workspace.add(CasePrereadSettled(caseUid: widget.caseUid));
+      return;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
 
+    return BlocListener<NotificationsBloc, NotificationsState>(
+      listenWhen: (previous, current) => previous.items != current.items,
+      listener: _onInbox,
+      child: _workspace(context, l10n),
+    );
+  }
+
+  Widget _workspace(BuildContext context, AppLocalizations l10n) {
     return BlocConsumer<CaseWorkspaceBloc, CaseWorkspaceState>(
       listenWhen: (previous, current) =>
           previous.draft != current.draft ||
@@ -447,6 +519,9 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
           current is CaseWorkspaceWriteFailure ||
           current is CaseWorkspaceLoadFailure,
       listener: (context, state) {
+        if (state is CaseWorkspaceLoadSuccess) {
+          _onInbox(context, context.read<NotificationsBloc>().state);
+        }
         _syncFields(state.draft);
         unawaited(_loadTemplate(state.draft));
         unawaited(_loadRegister(state));
@@ -618,6 +693,9 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                         firstName: _me.firstName,
                         lastName: _me.lastName,
                       ),
+                      awaitingPreread: asked.awaitsPrereadAt(DateTime.now()),
+                      onCheckAgain: () =>
+                          _add(CasePrereadSettled(caseUid: widget.caseUid)),
                       onRecord: (accession) =>
                           _add(CaseSampleReceived(labAccessionNo: accession)),
                     ),
@@ -640,6 +718,11 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
             draft != null && isRevision && draft.statusValue == .editing;
         // No AI pre-read or "use AI draft" on Amendment / Addendum.
         final showAi = ready && !isRevision;
+        final canAskRegion = showRegionAsk(
+          isPathologist: _isPathologist,
+          accepted: state.caseModel?.isPathologistOf(_uid) ?? false,
+          enabled: _readRegionReadEnabled(),
+        );
         final loading = state is CaseWorkspaceLoadInProgress && draft == null;
         final canSign = draft != null && _canSign(draft, locked: locked);
 
@@ -707,6 +790,9 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                                     setState(() => _heatmapOn = v),
                                 heatmapLabel: l10n.workspaceHeatmap,
                                 tilesLabel: '',
+                                askRegionLabel: l10n.regionAskAction,
+                                onAskRegion: canAskRegion ? _askRegion : null,
+                                regionCaptureController: _captureController,
                                 scaleLabel: workspaceScaleLabel(
                                   preread?.micronsPerPixel ?? 0,
                                 ),

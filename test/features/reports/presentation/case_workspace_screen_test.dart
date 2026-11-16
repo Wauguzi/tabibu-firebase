@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -21,10 +22,13 @@ import 'package:tabibu/features/auth/blocs/auth_bloc/auth_state.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
 import 'package:tabibu/features/cases/data/models/case_model.dart';
 import 'package:tabibu/features/cases/data/models/ordered_test_model.dart';
+import 'package:tabibu/features/notifications/blocs/notifications_bloc/notifications_state.dart';
+import 'package:tabibu/features/notifications/data/models/notification_model.dart';
 import 'package:tabibu/features/preread/data/datasources/preread_storage.dart';
 import 'package:tabibu/features/preread/data/models/preread_draft_model.dart';
 import 'package:tabibu/features/preread/data/models/preread_finding_model.dart';
 import 'package:tabibu/features/preread/data/models/preread_model.dart';
+import 'package:tabibu/features/preread/data/region_read_client.dart';
 import 'package:tabibu/features/reports/blocs/case_workspace_bloc/case_workspace_event.dart';
 import 'package:tabibu/features/reports/blocs/case_workspace_bloc/case_workspace_state.dart';
 import 'package:tabibu/features/reports/data/models/notifiable_finding_model.dart';
@@ -48,6 +52,80 @@ import '../../../helpers/helpers.dart';
 class MockReferenceDataHelper extends Mock implements ReferenceDataHelper {}
 
 class MockPrereadStorage extends Mock implements PrereadStorage {}
+
+// 1x1 PNG, served as the slide image: NetworkImage reads the status,
+// length, compression state and bytes.
+final Uint8List _slideBytes = base64Decode(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk'
+  // cspell:disable-next-line
+  '+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+);
+
+class _SlideHttpClient implements HttpClient {
+  @override
+  Future<HttpClientRequest> getUrl(Uri url) async => _SlideHttpRequest();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SlideHttpRequest implements HttpClientRequest {
+  final _headers = _SlideHttpHeaders();
+
+  @override
+  HttpHeaders get headers => _headers;
+
+  @override
+  Future<HttpClientResponse> close() async => _SlideHttpResponse(_slideBytes);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SlideHttpHeaders implements HttpHeaders {
+  final _values = <String, List<String>>{};
+
+  @override
+  void add(String name, Object value, {bool preserveHeaderCase = false}) {
+    _values.putIfAbsent(name, () => []).add('$value');
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _SlideHttpResponse extends Stream<List<int>>
+    implements HttpClientResponse {
+  _SlideHttpResponse(this.bytes);
+
+  final Uint8List bytes;
+
+  @override
+  int get statusCode => HttpStatus.ok;
+
+  @override
+  int get contentLength => bytes.length;
+
+  @override
+  HttpClientResponseCompressionState get compressionState =>
+      HttpClientResponseCompressionState.notCompressed;
+
+  @override
+  StreamSubscription<List<int>> listen(
+    void Function(List<int> event)? onData, {
+    Function? onError,
+    void Function()? onDone,
+    bool? cancelOnError,
+  }) => Stream<List<int>>.value(bytes).listen(
+    onData,
+    onError: onError,
+    onDone: onDone,
+    cancelOnError: cancelOnError,
+  );
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 const _caseUid = 'case-1';
 const _runUid = 'run-1';
@@ -244,6 +322,8 @@ void main() {
       Locale? locale,
       Size surface = const Size(1170, 12000),
       double textScale = 1,
+      bool Function()? regionReadEnabled,
+      RegionReadClient? regionClient,
     }) async {
       tester.view.physicalSize = surface;
       tester.view.devicePixelRatio = 3;
@@ -263,6 +343,8 @@ void main() {
               caseUid: _caseUid,
               reference: reference,
               storage: storage,
+              regionReadEnabled: regionReadEnabled,
+              regionClient: regionClient,
             ),
           ),
         ],
@@ -563,6 +645,112 @@ void main() {
         );
         expect(field.controller?.text, matches(RegExp(r'^LAB-WK-\d{8}-005$')));
       });
+
+      testWidgets(
+        'a pre-read row already in the inbox when the load lands reopens it',
+        (tester) async {
+          final base = RoleSessions.pathologist;
+          when(() => authBloc.state).thenReturn(
+            SignInSuccess(
+              session: PractitionerSession(
+                doctor: base.doctor.copyWith(uid: 'path-1'),
+                roles: base.roles,
+              ),
+            ),
+          );
+          const ready = NotificationModel(
+            uid: 'n-early',
+            templateKey: 'prereadReady',
+            resourceType: 'Case',
+            resourceUid: _caseUid,
+          );
+          whenListen(
+            blocs.notifications,
+            const Stream<NotificationsState>.empty(),
+            initialState: const NotificationsLoadSuccess(items: [ready]),
+          );
+          await pumpScreen(
+            tester,
+            const CaseWorkspaceLoadInProgress(caseUid: _caseUid),
+          );
+
+          await emit(
+            tester,
+            const CaseWorkspaceLoadSuccess(
+              caseUid: _caseUid,
+              pathologistUid: 'path-1',
+              caseModel: CaseModel(
+                uid: _caseUid,
+                orderNumber: 'ODR-AO-AO-03112026-005',
+                currentStage: 'PrereadQueued',
+                pathologistUid: 'path-1',
+              ),
+            ),
+          );
+
+          verify(
+            () => blocs.caseWorkspace.add(
+              const CasePrereadSettled(caseUid: _caseUid),
+            ),
+          ).called(1);
+        },
+      );
+
+      testWidgets(
+        "waits for the pre-read, and the pre-read's inbox row reopens it",
+        (tester) async {
+          final base = RoleSessions.pathologist;
+          when(() => authBloc.state).thenReturn(
+            SignInSuccess(
+              session: PractitionerSession(
+                doctor: base.doctor.copyWith(uid: 'path-1'),
+                roles: base.roles,
+              ),
+            ),
+          );
+          final inbox = StreamController<NotificationsState>.broadcast();
+          addTearDown(inbox.close);
+          whenListen(
+            blocs.notifications,
+            inbox.stream,
+            initialState: const NotificationsLoadSuccess(),
+          );
+          await pumpScreen(
+            tester,
+            const CaseWorkspaceLoadSuccess(
+              caseUid: _caseUid,
+              pathologistUid: 'path-1',
+              caseModel: CaseModel(
+                uid: _caseUid,
+                orderNumber: 'ODR-AO-AO-03112026-005',
+                currentStage: 'PrereadQueued',
+                pathologistUid: 'path-1',
+              ),
+            ),
+          );
+
+          expect(find.text(l10n.workspaceAwaitingPreread), findsOneWidget);
+          expect(find.text(l10n.doctorCaseSampleReceived), findsNothing);
+
+          const ready = NotificationModel(
+            uid: 'n-1',
+            templateKey: 'prereadReady',
+            resourceType: 'Case',
+            resourceUid: _caseUid,
+          );
+          inbox.add(const NotificationsLoadSuccess(items: [ready]));
+          await tester.pump();
+          // The same row again, as the live inbox resends it, reopens once.
+          inbox.add(const NotificationsLoadSuccess(items: [ready]));
+          await tester.pump();
+
+          verify(
+            () => blocs.caseWorkspace.add(
+              const CasePrereadSettled(caseUid: _caseUid),
+            ),
+          ).called(1);
+        },
+      );
     });
 
     group('the template questions', () {
@@ -1910,6 +2098,99 @@ void main() {
         expect(find.text(l10n.workspaceDiscardRevision), findsOneWidget);
         expect(find.text(AppError.unknown.description(l10n)), findsOneWidget);
         await tester.pump(const Duration(seconds: 5));
+      });
+    });
+
+    group('region read entry', () {
+      CaseWorkspaceLoadSuccess accepted({required String pathologistUid}) =>
+          _loaded(
+            caseModel: _case().copyWith(pathologistUid: pathologistUid),
+            preread: _preread(),
+          );
+
+      void usePathologistSession(String uid) {
+        final base = RoleSessions.pathologist;
+        when(() => authBloc.state).thenReturn(
+          SignInSuccess(
+            session: PractitionerSession(
+              doctor: base.doctor.copyWith(uid: uid),
+              roles: base.roles,
+            ),
+          ),
+        );
+      }
+
+      Future<void> pumpReady(
+        WidgetTester tester, {
+        bool Function()? regionReadEnabled,
+      }) async {
+        // Before the first pump: a failed load never retries, so the
+        // slide client must be in place before NetworkImage reads.
+        // The ask pill waits for the slide's first frame.
+        debugNetworkImageHttpClientProvider = _SlideHttpClient.new;
+        addTearDown(() => debugNetworkImageHttpClientProvider = null);
+        when(
+          () => storage.downloadUrl('slides/smear.png'),
+        ).thenAnswer((_) async => 'https://example.test/slide.png');
+        await pumpScreen(
+          tester,
+          accepted(pathologistUid: 'path-1'),
+          regionReadEnabled: regionReadEnabled,
+          regionClient: FakeRegionReadClient(),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.runAsync(pumpEventQueue);
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('shows the ask pill when on', (tester) async {
+        usePathologistSession('path-1');
+        await pumpReady(tester, regionReadEnabled: () => true);
+
+        expect(find.text(l10n.regionAskAction), findsOneWidget);
+      });
+
+      testWidgets('hides the ask pill when the switch is off', (tester) async {
+        usePathologistSession('path-1');
+        await pumpReady(tester, regionReadEnabled: () => false);
+
+        expect(find.text(l10n.regionAskAction), findsNothing);
+      });
+
+      testWidgets('a doctor never sees the ask pill', (tester) async {
+        final base = RoleSessions.doctor();
+        when(() => authBloc.state).thenReturn(
+          SignInSuccess(
+            session: PractitionerSession(
+              doctor: base.doctor.copyWith(uid: 'doc-1'),
+              roles: base.roles,
+            ),
+          ),
+        );
+        when(
+          () => storage.downloadUrl('slides/smear.png'),
+        ).thenAnswer((_) async => 'https://example.test/slide.png');
+        await pumpScreen(
+          tester,
+          accepted(pathologistUid: 'path-1'),
+          regionReadEnabled: () => true,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(find.text(l10n.regionAskAction), findsNothing);
+      });
+
+      testWidgets('tapping the pill opens the read sheet', (tester) async {
+        usePathologistSession('path-1');
+        await pumpReady(tester, regionReadEnabled: () => true);
+
+        await tester.ensureVisible(find.text(l10n.regionAskAction));
+        await tester.tap(find.text(l10n.regionAskAction));
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.regionAskSubmit), findsOneWidget);
       });
     });
   });

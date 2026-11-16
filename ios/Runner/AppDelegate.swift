@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import UserNotifications
+import firebase_app_check
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -14,6 +15,12 @@ import UserNotifications
   }
 
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    // App Check reads its provider factory when Firebase is configured, and firebase_core
+    // configures it as soon as it registers, ahead of App Check. Registering App Check first
+    // installs its factory in time; otherwise every token comes from DeviceCheck.
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "FirebaseAppCheckPluginFirst") {
+      FirebaseAppCheckPlugin.register(with: registrar)
+    }
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "HybridAiPlugin") {
       HybridAiPlugin.register(with: registrar)

@@ -162,8 +162,12 @@ class AnalyticsService {
     ),
   );
 
-  Future<void> logVoicePlaybackStarted() =>
-      _guard(() => _analytics.logEvent(name: 'voice_playback_started'));
+  Future<void> logVoicePlaybackStarted({required String surface}) => _guard(
+    () => _analytics.logEvent(
+      name: 'voice_playback_started',
+      parameters: {'surface': surface},
+    ),
+  );
 
   Future<void> logVoicePlaybackPaused() =>
       _guard(() => _analytics.logEvent(name: 'voice_playback_paused'));
@@ -323,6 +327,15 @@ class AnalyticsService {
     () => _analytics.logEvent(
       name: 'hybrid_proposal',
       parameters: {'task': task, 'action': action},
+    ),
+  );
+
+  /// A slide-region read finished: `shown` or `failed`. Outcome only, never
+  /// the pixels, the question or the read.
+  Future<void> logRegionRead({required String outcome}) => _guard(
+    () => _analytics.logEvent(
+      name: 'region_read',
+      parameters: {'outcome': outcome},
     ),
   );
 

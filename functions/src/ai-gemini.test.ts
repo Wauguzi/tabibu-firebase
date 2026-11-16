@@ -351,6 +351,43 @@ describe('ai-gemini', () => {
       });
     });
 
+    it('never sends an empty enum value, which gemini-3.8-flash refuses', async () => {
+      const emptyEnums = (node: unknown, path: string, out: string[]): string[] => {
+        if (Array.isArray(node)) node.forEach((v, i) => emptyEnums(v, `${path}[${i}]`, out));
+        else if (node && typeof node === 'object') {
+          for (const [key, value] of Object.entries(node)) {
+            if (key === 'enum' && Array.isArray(value) && value.includes('')) out.push(path);
+            emptyEnums(value, `${path}.${key}`, out);
+          }
+        }
+        return out;
+      };
+      const cap = captureGenerate(async () => ({ text: '{}' }));
+      const client = createGeminiAiClient({ generate: cap.generate });
+      await client.assessCase(baseRequest).catch(() => undefined);
+      await client.summarizeSymptoms!({ inputText: 'Fever' }).catch(() => undefined);
+      assert.equal(cap.requests.length, 2);
+      for (const req of cap.requests) {
+        assert.deepEqual(emptyEnums(req.config?.responseSchema, 'schema', []), []);
+      }
+    });
+
+    it('an order without notes stores no language, without asking the model for one', async () => {
+      const cap = captureGenerate(async () =>
+        jsonReply({
+          inputLanguage: 'en',
+          suggestedLabTestIds: [],
+          advisoryKey: '',
+          translation: { language: 'sw', text: '' },
+        }),
+      );
+      const result = await createGeminiAiClient({ generate: cap.generate }).assessCase({
+        ...baseRequest,
+        notes: '',
+      });
+      assert.equal(result.inputLanguage, '');
+    });
+
     it('never asks for MINIMAL thinking, which gemini-3.8-flash refuses', () => {
       assert.notEqual(GEMINI_THINKING_LEVEL, ThinkingLevel.MINIMAL);
       assert.equal(GEMINI_THINKING_LEVEL, ThinkingLevel.LOW);

@@ -1,25 +1,27 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cloud_functions/cloud_functions.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
 import 'package:logger/logger.dart';
 import 'package:tabibu/core/constants/enums.dart';
+import 'package:tabibu/core/services/ai_logic_service.dart';
 import 'package:tabibu/features/appointments/data/models/appointment_model.dart';
 import 'package:tabibu/features/appointments/data/models/transcription_result_model.dart';
+import 'package:tabibu/features/appointments/symptom_duration.dart';
 
-/// Firestore + callables + speech upload for appointments. No caching.
+/// Firestore + callables for appointments. Symptom audio is transcribed in
+/// the app and never uploaded. No caching.
 @lazySingleton
 class AppointmentFirebase {
   AppointmentFirebase({
     required this._firestore,
     required this._functions,
-    required this._storage,
+    required this._ai,
   });
 
   final FirebaseFirestore _firestore;
   final FirebaseFunctions _functions;
-  final FirebaseStorage _storage;
+  final AiLogicService _ai;
   final Logger _logger = Logger();
 
   /// WAV PCM16 mono 16 kHz cap (1.5 MiB) for symptom speech uploads.
@@ -94,21 +96,28 @@ class AppointmentFirebase {
     ];
   });
 
-  /// Uploads symptom audio to `speechAudio/{uid}/{audioUid}.wav`, then calls
-  /// `transcribeSymptoms`. The server deletes the object in `finally`.
+  /// Transcribes [bytes] in the app, then records the text with
+  /// `recordSymptomTranscript`. The audio is not uploaded.
   Future<TranscriptionResultModel> transcribeSymptoms({
-    required String uid,
-    required String audioUid,
     required Uint8List bytes,
+    required int durationMs,
     String contentType = 'audio/wav',
   }) => _guard('Transcribe symptoms', () async {
     if (bytes.length > maxSpeechBytes) throw AppError.fileTooLarge;
-    final path = 'speechAudio/$uid/$audioUid.wav';
-    await _storage
-        .ref(path)
-        .putData(bytes, SettableMetadata(contentType: contentType));
-    final data = await _call('transcribeSymptoms', {'audioUid': audioUid});
-    return TranscriptionResultModel.fromJson(data);
+    final spoken = await _ai.transcribeSymptoms(bytes, mimeType: contentType);
+    final data = await _call('recordSymptomTranscript', {
+      'text': spoken.transcript,
+      'language': spoken.language,
+      'durationBucket': symptomDurationBucket(durationMs),
+      'model': AiLogicService.symptomTranscribeModel,
+    });
+    final uid = data['transcriptionUid'];
+    return TranscriptionResultModel(
+      transcriptionUid: uid is String ? uid : '',
+      transcript: spoken.transcript,
+      detectedLanguage: spoken.language,
+      models: {'transcribe': AiLogicService.symptomTranscribeModel},
+    );
   });
 
   Future<Map<String, dynamic>> requestAppointment({

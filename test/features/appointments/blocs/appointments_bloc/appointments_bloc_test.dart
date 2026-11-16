@@ -914,9 +914,8 @@ void main() {
         setUp: () {
           when(
             () => cache.transcribeSymptoms(
-              uid: any(named: 'uid'),
-              audioUid: any(named: 'audioUid'),
               bytes: any(named: 'bytes'),
+              durationMs: any(named: 'durationMs'),
               contentType: any(named: 'contentType'),
             ),
           ).thenAnswer(
@@ -958,9 +957,8 @@ void main() {
         setUp: () {
           when(
             () => cache.transcribeSymptoms(
-              uid: any(named: 'uid'),
-              audioUid: any(named: 'audioUid'),
               bytes: any(named: 'bytes'),
+              durationMs: any(named: 'durationMs'),
               contentType: any(named: 'contentType'),
             ),
           ).thenThrow(AppError.unknown);
@@ -988,9 +986,8 @@ void main() {
         setUp: () {
           when(
             () => cache.transcribeSymptoms(
-              uid: any(named: 'uid'),
-              audioUid: any(named: 'audioUid'),
               bytes: any(named: 'bytes'),
+              durationMs: any(named: 'durationMs'),
               contentType: any(named: 'contentType'),
             ),
           ).thenAnswer(
@@ -1039,9 +1036,8 @@ void main() {
         verify: (_) {
           verifyNever(
             () => cache.transcribeSymptoms(
-              uid: any(named: 'uid'),
-              audioUid: any(named: 'audioUid'),
               bytes: any(named: 'bytes'),
+              durationMs: any(named: 'durationMs'),
               contentType: any(named: 'contentType'),
             ),
           );
@@ -1056,9 +1052,8 @@ void main() {
         setUp: () {
           when(
             () => cache.transcribeSymptoms(
-              uid: any(named: 'uid'),
-              audioUid: any(named: 'audioUid'),
               bytes: any(named: 'bytes'),
+              durationMs: any(named: 'durationMs'),
               contentType: any(named: 'contentType'),
             ),
           ).thenAnswer((_) async {
@@ -1128,9 +1123,8 @@ void main() {
         verify: (_) {
           verify(
             () => cache.transcribeSymptoms(
-              uid: any(named: 'uid'),
-              audioUid: any(named: 'audioUid'),
               bytes: any(named: 'bytes'),
+              durationMs: any(named: 'durationMs'),
               contentType: any(named: 'contentType'),
             ),
           ).called(2);

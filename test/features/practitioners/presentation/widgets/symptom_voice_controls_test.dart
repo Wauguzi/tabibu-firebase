@@ -86,8 +86,11 @@ void main() {
     bool voiceInputEnabled = true,
     Locale locale = const Locale('en'),
     double textScale = 1,
+    RecordedAudio? initialClip,
+    Key? key,
+    Size surface = const Size(1170, 2000),
   }) async {
-    tester.view.physicalSize = const Size(1170, 2000);
+    tester.view.physicalSize = surface;
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     tester.platformDispatcher.textScaleFactorTestValue = textScale;
@@ -96,6 +99,7 @@ void main() {
       BlocProvider<AppointmentsBloc>.value(
         value: appointments,
         child: SymptomVoiceControls(
+          key: key,
           patientUid: 'p1',
           symptoms: symptoms,
           recorder: recorder,
@@ -104,6 +108,7 @@ void main() {
           offline: offline,
           voiceInputEnabled: () => voiceInputEnabled,
           preferences: SharedPreferences.getInstance,
+          initialClip: initialClip,
           onTranscriptionUid: (_) {},
           showAiNotice: (_) {},
         ),
@@ -273,6 +278,36 @@ void main() {
     ).called(1);
   });
 
+  testWidgets(
+    'the first recording waits for consent; declining records nothing, and '
+    'consent is asked once',
+    (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      // Tall enough that the consent sheet's buttons are on screen.
+      await pumpControls(tester, surface: const Size(1170, 4000));
+
+      await tester.tap(find.bySemanticsLabel(l10n.symptomVoiceRecordLabel));
+      await tester.pumpAndSettle();
+      expect(find.text(l10n.symptomVoiceConsentTitle), findsOneWidget);
+      expect(recorder.startCount, 0);
+
+      await tester.tap(find.text(l10n.commonCancel));
+      await tester.pumpAndSettle();
+      expect(recorder.startCount, 0, reason: 'declined: nothing is recorded');
+
+      await tester.tap(find.bySemanticsLabel(l10n.symptomVoiceRecordLabel));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(l10n.symptomVoiceConsentContinue));
+      // The sheet answers once it has slid away; then consent is saved,
+      // permission is asked and the recorder opens.
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(recorder.startCount, 1);
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool(SymptomVoiceControls.consentKey), isTrue);
+    },
+  );
+
   testWidgets('mic starts the fake recorder as WAV 16 kHz', (tester) async {
     await pumpControls(tester);
     expect(find.text(l10n.symptomVoiceEnglishOnly), findsOneWidget);
@@ -302,6 +337,59 @@ void main() {
     expect(find.text(sw.symptomVoiceEnglishOnly), findsOneWidget);
     expect(sw.symptomVoiceEnglishOnly, isNot(contains('Swahili recognition')));
   });
+
+  testWidgets(
+    'a Swahili transcript keeps its text and the English hint at 2.0x',
+    (tester) async {
+      const cases = [
+        (language: 'en', transcript: 'Headache', hint: false),
+        (language: 'sw', transcript: 'Nina homa', hint: true),
+      ];
+      for (final locale in const [Locale('en'), Locale('sw')]) {
+        final copy = lookupAppLocalizations(locale);
+        for (final heard in cases) {
+          symptoms.text = '';
+          final states = StreamController<AppointmentsState>.broadcast();
+          addTearDown(states.close);
+          whenListen(
+            appointments,
+            states.stream,
+            initialState: const AppointmentsInitial(),
+          );
+          await pumpControls(
+            tester,
+            locale: locale,
+            textScale: 2,
+            initialClip: fakeRecordedAudio(),
+            key: ValueKey('${locale.languageCode}-${heard.language}'),
+            surface: const Size(1170, 4000),
+          );
+          await tester.tap(find.text(copy.symptomVoiceTranscribeLabel));
+          await tester.pump();
+          final request =
+              verify(() => appointments.add(captureAny())).captured.last
+                  as SymptomsTranscribeRequested;
+          states.add(
+            SymptomsTranscribeSuccess(
+              requestId: request.requestId,
+              transcript: heard.transcript,
+              transcriptionUid: 't9',
+              detectedLanguage: heard.language,
+            ),
+          );
+          await tester.pump();
+          await tester.pump();
+          expect(symptoms.text, heard.transcript);
+          expect(find.text(copy.symptomVoiceEnglishOnly), findsOneWidget);
+          expect(
+            find.text(copy.voiceWorksBestInEnglish),
+            heard.hint ? findsOneWidget : findsNothing,
+          );
+          expect(tester.takeException(), isNull);
+        }
+      }
+    },
+  );
 
   testWidgets('success fills the field and shows the AI notice path', (
     tester,

@@ -211,6 +211,69 @@ void main() {
     );
 
     blocTest<CaseWorkspaceBloc, CaseWorkspaceState>(
+      "the pre-read's result re-reads the case and reopens the workspace",
+      setUp: () {
+        final waiting = asked.copyWith(
+          requestedPathologistUid: '',
+          pathologistUid: _me,
+          currentStage: 'PrereadQueued',
+        );
+        when(() => cases.getCases(_me)).thenAnswer((_) async => [waiting]);
+        when(() => cases.syncCases(_me)).thenAnswer((_) async => [waiting]);
+      },
+      build: build,
+      seed: () => CaseWorkspaceLoadSuccess(
+        caseUid: _case,
+        pathologistUid: _me,
+        caseModel: asked.copyWith(
+          requestedPathologistUid: '',
+          pathologistUid: _me,
+          currentStage: 'PrereadQueued',
+        ),
+      ),
+      act: (bloc) => bloc.add(const CasePrereadSettled(caseUid: _case)),
+      verify: (_) => verify(() => cases.syncCases(_me)).called(1),
+      expect: () => [
+        isA<CaseWorkspaceLoadInProgress>(),
+        isA<CaseWorkspaceLoadSuccess>(),
+      ],
+    );
+
+    blocTest<CaseWorkspaceBloc, CaseWorkspaceState>(
+      'a case cached as queued is read from the server, which may have it',
+      setUp: () {
+        final cached = asked.copyWith(
+          requestedPathologistUid: '',
+          pathologistUid: _me,
+          currentStage: 'PrereadQueued',
+        );
+        when(() => cases.getCases(_me)).thenAnswer((_) async => [cached]);
+        when(() => cases.syncCases(_me)).thenAnswer(
+          (_) async => [cached.copyWith(currentStage: 'PrereadReady')],
+        );
+      },
+      build: build,
+      act: (bloc) => bloc.add(open),
+      verify: (bloc) {
+        verify(() => cases.syncCases(_me)).called(1);
+        expect(bloc.state.caseModel?.currentStage, 'PrereadReady');
+      },
+    );
+
+    blocTest<CaseWorkspaceBloc, CaseWorkspaceState>(
+      "another case's pre-read changes nothing here",
+      build: build,
+      seed: () => CaseWorkspaceLoadSuccess(
+        caseUid: _case,
+        pathologistUid: _me,
+        caseModel: asked,
+      ),
+      act: (bloc) => bloc.add(const CasePrereadSettled(caseUid: 'other')),
+      expect: () => <CaseWorkspaceState>[],
+      verify: (_) => verifyNever(() => cases.syncCases(any())),
+    );
+
+    blocTest<CaseWorkspaceBloc, CaseWorkspaceState>(
       'accepting sends it, refreshes the cases, then opens the workspace',
       setUp: () {
         when(() => cases.getCases(_me)).thenAnswer((_) async => [asked]);

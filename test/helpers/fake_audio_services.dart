@@ -217,6 +217,21 @@ class FakeAudioPlayerService implements AudioPlayerService {
     return true;
   }
 
+  /// Emits a failure for [id]. The clip stops and [AudioPlayback.failed] is
+  /// set.
+  void failClip(String id) {
+    _controller.add(
+      AudioPlayback(
+        id: id,
+        playing: false,
+        position: position,
+        duration: duration,
+        completed: false,
+        failed: true,
+      ),
+    );
+  }
+
   /// Emits a completed event for the current clip (tests drive this).
   void completeCurrent() {
     final id = currentId;

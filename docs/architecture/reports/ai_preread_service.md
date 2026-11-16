@@ -9,8 +9,8 @@
 | Field | Value |
 |---|---|
 | Owner | Theo — CTO, Mobile Engineer |
-| Status | Server jobs built on Gemini; two in-app tasks on the device's own model, one with a cloud fallback (§8) |
-| Last reviewed | 2026-11-15 |
+| Status | Server jobs built on Gemini; two in-app tasks on the device's own model, one with a cloud fallback (§8); three in-app cloud calls through AI Logic, two of them switched off (§9) |
+| Last reviewed | 2026-11-16 |
 | Runs on | Cloud Functions (`functions/src`), calling Gemini on the Agent Platform through `@google/genai` (`ai-gemini.ts`) |
 | Credentials | None stored. The Functions runtime service account holds Vertex AI User (`roles/aiplatform.user`) and the SDK uses Application Default Credentials |
 | Writes to | Firestore `cases/{caseUid}/preread/{runUid}` and the job records in §1; Storage `preread/{caseUid}/{runUid}/` |
@@ -27,9 +27,12 @@
 | **Alert drafting** | The detector raises a signal | Disease, county, rule and the bundled guidance; no case data and no numbers | Doctor guidance and a patient notice in en and sw, with placeholders | The alert approver. If the model fails, a fixed template draft is used |
 
 **Speech.** Voice input for symptoms is off (`voice_input_enabled`). The
-server accepts no audio: `recordSymptomTranscript` stores a transcript the
-app sends, checked for the caller, the switch, a daily cap and its shape, and
-the booking links it. Chat voice notes are recorded and played and never sent
+server accepts no audio: the app sends the recording to an AI Logic template
+(§9) and `recordSymptomTranscript` stores the machine transcript, readable by
+no client, after checking the caller, the switch, a daily cap and its shape.
+The patient edits it before booking; the booking carries their text and
+links the transcript, and the edit distance between the two is a model
+signal. Chat voice notes are recorded and played and never sent
 to a model; their transcript is marked `Failed` with `UnsupportedFormat`.
 
 Every output is written to Firestore for a person to act on; none goes to
@@ -173,7 +176,10 @@ the notes, so the app shows nothing once the notes change).
 Remote Config, read by the triggers and by the app: `preread_enabled`,
 `risk_check_enabled`, `patient_explanations_enabled`,
 `report_translation_enabled`, `symptom_intake_enabled`,
-`voice_input_enabled`, `alert_drafting_enabled` and `alerts_delivery_enabled`.
+`voice_input_enabled`, `alert_drafting_enabled` and `alerts_delivery_enabled`;
+the in-app calls of §8 and §9 have their own (`hybrid_symptom_tidy_enabled`,
+`hybrid_notes_summary_enabled`, `region_read_enabled`,
+`explanation_listen_enabled`).
 Turning one off stops new work and hides the surface; it deletes nothing
 stored. When the server template cannot load, every AI-job switch fails
 closed (no new job; the human path continues) and alert drafting falls back
@@ -206,8 +212,30 @@ prompts live in the native plugins, so Dart can only name a task.
   never disturbs a running or proposed state.
 - Nothing logged includes the input or the output.
 
-## 9. Change log
+## 9. In the app: templates and speech
+
+Three cloud calls start in the app through `AiLogicService`
+(`lib/core/services/ai_logic_service.dart`), on the Agent Platform backend
+with the App Check and authenticated-users enforcement of AI Logic, and the
+per-user quota. No prompt is written in the app.
+
+| Call | Who | How | Output | Switch |
+|---|---|---|---|---|
+| **Symptom transcription** | The patient, booking | Server prompt template `symptom-transcribe-v1-0-0`, the WAV held in memory for the one call | JSON `transcript` and `language`; an unclear recording fails closed. The patient checks the text before booking | `voice_input_enabled`, off |
+| **Region read** | The case's pathologist, in the viewer | Server prompt template `slide-region-read-v1-0-0`, the crop the pathologist framed (at most 1024 px) and an optional question, no case field | Impression, features, uncertainty in words and a caveat, in the AI frame; never saved, no copy action | `region_read_enabled`, off |
+| **Listen to this summary** | The patient, on their result | `gemini-3.8-flash-tts` (`ai_tts_model`), voice `Achernar` (`ai_tts_voice`), the approved explanation verbatim, no system instruction or temperature | A WAV played in the app, labelled as a computer-generated voice, cached in memory for the screen | `explanation_listen_enabled`, on; shown only for an approved explanation |
+
+- **Templates live in the console**, locked, under the id of their file in
+  `prompts/`; Remote Config names the id (`ai_template_symptom_transcribe`,
+  `ai_template_slide_region`), so a new version is a new id, never an edit.
+- **Template-only mode stays off**: the hybrid tidy (§8) and text-to-speech
+  are direct calls.
+- **Errors carry no text**: no transcript, region read or SDK message reaches
+  a log, an analytics event or an error (`aiLogicFailure`).
+
+## 10. Change log
 
 | Date | Change | Author |
 |---|---|---|
 | 2026-11-15 | Crafted for this repository. | Theo |
+| 2026-11-16 | §9 added: symptom transcription, the region read and the narrated explanation through AI Logic. | Theo |

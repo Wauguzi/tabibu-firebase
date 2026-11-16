@@ -256,7 +256,9 @@ async function assessCase(
     contents,
     schema: assessSchema(),
   });
-  return parseAssess(raw, model);
+  const result = parseAssess(raw, model);
+  // No notes, no language: '' is stored, but the model cannot be asked for it.
+  return payload.notes.trim() === '' ? { ...result, inputLanguage: '' } : result;
 }
 
 async function summarizeSymptoms(
@@ -288,7 +290,8 @@ function assessSchema(): Schema {
     type: Type.OBJECT,
     required: ['inputLanguage', 'suggestedLabTestIds', 'advisoryKey', 'translation'],
     properties: {
-      inputLanguage: { type: Type.STRING, format: 'enum', enum: ['en', 'sw', 'mixed', ''] },
+      // The model refuses an empty enum value; '' for "no notes" is set after the call.
+      inputLanguage: { type: Type.STRING, format: 'enum', enum: ['en', 'sw', 'mixed'] },
       suggestedLabTestIds: { type: Type.ARRAY, items: { type: Type.STRING } },
       advisoryKey: { type: Type.STRING },
       translation: {

@@ -134,11 +134,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   confirmSignOut(context, isPatient: widget.role == .patient),
                 ),
         ),
-        SettingsRow(
-          icon: Assets.icons.deleteIcon,
-          title: l10n.profileDeleteAccount,
-          destructive: true,
-        ),
+        // Hidden: no deletion flow exists behind it yet, and the seeded demo
+        // accounts are shared, so one must not be offered for deletion.
+        // Restore with a real flow before any production use.
+        // SettingsRow(
+        //   icon: Assets.icons.deleteIcon,
+        //   title: l10n.profileDeleteAccount,
+        //   destructive: true,
+        // ),
       ],
     );
     final language = SettingsRow(

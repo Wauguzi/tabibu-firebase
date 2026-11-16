@@ -5,7 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tabibu/core/services/recording_cue_service.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 
-import '../../helpers/helpers.dart';
+import '../../helpers/fake_audio_services.dart';
 
 void main() {
   late FakeAudioPlayerService player;
@@ -32,15 +32,23 @@ void main() {
         return Uint8List.fromList([1, 2, 3]);
       },
       cuesDisabled: () => quiet,
+      beepHold: Duration.zero,
     );
   });
+
+  /// Lets the beep report its end, then waits for the cue to stop it.
+  Future<void> letCueFinish(Future<void> pending) async {
+    await Future<void>.delayed(Duration.zero);
+    player.completeCurrent();
+    await pending;
+  }
 
   tearDown(() async {
     await player.dispose();
   });
 
   test('started vibrates and plays the start asset then stops', () async {
-    await cues.started();
+    await letCueFinish(cues.started());
     expect(vibrateCalls, ['v']);
     expect(player.playedIds, [DeviceRecordingCueService.cueId]);
     expect(player.playBytesCalls, hasLength(1));
@@ -48,7 +56,7 @@ void main() {
   });
 
   test('finished vibrates and plays the stop asset', () async {
-    await cues.finished();
+    await letCueFinish(cues.finished());
     expect(vibrateCalls, ['v']);
     expect(player.playedIds, [DeviceRecordingCueService.cueId]);
     expect(player.stopCount, 1);
@@ -71,10 +79,53 @@ void main() {
         return Uint8List.fromList([1, 2, 3]);
       },
       cuesDisabled: () => false,
+      beepHold: Duration.zero,
     );
-    await probe.started();
-    await probe.finished();
+    await letCueFinish(probe.started());
+    await letCueFinish(probe.finished());
     expect(loaded, [Assets.sounds.recordStart, Assets.sounds.recordStop]);
+  });
+
+  test('started returns only after the cue completion event', () async {
+    final held = DeviceRecordingCueService(
+      player,
+      vibrate: () async {},
+      loadAsset: (_) async => Uint8List.fromList([1, 2, 3]),
+      cuesDisabled: () => false,
+      beepHold: const Duration(milliseconds: 80),
+    );
+    final pending = held.started();
+    // Longer than the hold: a cue that waits from play-start would have
+    // stopped already. This one is still waiting for completion.
+    await Future<void>.delayed(const Duration(milliseconds: 120));
+    expect(player.playedIds, [DeviceRecordingCueService.cueId]);
+    expect(player.stopCount, 0);
+
+    player.completeCurrent();
+    await pending;
+    expect(player.stopCount, 1);
+    expect(DeviceRecordingCueService.cueEndTimeout, const Duration(seconds: 1));
+  });
+
+  test('a cue that never ends still stops so the mic can open', () async {
+    final quick = DeviceRecordingCueService(
+      player,
+      vibrate: () async {},
+      loadAsset: (_) async => Uint8List.fromList([1, 2, 3]),
+      cuesDisabled: () => false,
+      beepHold: Duration.zero,
+      endTimeout: const Duration(milliseconds: 20),
+    );
+    await quick.started().timeout(const Duration(milliseconds: 500));
+    expect(player.stopCount, 1);
+  });
+
+  test('a beep that fails to play stops at once, without the wait', () async {
+    final pending = cues.started().timeout(const Duration(milliseconds: 500));
+    await Future<void>.delayed(Duration.zero);
+    player.failClip(DeviceRecordingCueService.cueId);
+    await pending;
+    expect(player.stopCount, 1);
   });
 
   test('skips cues when reduce-motion quiet check is on', () async {

@@ -48,6 +48,7 @@ void main() {
           message: voice,
           mine: true,
           sender: const ConversationMemberModel(),
+          voiceSurface: 'mdt',
           loadVoiceBytes: (_) async => Uint8List.fromList([1, 2, 3]),
           player: player,
         ),

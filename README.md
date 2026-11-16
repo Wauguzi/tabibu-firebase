@@ -77,16 +77,19 @@ Each role, in a line:
 
 The app is built with Flutter for iOS, Android and the web, talks only to Firebase, and holds no
 model key. The AI jobs run inside Cloud Functions, on Gemini through the Agent Platform,
-authenticated by the functions' own service account. Two short tasks run in the app through
-Firebase AI Logic's hybrid inference: a patient can tidy their typed symptoms, on the phone's own
+authenticated by the functions' own service account. The app also calls Firebase AI Logic
+directly: through hybrid inference, a patient can tidy their typed symptoms, on the phone's own
 model where it has one and in the cloud otherwise, and a doctor can summarise their notes on the
-phone only.
+phone only; through server prompt templates, a patient's spoken symptoms become text and a
+pathologist can ask about one region of a slide; and a patient can listen to the explanation their
+doctor approved.
 
 > [!NOTE]
-> The models run in Cloud Functions, each behind its own Remote Config switch: the risk check, the
-> symptom summary, the pathology pre-read, the report translation, the explanation drafts and the
-> alert draft (which falls back to a fixed template whenever a check fails). Speaking a symptom is
-> switched off, and voice notes in the chats record and play but are not transcribed. Every AI
+> The server's models run in Cloud Functions, each behind its own Remote Config switch: the risk
+> check, the symptom summary, the pathology pre-read, the report translation, the explanation drafts
+> and the alert draft (which falls back to a fixed template whenever a check fails). The in-app calls
+> have switches too; speaking a symptom and the region read ship switched off, and voice notes in
+> the chats record and play but are not transcribed. Every AI
 > output is a draft: a pathologist signs the report, the doctor approves the patient's
 > explanation, and an approver releases an alert. The
 > [AI service](docs/architecture/reports/ai_preread_service.md) says what each job sees and does.

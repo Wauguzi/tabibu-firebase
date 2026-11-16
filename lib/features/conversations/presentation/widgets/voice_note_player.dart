@@ -23,6 +23,7 @@ class VoiceNotePlayer extends StatefulWidget {
     required this.loadBytes,
     this.player,
     this.analytics,
+    this.surface = 'chat',
     super.key,
   });
 
@@ -31,6 +32,10 @@ class VoiceNotePlayer extends StatefulWidget {
   final Future<Uint8List> Function(MessageModel message) loadBytes;
   final AudioPlayerService? player;
   final AnalyticsService? analytics;
+
+  /// Analytics surface: `'chat'` or `'mdt'`. The bubble passes it; this
+  /// player must not assume the appointment thread.
+  final String surface;
 
   @override
   State<VoiceNotePlayer> createState() => _VoiceNotePlayerState();
@@ -108,6 +113,15 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer>
         _setFraction(0, animate: false);
         setState(() {});
       }
+      return;
+    }
+    if (event.failed) {
+      // A retry reloads the clip, which clears the error; a resume would not.
+      _playing = false;
+      _active = false;
+      _wasPlaying = false;
+      _announceTick?.cancel();
+      setState(() => _error = true);
       return;
     }
     _position = event.position;
@@ -207,7 +221,7 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer>
     if (_active && _cachedBytes != null) {
       final resumed = await _player.resume(widget.message.uid);
       if (resumed) {
-        unawaited(_analytics?.logVoicePlaybackStarted());
+        unawaited(_analytics?.logVoicePlaybackStarted(surface: widget.surface));
         return;
       }
     }
@@ -220,7 +234,7 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer>
       _cachedBytes = bytes;
       if (!mounted) return;
       await _player.playBytes(bytes, id: widget.message.uid);
-      unawaited(_analytics?.logVoicePlaybackStarted());
+      unawaited(_analytics?.logVoicePlaybackStarted(surface: widget.surface));
     } on Object catch (_) {
       if (mounted) setState(() => _error = true);
     } finally {
