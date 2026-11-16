@@ -6,10 +6,10 @@
 | Title | Server Gemini calls think at LOW, the lowest level the model accepts |
 | Requested by | Theo — CTO |
 | Date raised | 2026-11-16 |
-| Date implemented | Pending the functions deploy |
+| Date implemented | 2026-11-16 |
 | Priority | P2 High — see [`mobile_workflow.md` §7](../../workflow/reports/mobile_workflow.md#7-escalation--severity) |
 | Change type | Normal |
-| Commit(s) / PR | `fix/gemini-thinking-level`; the pull request follows |
+| Commit(s) / PR | [PR #16](https://github.com/Wauguzi/tabibu-firebase/pull/16), merged to `main` as `bb66132` on 2026-11-16; the fix is `546152b`, the evaluation path `af474a8` |
 
 ## 1. Description of change
 
@@ -86,7 +86,8 @@ are the way to stop the jobs instead.
    production sends them (Greptile round 1).
 5. Run the held-out evaluation through the fixed transport and file
    EVAL-0001.
-6. Deploy the functions.
+6. Deploy the functions ahead of the merge, because the live demo produced
+   no pre-read until they were, then certify with a pre-read on a device.
 
 ## 7. Testing & verification evidence
 
@@ -98,16 +99,16 @@ are the way to stop the jobs instead.
 | Functions lint, build, type-check | Pass |
 | Rules tests | N/A — no rules changed |
 | Model evaluation | [EVAL-0001](../../testing/reports/EVAL-0001-cancer-preread-gemini-baseline.md): 200 held-out tiles through the worker's request builder, none refused; sensitivity 70%, specificity 79% |
-| Manual run | Pending: a pre-read on the deployed functions |
+| Manual run | Pass — 16 Nov, on an iPhone 14 with the seeded accounts: a doctor's histopathology order with 2 slides, accepted by the pathologist; the pre-read went `Ready` in 2 min 43 s (45 tiles: 33 Normal, 12 Tumour), confidence capped at Low, no model call refused |
 | UI/UX review | N/A |
-| Certification | Pending the deploy and that pre-read |
+| Certification | 2026-11-16, Theo |
 
 ## 8. Approval
 
 | Role | Required when | Name | Date | Decision |
 |---|---|---|---|---|
 | Author | Always | Theo | 2026-11-16 | — |
-| Engineering reviewer | Always, on the pull request | Greptile — pending | — | — |
+| Engineering reviewer | Always, on the pull request | Greptile — [PR #16](https://github.com/Wauguzi/tabibu-firebase/pull/16) | 2026-11-16 | 5/5 — Approved after one round |
 | Clinical Reviewer | §4 flags clinical-safety impact or changes clinical wording | N/A | — | — |
 | Security Analyst | §4 flags security impact | N/A | — | — |
 | Compliance Officer | §4 flags data protection impact | N/A | — | — |
@@ -129,6 +130,13 @@ tile now goes through `classifyBatch`, which calls the worker's
 `buildClassifyRequestBody` and `parseClassifyTiles`, one tile per request
 as production sends it. The rerun, 70% sensitivity and 79% specificity, is
 inside the first run's intervals and replaces it in EVAL-0001.
+
+**After the merge (16 Nov).** Greptile scored 5/5 on the second review. The
+device run that certifies the change took 2 min 43 s from start to `Ready`
+for 45 tiles, slower than EVAL-0001's latency suggests for a 64-tile run
+(about 2 min) but inside the worker's 240 s. A 64-tile run is measured before
+the demo; if it approaches 240 s, the batch concurrency is the lever, not
+the thinking level.
 
 ## 10. Related records
 
