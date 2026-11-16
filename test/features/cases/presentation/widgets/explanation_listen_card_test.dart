@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:tabibu/core/services/analytics_service.dart';
+import 'package:tabibu/core/services/audio_service_contract.dart';
 import 'package:tabibu/core/widgets/asset_icon.dart';
 import 'package:tabibu/features/cases/data/speech_client.dart';
 import 'package:tabibu/features/cases/data/speech_request.dart';
@@ -25,6 +26,39 @@ class _GatedSpeechClient implements SpeechClient {
 
   @override
   Future<Uint8List> speak(SpeechRequest request) => _answer;
+}
+
+/// Holds playBytes open on the gate, delegating the rest to the fake.
+class _GatedPlayer implements AudioPlayerService {
+  _GatedPlayer(this._player, this._gate);
+
+  final FakeAudioPlayerService _player;
+  final Future<void> _gate;
+
+  @override
+  Stream<AudioPlayback> get playback => _player.playback;
+
+  @override
+  Future<void> playBytes(Uint8List bytes, {required String id}) async {
+    await _gate;
+    await _player.playBytes(bytes, id: id);
+  }
+
+  @override
+  Future<void> playUrl(Uri url, {required String id}) =>
+      _player.playUrl(url, id: id);
+
+  @override
+  Future<bool> resume(String id) => _player.resume(id);
+
+  @override
+  Future<void> pause() => _player.pause();
+
+  @override
+  Future<void> stop() => _player.stop();
+
+  @override
+  Future<void> dispose() => _player.dispose();
 }
 
 /// Fails the first speak, then answers.
@@ -64,13 +98,15 @@ void main() {
     String text = 'Your test found no cancer.',
     String language = 'en',
     bool online = true,
+    SpeechClient? speechClient,
+    AudioPlayerService? audioPlayer,
   }) {
     return ExplanationListenCard(
       text: text,
       language: language,
       online: online,
-      speech: speech,
-      player: player,
+      speech: speechClient ?? speech,
+      player: audioPlayer ?? player,
       analytics: analytics,
       settings: settings,
     );
@@ -173,6 +209,82 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(player.playBytesCalls, isEmpty);
+    });
+
+    testWidgets('covering the route stops playback, and popping shows play', (
+      tester,
+    ) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      await tester.pumpApp(card());
+      await tapPlay(tester, l10n);
+      final navigator = Navigator.of(
+        tester.element(find.byType(ExplanationListenCard)),
+      )..push(MaterialPageRoute<void>(builder: (_) => const Text('over')));
+      await tester.pumpAndSettle();
+
+      expect(player.stopCount, 1);
+
+      navigator.pop();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.bySemanticsLabel(l10n.resultDetailListenPlay),
+        findsOneWidget,
+      );
+      expect(player.playBytesCalls, hasLength(1));
+    });
+
+    testWidgets('a speak reply that lands while covered never plays', (
+      tester,
+    ) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final gate = Completer<Uint8List>();
+      await tester.pumpApp(card(speechClient: _GatedSpeechClient(gate.future)));
+      await tester.tap(find.bySemanticsLabel(l10n.resultDetailListenPlay));
+      await tester.pump();
+      Navigator.of(
+        tester.element(find.byType(ExplanationListenCard)),
+      ).push(MaterialPageRoute<void>(builder: (_) => const Text('over')));
+      await tester.pumpAndSettle();
+      gate.complete(Uint8List.fromList([1, 2, 3]));
+      await tester.pumpAndSettle();
+
+      expect(player.playBytesCalls, isEmpty);
+    });
+
+    testWidgets('a play that starts after dispose is stopped', (tester) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final gate = Completer<void>();
+      await tester.pumpApp(
+        card(audioPlayer: _GatedPlayer(player, gate.future)),
+      );
+      await tester.tap(find.bySemanticsLabel(l10n.resultDetailListenPlay));
+      await tester.pump();
+
+      await tester.pumpWidget(Container());
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(player.stopCount, 1);
+    });
+
+    testWidgets('a play that starts after a text change is stopped', (
+      tester,
+    ) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final gate = Completer<void>();
+      final gatedPlayer = _GatedPlayer(player, gate.future);
+      await tester.pumpApp(card(audioPlayer: gatedPlayer));
+      await tester.tap(find.bySemanticsLabel(l10n.resultDetailListenPlay));
+      await tester.pump();
+
+      await tester.pumpApp(
+        card(text: 'Your scan looks clear.', audioPlayer: gatedPlayer),
+      );
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(player.stopCount, 1);
     });
 
     testWidgets('pausing logs it', (tester) async {

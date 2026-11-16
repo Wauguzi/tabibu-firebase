@@ -97,16 +97,17 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
     if (_phase == .asking) return;
     setState(() => _phase = .asking);
     final analytics = _analytics;
-    final capture = widget.capture;
-    final bytes = await (capture != null
-        ? capture()
-        : widget.captureController.captureRegion());
-    if (!mounted) return;
-    if (bytes == null) {
-      unawaited(_failed(analytics));
-      return;
-    }
     try {
+      // Drawing or encoding can throw. Outside this try the spinner stays.
+      final capture = widget.capture;
+      final bytes = await (capture != null
+          ? capture()
+          : widget.captureController.captureRegion());
+      if (!mounted) return;
+      if (bytes == null) {
+        unawaited(_failed(analytics));
+        return;
+      }
       final result = await widget.client.readRegion(
         RegionReadRequest(
           imageBytes: bytes,

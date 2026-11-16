@@ -158,6 +158,28 @@ void main() {
       expect(find.byType(TabibuButton), findsNothing);
     });
 
+    testWidgets('a capture that throws ends in the error state', (
+      tester,
+    ) async {
+      final client = FakeRegionReadClient(result: _read);
+      await tester.pumpApp(
+        body(
+          client: client,
+          capture: () => Future<Uint8List?>.error(StateError('capture')),
+        ),
+      );
+
+      await tester.tap(find.text('Ask'));
+      // Two pumps: the throw arrives as a microtask, then the error frame.
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text("Couldn't read that region just now."), findsOneWidget);
+      expect(find.text('Try again'), findsOneWidget);
+      verify(() => analytics.logRegionRead(outcome: 'failed')).called(1);
+      expect(client.calls, 0);
+    });
+
     testWidgets('a failed read shows its error and retries', (tester) async {
       final client = _ScriptedClient([null, _read]);
       await tester.pumpApp(body(client: client));

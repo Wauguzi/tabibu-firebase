@@ -137,6 +137,19 @@ the fix:
   key is the request's own fields, unused TTS constants are gone, and a test
   shows each transcription sends only its own audio (T-24).
 
+**Greptile round 1 (PR #17, 3/5).** Three findings, each fixed with a test
+that fails without the fix:
+
+- **P1: the narration played on under a pushed page.** Read explanation,
+  the share menu and a follow-up keep the result screen mounted, and the
+  card stopped only on dispose. It now stops, and drops a pending start,
+  when its route is covered; returning shows play and does not resume.
+- **P1: an old clip could start late.** The stale check ran after the speech
+  reply but not after the clip loaded. Every start now carries a generation
+  that dispose, new text and covering move on, checked after each wait.
+- **P2: a capture that threw left the region sheet spinning.** The capture
+  now runs inside the same error handling as the model call.
+
 The device run follows.
 
 ## 10. Related records

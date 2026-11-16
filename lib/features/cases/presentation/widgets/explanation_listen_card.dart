@@ -57,6 +57,13 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
   Duration _duration = Duration.zero;
   String? _playId;
 
+  /// Bumped by dispose, new words and covering: a start whose generation
+  /// went stale drops or stops instead of playing.
+  var _generation = 0;
+
+  /// Whether our route is the top one; covering stops playback.
+  var _routeCurrent = true;
+
   @override
   void initState() {
     super.initState();
@@ -66,21 +73,41 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // No route (bare pumps) reads as current.
+    final current = ModalRoute.isCurrentOf(context) ?? true;
+    if (current == _routeCurrent) return;
+    _routeCurrent = current;
+    // Uncovering never auto-plays: the card just shows play again.
+    if (current) return;
+    // Covered: pending starts go stale and a playing clip stops. The
+    // dependency change already schedules the rebuild.
+    _generation++;
+    if (_playing) {
+      _playing = false;
+      _active = false;
+      unawaited(_player.stop());
+    }
+  }
+
+  @override
   void didUpdateWidget(covariant ExplanationListenCard oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.text == widget.text &&
         oldWidget.language == widget.language) {
       return;
     }
-    // New words: a playing old clip stops, and its cache goes.
+    // New words: pending starts go stale, a playing old clip stops, and
+    // its cache goes. The play id stays for the late-start stop check.
     final wasPlaying = _playing;
+    _generation++;
     _cache.clear();
     _playing = false;
     _active = false;
     _error = false;
     _loading = false;
     _duration = Duration.zero;
-    _playId = null;
     if (wasPlaying) unawaited(_player.stop());
   }
 
@@ -88,6 +115,7 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
   void dispose() {
     // Cancel first: nothing is left to hear the stop's own event.
     final wasPlaying = _playing;
+    _generation++;
     unawaited(_sub?.cancel());
     if (wasPlaying) unawaited(_player.stop());
     super.dispose();
@@ -154,6 +182,7 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
       unawaited(_analytics?.logVoicePlaybackPaused());
       return;
     }
+    final generation = _generation;
     final settings = _settings;
     final request = SpeechRequest(
       text: widget.text,
@@ -182,11 +211,16 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
     });
     try {
       final bytes = _cache.get(key) ?? await widget.speech.speak(request);
-      // New words arrived mid-load: the stale reply is dropped, unplayed.
-      if (!mounted || key != _cacheKey) return;
+      // A stale start drops unplayed: new words, dispose or covering.
+      if (!mounted || key != _cacheKey || generation != _generation) return;
       _cache.put(key, bytes);
       _playId = key;
       await _player.playBytes(bytes, id: key);
+      if (generation != _generation) {
+        // Started late: stop it, unless a newer start took the player.
+        if (_playId == key) unawaited(_player.stop());
+        return;
+      }
       unawaited(_analytics?.logVoicePlaybackStarted(surface: 'explanation'));
     } on Object catch (_) {
       if (mounted) setState(() => _error = true);
