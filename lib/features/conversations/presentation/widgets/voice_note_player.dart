@@ -207,7 +207,7 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer>
     if (_active && _cachedBytes != null) {
       final resumed = await _player.resume(widget.message.uid);
       if (resumed) {
-        unawaited(_analytics?.logVoicePlaybackStarted());
+        unawaited(_analytics?.logVoicePlaybackStarted(surface: 'chat'));
         return;
       }
     }
@@ -220,7 +220,7 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer>
       _cachedBytes = bytes;
       if (!mounted) return;
       await _player.playBytes(bytes, id: widget.message.uid);
-      unawaited(_analytics?.logVoicePlaybackStarted());
+      unawaited(_analytics?.logVoicePlaybackStarted(surface: 'chat'));
     } on Object catch (_) {
       if (mounted) setState(() => _error = true);
     } finally {

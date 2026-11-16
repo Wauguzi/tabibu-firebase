@@ -51,6 +51,7 @@ class DoctorProfileScreen extends StatefulWidget {
     this.cues,
     this.analytics,
     this.hybrid,
+    this.voiceInputEnabled,
     super.key,
   });
 
@@ -60,6 +61,10 @@ class DoctorProfileScreen extends StatefulWidget {
   final RecordingCueService? cues;
   final AnalyticsService? analytics;
   final HybridAiService? hybrid;
+
+  /// Overrides the client voice flag. Production leaves this null and reads
+  /// Remote Config, which defaults to off.
+  final bool Function()? voiceInputEnabled;
 
   @override
   State<DoctorProfileScreen> createState() => _DoctorProfileScreenState();
@@ -433,6 +438,7 @@ class _DoctorProfileScreenState extends State<DoctorProfileScreen> {
                 recorder: widget.recorder,
                 analytics: widget.analytics,
                 cues: widget.cues,
+                voiceInputEnabled: widget.voiceInputEnabled,
                 onTranscriptionUid: (uid) => setState(() {
                   _transcriptionUid = uid;
                 }),

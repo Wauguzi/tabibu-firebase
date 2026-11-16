@@ -57,6 +57,7 @@ class CaseWorkspaceBloc extends Bloc<CaseWorkspaceEvent, CaseWorkspaceState> {
     on<CaseRequestAccepted>(_onAccepted, transformer: droppable());
     on<CaseRequestDeclined>(_onDeclined, transformer: droppable());
     on<CaseSampleReceived>(_onSampleReceived, transformer: droppable());
+    on<CasePrereadSettled>(_onPrereadSettled, transformer: droppable());
     // One revision at a time; a double tap must not open two drafts.
     on<CaseRevisionStarted>(_onRevision, transformer: droppable());
     // One discard; a double tap on the confirm must not repeat it.
@@ -406,6 +407,25 @@ class CaseWorkspaceBloc extends Bloc<CaseWorkspaceEvent, CaseWorkspaceState> {
     unawaited(_analytics.logCaseRequestAccepted());
     // Now theirs: the workspace opens on the case as it always does.
     add(CaseWorkspaceOpened(caseUid: caseUid, pathologistUid: pathologistUid));
+  }
+
+  Future<void> _onPrereadSettled(
+    CasePrereadSettled event,
+    Emitter<CaseWorkspaceState> emit,
+  ) async {
+    if (event.caseUid != state.caseUid || state.pathologistUid.isEmpty) return;
+    final pathologistUid = state.pathologistUid;
+    try {
+      await _cases.syncCases(pathologistUid);
+    } on Object catch (_) {
+      // Offline: the cached case reopens, and the next open syncs.
+    }
+    add(
+      CaseWorkspaceOpened(
+        caseUid: event.caseUid,
+        pathologistUid: pathologistUid,
+      ),
+    );
   }
 
   Future<void> _onSampleReceived(

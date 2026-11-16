@@ -16,6 +16,7 @@ class SampleReceivedView extends StatefulWidget {
     required this.busy,
     required this.onRecord,
     this.suggested = '',
+    this.awaitingPreread = false,
     super.key,
   });
 
@@ -25,6 +26,10 @@ class SampleReceivedView extends StatefulWidget {
 
   /// A made-up accession number to start from; the person may replace it.
   final String suggested;
+
+  /// The pre-read is still running, and the report cannot start until it is
+  /// in, so recording the sample waits for it.
+  final bool awaitingPreread;
 
   @override
   State<SampleReceivedView> createState() => _SampleReceivedViewState();
@@ -115,10 +120,21 @@ class _SampleReceivedViewState extends State<SampleReceivedView> {
           },
         ),
         const SizedBox(height: AppSpacing.md),
+        if (widget.awaitingPreread) ...[
+          NoticeCard(
+            variant: .info,
+            icon: Assets.icons.sparkleIcon,
+            title: l10n.workspaceAwaitingPrereadTitle,
+            body: l10n.workspaceAwaitingPrereadBody,
+          ),
+          const SizedBox(height: AppSpacing.md),
+        ],
         TabibuButton.primary(
-          label: l10n.doctorCaseSampleReceived,
+          label: widget.awaitingPreread
+              ? l10n.workspaceAwaitingPreread
+              : l10n.doctorCaseSampleReceived,
           isLoading: widget.busy,
-          onTap: widget.busy ? null : _submit,
+          onTap: widget.busy || widget.awaitingPreread ? null : _submit,
         ),
       ],
     );

@@ -205,17 +205,15 @@ class AppointmentCacheHelper {
     return row.toModel();
   }
 
-  /// Online only: uploads symptom audio and returns the transcript. The
-  /// server deletes the object; nothing is cached locally.
+  /// Online only: transcribes symptom audio in the app and records the text.
+  /// Nothing is uploaded or cached locally.
   Future<TranscriptionResultModel> transcribeSymptoms({
-    required String uid,
-    required String audioUid,
     required Uint8List bytes,
+    required int durationMs,
     String contentType = 'audio/wav',
   }) => _remote.transcribeSymptoms(
-    uid: uid,
-    audioUid: audioUid,
     bytes: bytes,
+    durationMs: durationMs,
     contentType: contentType,
   );
 

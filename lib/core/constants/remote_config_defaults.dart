@@ -26,6 +26,21 @@ abstract final class RemoteConfigDefaults {
     'hybrid_cloud_model': 'gemini-3.5-flash-lite',
   };
 
+  /// AI Logic calls: symptom speech, explanation speech, the region read.
+  /// Template ids match `prompts/` without the extension. Limited-use tokens
+  /// stay off until a live call has proved them; the region read stays off
+  /// until Theo switches it on.
+  static const ai = <String, Object>{
+    'ai_location': 'global',
+    'ai_template_symptom_transcribe': 'symptom-transcribe-v1-0-0',
+    'ai_limited_use_tokens': false,
+    'ai_tts_model': 'gemini-3.8-flash-tts',
+    'ai_tts_voice': 'Achernar',
+    'ai_template_slide_region': 'slide-region-read-v1-0-0',
+    'region_read_enabled': false,
+    'explanation_listen_enabled': true,
+  };
+
   /// The force-update parameters.
   static const appUpdate = <String, Object>{
     'force_update': false,
@@ -40,5 +55,6 @@ abstract final class RemoteConfigDefaults {
     ...appUpdate,
     ...killSwitches,
     ...hybrid,
+    ...ai,
   };
 }

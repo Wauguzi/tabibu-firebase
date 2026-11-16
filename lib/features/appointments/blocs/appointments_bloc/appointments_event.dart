@@ -66,7 +66,7 @@ final class AppointmentBookRequested extends AppointmentsEvent {
   ];
 }
 
-/// Upload symptom audio and run `transcribeSymptoms` (droppable).
+/// Transcribe a symptom recording in the app, then record the text.
 final class SymptomsTranscribeRequested extends AppointmentsEvent {
   const SymptomsTranscribeRequested({
     required this.uid,

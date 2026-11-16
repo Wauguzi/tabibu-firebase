@@ -22,7 +22,9 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     player = FakeAudioPlayerService();
     analytics = _MockAnalytics();
-    when(() => analytics.logVoicePlaybackStarted()).thenAnswer((_) async {});
+    when(
+      () => analytics.logVoicePlaybackStarted(surface: any(named: 'surface')),
+    ).thenAnswer((_) async {});
     when(() => analytics.logVoicePlaybackPaused()).thenAnswer((_) async {});
   });
 
@@ -68,7 +70,7 @@ void main() {
     await tester.tap(find.bySemanticsLabel(l10n.chatVoicePlayLabel));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
-    verify(() => analytics.logVoicePlaybackStarted()).called(1);
+    verify(() => analytics.logVoicePlaybackStarted(surface: 'chat')).called(1);
 
     await tester.tap(find.bySemanticsLabel(l10n.chatVoicePauseLabel));
     await tester.pump();

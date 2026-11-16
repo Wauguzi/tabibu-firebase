@@ -1,12 +1,11 @@
-import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:tabibu/core/constants/enums.dart';
+import 'package:tabibu/core/services/ai_logic_service.dart';
 import 'package:tabibu/features/appointments/data/datasources/appointment_firebase.dart';
 
 import '../../../../helpers/helpers.dart';
@@ -18,24 +17,6 @@ class _MockCallable extends Mock implements HttpsCallable {}
 class _MockCallableResult extends Mock
     implements HttpsCallableResult<dynamic> {}
 
-class _MockStorage extends Mock implements FirebaseStorage {}
-
-class _MockRef extends Mock implements Reference {}
-
-class _MockTaskSnapshot extends Mock implements TaskSnapshot {}
-
-class _FakeUploadTask extends Fake implements UploadTask {
-  _FakeUploadTask(this._snap);
-
-  final TaskSnapshot _snap;
-
-  @override
-  Future<R> then<R>(
-    FutureOr<R> Function(TaskSnapshot value) onValue, {
-    Function? onError,
-  }) => Future<R>.value(onValue(_snap));
-}
-
 class _Refusal extends FirebaseFunctionsException {
   _Refusal(String reason, String code) : super(message: reason, code: code);
 }
@@ -44,23 +25,23 @@ void main() {
   late FakeFirebaseFirestore firestore;
   late _MockFunctions functions;
   late _MockCallable callable;
-  late _MockStorage storage;
+  late FakeAiLogicService ai;
   late AppointmentFirebase remote;
-
-  setUpAll(() {
-    registerFallbackValue(Uint8List(0));
-    registerFallbackValue(SettableMetadata(contentType: 'audio/mp4'));
-  });
 
   setUp(() {
     firestore = FakeFirebaseFirestore();
     functions = _MockFunctions();
     callable = _MockCallable();
-    storage = _MockStorage();
+    ai = FakeAiLogicService(
+      result: const SymptomTranscript(
+        transcript: 'Headache since morning',
+        language: 'en',
+      ),
+    );
     remote = AppointmentFirebase(
       firestore: firestore,
       functions: functions,
-      storage: storage,
+      ai: ai,
     );
     when(() => functions.httpsCallable(any())).thenReturn(callable);
   });
@@ -145,48 +126,65 @@ void main() {
       );
     });
 
-    test('transcribeSymptoms uploads then calls the callable', () async {
-      final ref = _MockRef();
-      final snap = _MockTaskSnapshot();
-      when(() => storage.ref(any())).thenReturn(ref);
-      when(
-        () => ref.putData(any(), any()),
-      ).thenAnswer((_) => _FakeUploadTask(snap));
-
+    test('transcribeSymptoms records the text and does not upload', () async {
       final result = _MockCallableResult();
-      when(() => result.data).thenReturn({
-        'transcriptionUid': 'tr-1',
-        'transcript': 'hello',
-        'detectedLanguage': 'en',
-        'models': {'voice': 'v1'},
-      });
+      when(() => result.data).thenReturn({'transcriptionUid': 'tr-1'});
       when(
         () => callable.call<dynamic>(any<dynamic>()),
       ).thenAnswer((_) async => result);
 
+      final bytes = Uint8List.fromList([1, 2, 3]);
       final out = await remote.transcribeSymptoms(
-        uid: 'u1',
-        audioUid: 'aud-1',
-        bytes: Uint8List.fromList([1, 2, 3]),
+        bytes: bytes,
+        durationMs: 2500,
       );
       expect(out.transcriptionUid, 'tr-1');
-      expect(AppointmentFirebase.maxSpeechBytes, 1572864);
-      verify(() => storage.ref('speechAudio/u1/aud-1.wav')).called(1);
-      final captured = verify(() => ref.putData(any(), captureAny())).captured;
-      expect((captured.single as SettableMetadata).contentType, 'audio/wav');
-      verify(() => functions.httpsCallable('transcribeSymptoms')).called(1);
+      expect(out.transcript, 'Headache since morning');
+      expect(out.detectedLanguage, 'en');
+      expect(out.models['transcribe'], AiLogicService.symptomTranscribeModel);
+      expect(ai.calls, [(byteLength: 3, mimeType: 'audio/wav')]);
+      verify(
+        () => functions.httpsCallable('recordSymptomTranscript'),
+      ).called(1);
+      final sent =
+          verify(
+                () => callable.call<dynamic>(captureAny<dynamic>()),
+              ).captured.single
+              as Map<dynamic, dynamic>;
+      expect(sent['text'], 'Headache since morning');
+      expect(sent['language'], 'en');
+      expect(sent['durationBucket'], '0_15');
+      expect(sent['model'], AiLogicService.symptomTranscribeModel);
+      expect(sent.containsKey('audioUid'), isFalse);
+      verifyNever(() => functions.httpsCallable('transcribeSymptoms'));
     });
 
-    test('transcribeSymptoms refuses oversized audio before upload', () async {
+    test(
+      'transcribeSymptoms refuses oversized audio before the model',
+      () async {
+        await expectLater(
+          remote.transcribeSymptoms(
+            bytes: Uint8List(AppointmentFirebase.maxSpeechBytes + 1),
+            durationMs: 1000,
+          ),
+          throwsA(AppError.fileTooLarge),
+        );
+        expect(ai.calls, isEmpty);
+        verifyNever(() => functions.httpsCallable(any()));
+      },
+    );
+
+    test('a switched-off voice record becomes voiceUnavailable', () async {
+      when(
+        () => callable.call<dynamic>(any<dynamic>()),
+      ).thenThrow(_Refusal('voiceDisabled', 'failed-precondition'));
       await expectLater(
         remote.transcribeSymptoms(
-          uid: 'u1',
-          audioUid: 'aud-1',
-          bytes: Uint8List(AppointmentFirebase.maxSpeechBytes + 1),
+          bytes: Uint8List.fromList([1]),
+          durationMs: 1000,
         ),
-        throwsA(AppError.fileTooLarge),
+        throwsA(AppError.voiceUnavailable),
       );
-      verifyZeroInteractions(storage);
     });
   });
 
@@ -196,7 +194,7 @@ void main() {
       final server = AppointmentFirebase(
         firestore: recording,
         functions: functions,
-        storage: storage,
+        ai: ai,
       );
 
       await server.fetchPatientDelta(patientUid: 'p1');

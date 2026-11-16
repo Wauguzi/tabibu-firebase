@@ -4950,7 +4950,7 @@
     "@orderNoPathologists": {
         "description": "Pathologist list empty"
     },
-    "orderPathologistAiNote": "An AI pre-read is ready for the pathologist once the slide is scanned. A person signs every report.",
+    "orderPathologistAiNote": "An AI pre-read starts when the pathologist accepts the case and is usually ready about three minutes later. A person signs every report.",
     "@orderPathologistAiNote": {
         "description": "Explains the AI pre-read; not AI output"
     },
@@ -8127,6 +8127,18 @@
     "@workspaceRequestDeclined": {
         "description": "Pathologist case request: shown after declining"
     },
+    "workspaceAwaitingPreread": "Awaiting pre-read",
+    "@workspaceAwaitingPreread": {
+        "description": "Pathologist: the sample button while the AI pre-read is still running"
+    },
+    "workspaceAwaitingPrereadTitle": "The AI pre-read is on its way",
+    "@workspaceAwaitingPrereadTitle": {
+        "description": "Pathologist: notice title while the pre-read runs"
+    },
+    "workspaceAwaitingPrereadBody": "It usually takes about three minutes. You can record the sample as soon as it is in.",
+    "@workspaceAwaitingPrereadBody": {
+        "description": "Pathologist: notice body while the pre-read runs; the button turns on by itself"
+    },
     "workspaceSampleTitle": "Sample not recorded yet",
     "@workspaceSampleTitle": {
         "description": "Pathologist: heading on an accepted case whose sample has no accession number"
@@ -8682,5 +8694,69 @@
     "hybridFailed": "Couldn't do that just now.",
     "@hybridFailed": {
         "description": "Hybrid: generation failed"
+    },
+    "resultDetailListenComputerVoice": "Computer-generated voice",
+    "@resultDetailListenComputerVoice": {
+        "description": "Result: label that the summary voice is computer generated"
+    },
+    "resultDetailListenFailed": "Couldn't play that just now.",
+    "@resultDetailListenFailed": {
+        "description": "Result: explanation audio failed, with retry"
+    },
+    "resultDetailListenOffline": "Connect to listen to this summary.",
+    "@resultDetailListenOffline": {
+        "description": "Result: explanation audio needs a connection"
+    },
+    "resultDetailListenPlay": "Play summary",
+    "@resultDetailListenPlay": {
+        "description": "Result: play the approved explanation audio"
+    },
+    "resultDetailListenPause": "Pause summary",
+    "@resultDetailListenPause": {
+        "description": "Result: pause the approved explanation audio"
+    },
+    "voiceWorksBestInEnglish": "Voice works best in English.",
+    "@voiceWorksBestInEnglish": {
+        "description": "Voice: hint shown when a transcript is not English"
+    },
+    "regionAskAction": "Ask AI about this region",
+    "@regionAskAction": {
+        "description": "Slide viewer: ask for an AI read of the visible region"
+    },
+    "regionAskSubmit": "Ask",
+    "@regionAskSubmit": {
+        "description": "Region sheet: submit the read request"
+    },
+    "regionQuestionHint": "Optional question about this region",
+    "@regionQuestionHint": {
+        "description": "Region sheet: hint for the optional question field"
+    },
+    "regionFeatures": "Features",
+    "@regionFeatures": {
+        "description": "Region sheet: heading above the visible features"
+    },
+    "regionCaveat": "Caveat",
+    "@regionCaveat": {
+        "description": "Region sheet: heading above the read caveat"
+    },
+    "regionUncertainty": "Uncertainty",
+    "@regionUncertainty": {
+        "description": "Region sheet: label for the uncertainty value"
+    },
+    "regionUncertaintyLow": "Low",
+    "@regionUncertaintyLow": {
+        "description": "Region sheet: low uncertainty value"
+    },
+    "regionUncertaintyMedium": "Medium",
+    "@regionUncertaintyMedium": {
+        "description": "Region sheet: medium uncertainty value"
+    },
+    "regionUncertaintyHigh": "High",
+    "@regionUncertaintyHigh": {
+        "description": "Region sheet: high uncertainty value"
+    },
+    "regionFailed": "Couldn't read that region just now.",
+    "@regionFailed": {
+        "description": "Region sheet: read failed, with retry"
     }
 }

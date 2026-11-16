@@ -102,6 +102,9 @@ class _SymptomVoiceControlsState extends State<SymptomVoiceControls> {
   /// In-memory only: a refuse or a false client flag hides mic until relaunch.
   var _voiceUnavailable = false;
 
+  /// The latest transcript was Swahili, so the extra hint sits with that text.
+  var _swahiliHeard = false;
+
   /// Resolved on first record so booking tests that only inject a recorder
   /// never need getIt for cues.
   RecordingCueService get _cues =>
@@ -133,8 +136,8 @@ class _SymptomVoiceControlsState extends State<SymptomVoiceControls> {
         SymptomVoiceControls.voiceInputFlag,
       );
     } on Object catch (_) {
-      // Client defaults are on; the server refuse still gates a live call.
-      return true;
+      // The client default is off. A missing config must not show the mic.
+      return false;
     }
   }
 
@@ -319,6 +322,7 @@ class _SymptomVoiceControlsState extends State<SymptomVoiceControls> {
     setState(() {
       _voiceUnavailable = true;
       _pending = null;
+      _swahiliHeard = false;
       _requestId = null;
       _recording = false;
       _stopping = false;
@@ -364,6 +368,7 @@ class _SymptomVoiceControlsState extends State<SymptomVoiceControls> {
           case SymptomsTranscribeSuccess(
             :final transcript,
             :final transcriptionUid,
+            :final detectedLanguage,
           ):
             final existing = widget.symptoms.text.trim();
             final combined = existing.isEmpty
@@ -378,6 +383,7 @@ class _SymptomVoiceControlsState extends State<SymptomVoiceControls> {
             widget.showAiNotice(true);
             setState(() {
               _pending = null;
+              _swahiliHeard = detectedLanguage.trim().toLowerCase() == 'sw';
               _status = cut
                   ? l10n.pasteCutAtLimit(limit)
                   : l10n.symptomVoiceDeletedNotice;
@@ -445,6 +451,10 @@ class _SymptomVoiceControlsState extends State<SymptomVoiceControls> {
           ),
           const SizedBox(height: AppSpacing.xs),
           Text(l10n.symptomVoiceEnglishOnly, style: muted),
+          if (_swahiliHeard) ...[
+            const SizedBox(height: AppSpacing.xs),
+            Text(l10n.voiceWorksBestInEnglish, style: muted),
+          ],
           if (_status.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.xs),
             Text(_status, style: muted),

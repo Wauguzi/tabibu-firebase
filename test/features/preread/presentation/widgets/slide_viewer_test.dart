@@ -25,6 +25,7 @@ void main() {
     required bool heatmapOn,
     required ValueChanged<bool> onHeatmapChanged,
     VoidCallback? onTiles,
+    VoidCallback? onAskRegion,
     ImageProvider? image,
     ImageProvider? heatmap,
   }) {
@@ -38,6 +39,8 @@ void main() {
         heatmapLabel: 'Heat map',
         tilesLabel: 'Tiles',
         onTiles: onTiles,
+        askRegionLabel: 'Ask AI about this region',
+        onAskRegion: onAskRegion,
         scaleLabel: 'x20 · 1 mm',
         legendLow: 'Normal',
         legendHigh: 'Likely tumour',
@@ -82,6 +85,25 @@ void main() {
     testWidgets('null onTiles hides the Tiles control', (tester) async {
       await tester.pumpApp(viewer(heatmapOn: false, onHeatmapChanged: (_) {}));
       expect(find.text('Tiles'), findsNothing);
+      expect(find.text('Heat map'), findsOneWidget);
+    });
+
+    testWidgets('ask tap fires', (tester) async {
+      var taps = 0;
+      await tester.pumpApp(
+        viewer(
+          heatmapOn: false,
+          onHeatmapChanged: (_) {},
+          onAskRegion: () => taps++,
+        ),
+      );
+      await tester.tap(find.text('Ask AI about this region'));
+      expect(taps, 1);
+    });
+
+    testWidgets('null onAskRegion hides the ask control', (tester) async {
+      await tester.pumpApp(viewer(heatmapOn: false, onHeatmapChanged: (_) {}));
+      expect(find.text('Ask AI about this region'), findsNothing);
       expect(find.text('Heat map'), findsOneWidget);
     });
 

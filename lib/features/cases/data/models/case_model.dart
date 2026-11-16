@@ -171,6 +171,10 @@ abstract class CaseModel with _$CaseModel {
         _ => false,
       };
 
+  /// The AI pre-read is still running. The server refuses to start the
+  /// report until it is in (`prereadPending`), so recording the sample waits.
+  bool get awaitsPreread => currentStageValue == .prereadQueued;
+
   /// Signed and waiting for the doctor to discuss it with the patient.
   bool get needsDoctor =>
       resultStateValue == .withDoctor || resultStateValue == .updateWithDoctor;

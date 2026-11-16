@@ -292,5 +292,14 @@ void main() {
       expect(at('Cancelled').isDone, isTrue);
       expect(at('ReportSigned').isDone, isFalse);
     });
+
+    test('awaitsPreread holds only while the pre-read is queued', () {
+      CaseModel at(String stage) =>
+          CaseModel.empty().copyWith(currentStage: stage);
+      expect(at('PrereadQueued').awaitsPreread, isTrue);
+      for (final stage in ['PrereadReady', 'PrereadFailed', 'SlidesUploaded']) {
+        expect(at(stage).awaitsPreread, isFalse, reason: stage);
+      }
+    });
   });
 }

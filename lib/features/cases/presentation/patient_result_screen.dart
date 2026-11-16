@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:collection/collection.dart';
+import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -12,7 +13,10 @@ import 'package:tabibu/core/constants/app_shadows.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/constants/app_styles.dart';
 import 'package:tabibu/core/constants/enums.dart';
+import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/core/routing/app_routes.dart';
+import 'package:tabibu/core/services/ai_logic_service.dart';
+import 'package:tabibu/core/services/audio_service_contract.dart';
 import 'package:tabibu/core/utils/nairobi_time.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_bloc.dart';
@@ -23,12 +27,16 @@ import 'package:tabibu/features/auth/data/models/auth_session.dart';
 import 'package:tabibu/features/cases/blocs/cases_bloc/cases_bloc.dart';
 import 'package:tabibu/features/cases/blocs/cases_bloc/cases_event.dart';
 import 'package:tabibu/features/cases/blocs/cases_bloc/cases_state.dart';
+import 'package:tabibu/features/cases/data/ai_logic_speech_client.dart';
 import 'package:tabibu/features/cases/data/models/case_model.dart';
+import 'package:tabibu/features/cases/data/speech_client.dart';
 import 'package:tabibu/features/cases/presentation/result_copy.dart';
 import 'package:tabibu/features/cases/presentation/widgets/case_history_row.dart';
+import 'package:tabibu/features/cases/presentation/widgets/explanation_listen_card.dart';
 import 'package:tabibu/features/patients/data/models/patient_model.dart';
 import 'package:tabibu/features/reports/blocs/report_reader_bloc/report_reader_bloc.dart';
 import 'package:tabibu/features/reports/blocs/report_reader_bloc/report_reader_event.dart';
+import 'package:tabibu/features/reports/blocs/report_reader_bloc/report_reader_state.dart';
 import 'package:tabibu/features/reports/data/models/pathology_report_model.dart';
 import 'package:tabibu/features/reports/data/report_for_case.dart';
 import 'package:tabibu/features/reports/presentation/report_download.dart';
@@ -38,13 +46,31 @@ import 'package:tabibu/l10n/l10n.dart';
 
 /// P-11b / P-13. Waiting with the doctor, or a shared result (no report text
 /// until released — S-3).
+/// Remote Config switch for "Listen to this summary".
+const listenEnabledKey = 'explanation_listen_enabled';
+
 class PatientResultScreen extends StatefulWidget {
-  const PatientResultScreen({required this.caseUid, this.download, super.key});
+  const PatientResultScreen({
+    required this.caseUid,
+    this.download,
+    this.player,
+    this.speech,
+    @visibleForTesting this.listenEnabled,
+    super.key,
+  });
 
   final String caseUid;
 
   /// Test seam; production builds a [ReportDownload] on first download.
   final ReportDownload? download;
+
+  /// Test seams for the listen card; production uses the shared player and
+  /// the live speech client.
+  final AudioPlayerService? player;
+  final SpeechClient? speech;
+
+  /// Test seam for the `explanation_listen_enabled` switch.
+  final bool Function()? listenEnabled;
 
   @override
   State<PatientResultScreen> createState() => _PatientResultScreenState();
@@ -159,6 +185,9 @@ class _PatientResultScreenState extends State<PatientResultScreen> {
       language: language,
       download: widget.download,
       updatePending: state == .updateWithDoctor,
+      player: widget.player,
+      speech: widget.speech,
+      listenEnabled: widget.listenEnabled,
     );
   }
 }
@@ -386,6 +415,9 @@ class _SharedBody extends StatefulWidget {
     required this.language,
     this.download,
     this.updatePending = false,
+    this.player,
+    this.speech,
+    this.listenEnabled,
   });
 
   final CaseModel caseModel;
@@ -393,6 +425,9 @@ class _SharedBody extends StatefulWidget {
   final PatientModel patient;
   final String language;
   final ReportDownload? download;
+  final AudioPlayerService? player;
+  final SpeechClient? speech;
+  final bool Function()? listenEnabled;
 
   /// An amendment or addendum is with the doctor; this body still shows the
   /// last released version.
@@ -476,6 +511,46 @@ class _SharedBodyState extends State<_SharedBody> {
     unawaited(route.push<void>(context));
   }
 
+  /// The listen card, only for approved text the patient can already read.
+  /// Prefers their locale's approved text, falls back to the first language.
+  /// The narration's kill switch. On by default: it reads approved text
+  /// aloud. A config that cannot be read keeps the default.
+  bool _listenEnabled() {
+    final injected = widget.listenEnabled;
+    if (injected != null) return injected();
+    try {
+      return FirebaseRemoteConfig.instance.getBool(listenEnabledKey);
+    } on Object catch (_) {
+      return true;
+    }
+  }
+
+  List<Widget> _listenCard(BuildContext context, ReportReaderState reader) {
+    if (!_listenEnabled()) return const [];
+    final approved = reader.approved;
+    if (approved.isEmpty) return const [];
+    final languages = approved.keys.toList()..sort();
+    final preferred = Localizations.localeOf(context).languageCode;
+    final language = approved.containsKey(preferred)
+        ? preferred
+        : languages.first;
+    final text = approved[language]!.approvedText.values.join('\n\n').trim();
+    if (text.isEmpty) return const [];
+    return [
+      const SizedBox(height: AppSpacing.md),
+      ExplanationListenCard(
+        text: text,
+        language: language,
+        online: !reader.offline,
+        speech: _speechClient,
+        player: widget.player,
+      ),
+    ];
+  }
+
+  SpeechClient get _speechClient =>
+      widget.speech ?? AiLogicSpeechClient(getIt<AiLogicService>());
+
   @override
   Widget build(BuildContext context) {
     final caseModel = widget.caseModel;
@@ -512,7 +587,6 @@ class _SharedBodyState extends State<_SharedBody> {
 
     // Next-steps checklist only when the report carries them as text — the
     // model has no nextSteps field, so the checklist is omitted.
-    // ListenCard omitted (explanations only).
 
     // Only text the doctor approved can open P-14; the reader's drafts
     // are never read here.
@@ -606,6 +680,7 @@ class _SharedBodyState extends State<_SharedBody> {
               caseUid: caseModel.uid,
             ).push<void>(context),
           ),
+          ..._listenCard(context, reader),
         ],
         const SizedBox(height: AppSpacing.md),
         ReportFileCard(

@@ -8,8 +8,8 @@ import 'package:tabibu/core/constants/app_styles.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 
-/// Pan/zoom slide panel with an optional heatmap overlay, tiles entry and
-/// viridis legend. Labels and images come from the caller.
+/// Pan/zoom slide panel: optional heatmap overlay, tiles and region-read
+/// entries, viridis legend. Labels and images come from the caller.
 class SlideViewer extends StatefulWidget {
   const SlideViewer({
     required this.image,
@@ -24,6 +24,9 @@ class SlideViewer extends StatefulWidget {
     required this.zoomOutLabel,
     this.onTiles,
     this.heatmap,
+    this.askRegionLabel = '',
+    this.onAskRegion,
+    this.regionBoundaryKey,
     super.key,
   });
 
@@ -35,6 +38,14 @@ class SlideViewer extends StatefulWidget {
 
   /// Null hides the Tiles control (CS-03 is not built yet).
   final VoidCallback? onTiles;
+
+  /// Null hides the region-read entry; the label is unused then.
+  final VoidCallback? onAskRegion;
+  final String askRegionLabel;
+
+  /// When set, wraps the base image so the region read captures exactly what
+  /// shows. Heatmap and controls stay outside and never reach the model.
+  final GlobalKey? regionBoundaryKey;
   final String scaleLabel;
   final String legendLow;
   final String legendHigh;
@@ -77,6 +88,12 @@ class _SlideViewerState extends State<SlideViewer> {
     _transform.value = Matrix4.copy(_transform.value)
       ..multiply(Matrix4.diagonal3Values(ratio, ratio, 1));
     setState(() {});
+  }
+
+  Widget _regionBoundary(Widget child) {
+    final key = widget.regionBoundaryKey;
+    if (key == null) return child;
+    return RepaintBoundary(key: key, child: child);
   }
 
   Widget _fallback(ColorScheme scheme) {
@@ -143,10 +160,13 @@ class _SlideViewerState extends State<SlideViewer> {
                             fit: .expand,
                             children: [
                               Positioned.fill(
-                                child: Image(
-                                  image: widget.image,
-                                  fit: .cover,
-                                  errorBuilder: (_, _, _) => _fallback(scheme),
+                                child: _regionBoundary(
+                                  Image(
+                                    image: widget.image,
+                                    fit: .cover,
+                                    errorBuilder: (_, _, _) =>
+                                        _fallback(scheme),
+                                  ),
                                 ),
                               ),
                               if (widget.heatmapOn && heatmap != null)
@@ -182,9 +202,14 @@ class _SlideViewerState extends State<SlideViewer> {
                                       onChanged: widget.onHeatmapChanged,
                                     ),
                                     if (widget.onTiles != null)
-                                      _TilesPill(
+                                      _ActionPill(
                                         label: widget.tilesLabel,
                                         onTap: widget.onTiles!,
+                                      ),
+                                    if (widget.onAskRegion != null)
+                                      _ActionPill(
+                                        label: widget.askRegionLabel,
+                                        onTap: widget.onAskRegion!,
                                       ),
                                   ],
                                 ),
@@ -327,8 +352,8 @@ class _HeatmapPill extends StatelessWidget {
   }
 }
 
-class _TilesPill extends StatelessWidget {
-  const _TilesPill({required this.label, required this.onTap});
+class _ActionPill extends StatelessWidget {
+  const _ActionPill({required this.label, required this.onTap});
 
   final String label;
   final VoidCallback onTap;

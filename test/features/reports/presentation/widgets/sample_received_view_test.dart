@@ -19,6 +19,7 @@ void main() {
     WidgetTester tester, {
     String suggested = 'LAB-WK-03112026-005',
     bool busy = false,
+    bool awaitingPreread = false,
     Locale locale = const Locale('en'),
     ThemeMode mode = ThemeMode.light,
     double scale = 1,
@@ -35,6 +36,7 @@ void main() {
         caseModel: caseModel,
         busy: busy,
         suggested: suggested,
+        awaitingPreread: awaitingPreread,
         onRecord: recorded.add,
       ),
       locale: locale,
@@ -140,6 +142,37 @@ void main() {
     await tester.pump();
 
     expect(recorded, isEmpty);
+  });
+
+  testWidgets('while the pre-read runs the button waits for it and says so', (
+    tester,
+  ) async {
+    final recorded = await pump(tester, awaitingPreread: true);
+
+    expect(find.text(en.workspaceAwaitingPreread), findsOneWidget);
+    expect(find.text(en.workspaceAwaitingPrereadTitle), findsOneWidget);
+    expect(find.text(en.doctorCaseSampleReceived), findsNothing);
+
+    await tester.tap(find.byType(TabibuButton), warnIfMissed: false);
+    await tester.pump();
+    expect(recorded, isEmpty);
+  });
+
+  testWidgets('the waiting state fits at 2.0x in both languages', (
+    tester,
+  ) async {
+    for (final locale in [const Locale('en'), const Locale('sw')]) {
+      final l10n = lookupAppLocalizations(locale);
+      await pump(
+        tester,
+        awaitingPreread: true,
+        locale: locale,
+        scale: 2,
+        height: 12000,
+      );
+      expect(find.text(l10n.workspaceAwaitingPreread), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }
   });
 
   testWidgets('fits a phone at 1.0x and 2.0x, both languages, both modes', (

@@ -21,6 +21,30 @@ void main() {
 
   test('voice input is off by default', () {
     expect(RemoteConfigDefaults.killSwitches['voice_input_enabled'], isFalse);
+    expect(RemoteConfigDefaults.values['voice_input_enabled'], isFalse);
+  });
+
+  test('symptom speech defaults name the template and keep tokens off', () {
+    expect(RemoteConfigDefaults.ai, {
+      'ai_location': 'global',
+      'ai_template_symptom_transcribe': 'symptom-transcribe-v1-0-0',
+      'ai_limited_use_tokens': false,
+      'ai_tts_model': 'gemini-3.8-flash-tts',
+      'ai_tts_voice': 'Achernar',
+      'ai_template_slide_region': 'slide-region-read-v1-0-0',
+      'region_read_enabled': false,
+      'explanation_listen_enabled': true,
+    });
+    expect(RemoteConfigDefaults.values['ai_limited_use_tokens'], isFalse);
+  });
+
+  test('the narrated explanation is on by default, behind its switch', () {
+    expect(RemoteConfigDefaults.values['explanation_listen_enabled'], isTrue);
+  });
+
+  test('the region read is off by default', () {
+    expect(RemoteConfigDefaults.ai['region_read_enabled'], isFalse);
+    expect(RemoteConfigDefaults.values['region_read_enabled'], isFalse);
   });
 
   test('the defaults keep the force-update parameters', () {

@@ -119,6 +119,17 @@ final class CaseSampleReceived extends CaseWorkspaceEvent {
   List<Object?> get props => [labAccessionNo];
 }
 
+/// The case's pre-read finished (ready or failed), as the inbox reported it:
+/// the case is read again from the server so the workspace moves on.
+final class CasePrereadSettled extends CaseWorkspaceEvent {
+  const CasePrereadSettled({required this.caseUid});
+
+  final String caseUid;
+
+  @override
+  List<Object?> get props => [caseUid];
+}
+
 /// Start an amendment or addendum on a signed report. [kind] is `Amendment`
 /// or `Addendum`; [text] is the reason or the addendum body.
 final class CaseRevisionStarted extends CaseWorkspaceEvent {

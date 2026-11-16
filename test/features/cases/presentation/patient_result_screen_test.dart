@@ -18,6 +18,7 @@ import 'package:tabibu/features/cases/blocs/cases_bloc/cases_event.dart';
 import 'package:tabibu/features/cases/blocs/cases_bloc/cases_state.dart';
 import 'package:tabibu/features/cases/data/models/case_model.dart';
 import 'package:tabibu/features/cases/data/models/ordered_test_model.dart';
+import 'package:tabibu/features/cases/data/speech_client.dart';
 import 'package:tabibu/features/cases/presentation/patient_result_screen.dart';
 import 'package:tabibu/features/patients/data/models/patient_model.dart';
 import 'package:tabibu/features/reports/blocs/report_reader_bloc/report_reader_event.dart';
@@ -81,6 +82,7 @@ void main() {
     late FeatureBlocs blocs;
     late MockAuthBloc authBloc;
     late _MockDownload download;
+    late FakeAudioPlayerService player;
 
     Future<void> pumpScreen(
       WidgetTester tester, {
@@ -90,6 +92,7 @@ void main() {
       Locale? locale,
       String caseUid = 'c1',
       ReportDownload? reportDownload,
+      bool listenEnabled = true,
     }) async {
       when(() => blocs.cases.state).thenReturn(cases);
       when(
@@ -105,6 +108,9 @@ void main() {
           child: PatientResultScreen(
             caseUid: caseUid,
             download: reportDownload ?? download,
+            player: player,
+            speech: FakeSpeechClient(),
+            listenEnabled: () => listenEnabled,
           ),
         ),
         themeMode: themeMode,
@@ -118,6 +124,8 @@ void main() {
       blocs = FeatureBlocs();
       authBloc = MockAuthBloc();
       download = _MockDownload();
+      player = FakeAudioPlayerService();
+      addTearDown(player.dispose);
       when(() => blocs.cases.add(any())).thenReturn(null);
       when(() => blocs.appointments.add(any())).thenReturn(null);
       when(
@@ -455,7 +463,12 @@ void main() {
                   BlocProvider<AuthBloc>.value(value: authBloc),
                   ...blocs.providers,
                 ],
-                child: PatientResultScreen(caseUid: 'c1', download: download),
+                child: PatientResultScreen(
+                  caseUid: 'c1',
+                  download: download,
+                  player: player,
+                  speech: FakeSpeechClient(),
+                ),
               ),
             ),
             GoRoute(
@@ -659,6 +672,7 @@ void main() {
         CasesState cases = releasedCase,
         ThemeMode themeMode = ThemeMode.light,
         Locale? locale,
+        bool listenEnabled = true,
       }) async {
         _useTallSurface(tester);
         when(() => blocs.reportReader.state).thenReturn(state);
@@ -667,6 +681,7 @@ void main() {
           cases: cases,
           themeMode: themeMode,
           locale: locale,
+          listenEnabled: listenEnabled,
         );
       }
 
@@ -719,6 +734,43 @@ void main() {
         );
 
         expect(find.text(l10n.explainedAiAttribution), findsNothing);
+      });
+
+      testWidgets('shows the listen card for approved text only', (
+        tester,
+      ) async {
+        final l10n = lookupAppLocalizations(const Locale('en'));
+        await pumpWith(tester, state: reader(approved: approved));
+
+        expect(find.text(l10n.resultDetailListenTitle), findsOneWidget);
+        expect(find.text(l10n.resultDetailListenComputerVoice), findsOneWidget);
+      });
+
+      testWidgets('the kill switch hides the listen card', (tester) async {
+        await pumpWith(
+          tester,
+          state: reader(approved: approved),
+          listenEnabled: false,
+        );
+
+        expect(find.byType(ListenCard), findsNothing);
+      });
+
+      testWidgets('shows no listen card without approved text', (tester) async {
+        await pumpWith(
+          tester,
+          state: reader(
+            explanations: const {
+              'en': ReportTextModel(
+                uid: 'v1_Explanation_en',
+                machineText: {'summary': 'DRAFT-SENTINEL'},
+              ),
+            },
+          ),
+        );
+
+        expect(find.byType(ListenCard), findsNothing);
+        expect(find.text('DRAFT-SENTINEL'), findsNothing);
       });
 
       testWidgets('shows no row while the result is still with the doctor', (
@@ -789,7 +841,12 @@ void main() {
                   BlocProvider<AuthBloc>.value(value: authBloc),
                   ...blocs.providers,
                 ],
-                child: PatientResultScreen(caseUid: 'c1', download: download),
+                child: PatientResultScreen(
+                  caseUid: 'c1',
+                  download: download,
+                  player: player,
+                  speech: FakeSpeechClient(),
+                ),
               ),
             ),
             GoRoute(

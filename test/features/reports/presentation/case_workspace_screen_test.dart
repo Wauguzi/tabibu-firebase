@@ -21,10 +21,13 @@ import 'package:tabibu/features/auth/blocs/auth_bloc/auth_state.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
 import 'package:tabibu/features/cases/data/models/case_model.dart';
 import 'package:tabibu/features/cases/data/models/ordered_test_model.dart';
+import 'package:tabibu/features/notifications/blocs/notifications_bloc/notifications_state.dart';
+import 'package:tabibu/features/notifications/data/models/notification_model.dart';
 import 'package:tabibu/features/preread/data/datasources/preread_storage.dart';
 import 'package:tabibu/features/preread/data/models/preread_draft_model.dart';
 import 'package:tabibu/features/preread/data/models/preread_finding_model.dart';
 import 'package:tabibu/features/preread/data/models/preread_model.dart';
+import 'package:tabibu/features/preread/data/region_read_client.dart';
 import 'package:tabibu/features/reports/blocs/case_workspace_bloc/case_workspace_event.dart';
 import 'package:tabibu/features/reports/blocs/case_workspace_bloc/case_workspace_state.dart';
 import 'package:tabibu/features/reports/data/models/notifiable_finding_model.dart';
@@ -244,6 +247,8 @@ void main() {
       Locale? locale,
       Size surface = const Size(1170, 12000),
       double textScale = 1,
+      bool Function()? regionReadEnabled,
+      RegionReadClient? regionClient,
     }) async {
       tester.view.physicalSize = surface;
       tester.view.devicePixelRatio = 3;
@@ -263,6 +268,8 @@ void main() {
               caseUid: _caseUid,
               reference: reference,
               storage: storage,
+              regionReadEnabled: regionReadEnabled,
+              regionClient: regionClient,
             ),
           ),
         ],
@@ -563,6 +570,62 @@ void main() {
         );
         expect(field.controller?.text, matches(RegExp(r'^LAB-WK-\d{8}-005$')));
       });
+
+      testWidgets(
+        "waits for the pre-read, and the pre-read's inbox row reopens it",
+        (tester) async {
+          final base = RoleSessions.pathologist;
+          when(() => authBloc.state).thenReturn(
+            SignInSuccess(
+              session: PractitionerSession(
+                doctor: base.doctor.copyWith(uid: 'path-1'),
+                roles: base.roles,
+              ),
+            ),
+          );
+          final inbox = StreamController<NotificationsState>.broadcast();
+          addTearDown(inbox.close);
+          whenListen(
+            blocs.notifications,
+            inbox.stream,
+            initialState: const NotificationsLoadSuccess(),
+          );
+          await pumpScreen(
+            tester,
+            const CaseWorkspaceLoadSuccess(
+              caseUid: _caseUid,
+              pathologistUid: 'path-1',
+              caseModel: CaseModel(
+                uid: _caseUid,
+                orderNumber: 'ODR-AO-AO-03112026-005',
+                currentStage: 'PrereadQueued',
+                pathologistUid: 'path-1',
+              ),
+            ),
+          );
+
+          expect(find.text(l10n.workspaceAwaitingPreread), findsOneWidget);
+          expect(find.text(l10n.doctorCaseSampleReceived), findsNothing);
+
+          const ready = NotificationModel(
+            uid: 'n-1',
+            templateKey: 'prereadReady',
+            resourceType: 'Case',
+            resourceUid: _caseUid,
+          );
+          inbox.add(const NotificationsLoadSuccess(items: [ready]));
+          await tester.pump();
+          // The same row again, as the live inbox resends it, reopens once.
+          inbox.add(const NotificationsLoadSuccess(items: [ready]));
+          await tester.pump();
+
+          verify(
+            () => blocs.caseWorkspace.add(
+              const CasePrereadSettled(caseUid: _caseUid),
+            ),
+          ).called(1);
+        },
+      );
     });
 
     group('the template questions', () {
@@ -1910,6 +1973,92 @@ void main() {
         expect(find.text(l10n.workspaceDiscardRevision), findsOneWidget);
         expect(find.text(AppError.unknown.description(l10n)), findsOneWidget);
         await tester.pump(const Duration(seconds: 5));
+      });
+    });
+
+    group('region read entry', () {
+      CaseWorkspaceLoadSuccess accepted({required String pathologistUid}) =>
+          _loaded(
+            caseModel: _case().copyWith(pathologistUid: pathologistUid),
+            preread: _preread(),
+          );
+
+      void usePathologistSession(String uid) {
+        final base = RoleSessions.pathologist;
+        when(() => authBloc.state).thenReturn(
+          SignInSuccess(
+            session: PractitionerSession(
+              doctor: base.doctor.copyWith(uid: uid),
+              roles: base.roles,
+            ),
+          ),
+        );
+      }
+
+      Future<void> pumpReady(
+        WidgetTester tester, {
+        bool Function()? regionReadEnabled,
+      }) async {
+        when(
+          () => storage.downloadUrl('slides/smear.png'),
+        ).thenAnswer((_) async => 'https://example.test/slide.png');
+        await pumpScreen(
+          tester,
+          accepted(pathologistUid: 'path-1'),
+          regionReadEnabled: regionReadEnabled,
+          regionClient: FakeRegionReadClient(),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+
+      testWidgets('shows the ask pill when on', (tester) async {
+        usePathologistSession('path-1');
+        await pumpReady(tester, regionReadEnabled: () => true);
+
+        expect(find.text(l10n.regionAskAction), findsOneWidget);
+      });
+
+      testWidgets('hides the ask pill when the switch is off', (tester) async {
+        usePathologistSession('path-1');
+        await pumpReady(tester, regionReadEnabled: () => false);
+
+        expect(find.text(l10n.regionAskAction), findsNothing);
+      });
+
+      testWidgets('a doctor never sees the ask pill', (tester) async {
+        final base = RoleSessions.doctor();
+        when(() => authBloc.state).thenReturn(
+          SignInSuccess(
+            session: PractitionerSession(
+              doctor: base.doctor.copyWith(uid: 'doc-1'),
+              roles: base.roles,
+            ),
+          ),
+        );
+        when(
+          () => storage.downloadUrl('slides/smear.png'),
+        ).thenAnswer((_) async => 'https://example.test/slide.png');
+        await pumpScreen(
+          tester,
+          accepted(pathologistUid: 'path-1'),
+          regionReadEnabled: () => true,
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        expect(find.text(l10n.regionAskAction), findsNothing);
+      });
+
+      testWidgets('tapping the pill opens the read sheet', (tester) async {
+        usePathologistSession('path-1');
+        await pumpReady(tester, regionReadEnabled: () => true);
+
+        await tester.ensureVisible(find.text(l10n.regionAskAction));
+        await tester.tap(find.text(l10n.regionAskAction));
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.regionAskSubmit), findsOneWidget);
       });
     });
   });
