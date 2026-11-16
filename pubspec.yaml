@@ -18,7 +18,7 @@ dependencies:
   device_info_plus: ^13.3.0
   equatable: ^2.1.0
   fast_contacts: ^6.0.0
-  file_picker: ^13.3.0
+  file_picker: ^13.3.3
   firebase_analytics: ^12.6.1
   firebase_app_check: ^0.4.9
   firebase_auth: ^6.7.1
