@@ -9,3 +9,4 @@ patient reads, or the alert path.
 |---|---|---|---|
 | [CRQ-0001](./CRQ-0001-baseline-and-server-ai-on-gemini.md) | The repository's baseline, with the server AI on Gemini | 2026-11-15 | Implemented |
 | [CRQ-0002](./CRQ-0002-hybrid-inference-bridge.md) | Hybrid inference in the app: an on-device symptom tidy and notes summary | 2026-11-15 | In progress |
+| [CRQ-0003](./CRQ-0003-gemini-thinking-level.md) | Server Gemini calls think at LOW, the lowest level the model accepts | 2026-11-16 | In progress |
