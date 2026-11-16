@@ -104,7 +104,7 @@ The pre-read is a prompt for the pathologist, not a reading.
 The held-out evaluation (`functions/scripts/eval-preread.ts`, the same
 transport with `--live`) ran on 200 PatchCamelyon test tiles on 16 Nov
 ([EVAL-0001](../../testing/reports/EVAL-0001-cancer-preread-gemini-baseline.md)):
-sensitivity 74% (95% CI 64.6–81.6%) and specificity 81% (72.2–87.5%), per
+sensitivity 70% (95% CI 60.4–78.1%) and specificity 79% (70.0–85.8%), per
 tile. Every wrong label came with a high stated probability, which is why
 §3.2 caps the band at Low. No other figure is quoted.
 

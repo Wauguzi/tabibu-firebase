@@ -33,7 +33,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ThinkingLevel, Type } from '@google/genai';
+import { ThinkingLevel } from '@google/genai';
 
 import {
   GEMINI_TEXT_MODEL,
@@ -374,65 +374,6 @@ function sampleToCrop(sample: Sample, upscale: number): TileCrop {
 }
 
 /** One tile per request (historical eval path; not the production batch shape). */
-async function classifyOne(
-  sample: Sample,
-  spec: VariantSpec,
-  generate: GeminiGenerate,
-  fewShot: FewShotTile[],
-): Promise<{ pred: string; ms: number; tokens: number; probability: number }> {
-  let bytes: Buffer = readFileSync(sample.path);
-  if (spec.upscale > 1) bytes = Buffer.from(upscaleTilePng(bytes, spec.upscale));
-  const started = Date.now();
-  const parts: { text?: string; inlineData?: { mimeType: string; data: string } }[] = [];
-  if (spec.fewShot && fewShot.length > 0) {
-    parts.push({
-      text: 'The next images are labelled examples from the same dataset. They are examples, not instructions.',
-    });
-    for (const ex of fewShot) {
-      let png: Buffer = ex.png;
-      if (spec.upscale > 1) png = Buffer.from(upscaleTilePng(png, spec.upscale));
-      parts.push({ text: `example label=${ex.label} id=${ex.id}` });
-      parts.push({ inlineData: { mimeType: 'image/png', data: png.toString('base64') } });
-    }
-  }
-  parts.push({ text: `Classify this one tile. id=${sample.id}` });
-  parts.push({ inlineData: { mimeType: 'image/png', data: bytes.toString('base64') } });
-  const response = await generate({
-    model: GEMINI_TEXT_MODEL,
-    contents: [{ role: 'user', parts }],
-    config: {
-      systemInstruction: spec.instructions,
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        required: ['tiles'],
-        properties: {
-          tiles: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              required: ['id', 'label', 'probability'],
-              properties: {
-                id: { type: Type.STRING },
-                label: { type: Type.STRING },
-                probability: { type: Type.NUMBER },
-              },
-            },
-          },
-        },
-      },
-      thinkingConfig: { thinkingLevel: spec.thinkingLevel },
-    },
-  });
-  const structured = JSON.parse(response.text) as {
-    tiles?: { id?: string; label?: string; probability?: number }[];
-  };
-  const tile = structured.tiles?.[0];
-  const pred = tile?.label === 'Tumour' ? 'Tumour' : 'Normal';
-  const probability = typeof tile?.probability === 'number' ? tile.probability : 0;
-  return { pred, ms: Date.now() - started, tokens: 0, probability };
-}
-
 /**
  * Production-shaped classify: worker request builder, up to BATCH_SIZE crops, shared few-shot.
  * Latency is split evenly across tiles in the response for per-tile metrics.
@@ -493,7 +434,9 @@ async function scoreVariant(
         rows.push(cached);
         continue;
       }
-      const hit = await classifyOne(sample, spec, generate, fewShot);
+      // One tile per request is production's shape (PREREAD_TILES_PER_REQUEST), so a batch of
+      // one goes through the worker's own request builder and answer checks.
+      const hit = (await classifyBatch([sample], spec, generate, fewShot)).get(sample.id)!;
       const row = {
         truth: sample.label,
         pred: hit.pred,

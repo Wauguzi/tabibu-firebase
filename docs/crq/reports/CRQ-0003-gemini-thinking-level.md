@@ -64,7 +64,7 @@ the evaluation script, and the docs that described "minimal thinking".
 
 **Risk level:** Low. One constant, the level the live call proved the
 model accepts. `LOW` uses somewhat more tokens and time than `MINIMAL`
-would have; the evaluation measured a mean of 6.2 s a tile, so a 64-tile
+would have; the evaluation measured a mean of 7.3 s a tile, so a 64-tile
 run fits the worker's 240 s.
 
 **Rollback plan:** revert the change and redeploy the functions. Rolling
@@ -81,7 +81,9 @@ are the way to stop the jobs instead.
    "minimal", and point the pre-read tiles at it.
 3. Update the tests that asserted `MINIMAL`; add one that fails if any
    server call asks for it again.
-4. Move the evaluation script's variants off `MINIMAL`.
+4. Move the evaluation script's variants off `MINIMAL`, and score single
+   tiles through the worker's request builder and answer checks, as
+   production sends them (Greptile round 1).
 5. Run the held-out evaluation through the fixed transport and file
    EVAL-0001.
 6. Deploy the functions.
@@ -95,7 +97,7 @@ are the way to stop the jobs instead.
 | `make functions-test` | Pass — 657 tests; with the constant set back to `MINIMAL`, 5 fail, including the new guard |
 | Functions lint, build, type-check | Pass |
 | Rules tests | N/A — no rules changed |
-| Model evaluation | [EVAL-0001](../../testing/reports/EVAL-0001-cancer-preread-gemini-baseline.md): 200 held-out tiles, none refused; sensitivity 74%, specificity 81% |
+| Model evaluation | [EVAL-0001](../../testing/reports/EVAL-0001-cancer-preread-gemini-baseline.md): 200 held-out tiles through the worker's request builder, none refused; sensitivity 70%, specificity 79% |
 | Manual run | Pending: a pre-read on the deployed functions |
 | UI/UX review | N/A |
 | Certification | Pending the deploy and that pre-read |
@@ -118,6 +120,15 @@ asserted the setting the code chose, which proves the code is consistent,
 not that the model accepts it. Only a live call could, and CRQ-0001 named
 that gap ("taken from the documentation and the SDK, not yet from a live
 call"). The evaluation now runs live before any figure is quoted.
+
+**Greptile round 1 (16 Nov) on PR #16.** 4/5, one P2 finding, fixed on this
+branch: the evaluation scored single tiles with a request it built itself,
+without the worker's few-shot instruction or its check that refuses an
+example's id, so the baseline did not measure production's request. Every
+tile now goes through `classifyBatch`, which calls the worker's
+`buildClassifyRequestBody` and `parseClassifyTiles`, one tile per request
+as production sends it. The rerun, 70% sensitivity and 79% specificity, is
+inside the first run's intervals and replaces it in EVAL-0001.
 
 ## 10. Related records
 

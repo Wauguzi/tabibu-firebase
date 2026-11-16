@@ -48,4 +48,4 @@ Numbers are zero-padded and sequential from `0001`, separately for each type.
 
 | Report | Profile | Date | Sensitivity | Specificity |
 |---|---|---|---|---|
-| [EVAL-0001](./EVAL-0001-cancer-preread-gemini-baseline.md) | Cancer | 2026-11-16 | 74.0% (64.6–81.6%) | 81.0% (72.2–87.5%) |
+| [EVAL-0001](./EVAL-0001-cancer-preread-gemini-baseline.md) | Cancer | 2026-11-16 | 70.0% (60.4–78.1%) | 79.0% (70.0–85.8%) |
