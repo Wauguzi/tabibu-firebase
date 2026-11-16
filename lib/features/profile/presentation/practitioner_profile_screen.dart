@@ -240,6 +240,7 @@ class _PractitionerDetailsScreenState extends State<PractitionerProfileScreen> {
                           label: l10n.profileDetailsAbout,
                           controller: _bio,
                           maxLines: 4,
+                          sanitizePaste: true,
                           errorText: _bioError,
                           onChanged: (_) => setState(() => _bioError = null),
                         ),

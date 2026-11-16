@@ -14,8 +14,10 @@ import 'package:tabibu/core/constants/app_colors.dart';
 import 'package:tabibu/core/constants/app_radii.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/constants/enums.dart';
+import 'package:tabibu/core/services/hybrid_ai_service.dart';
 import 'package:tabibu/core/utils/nairobi_time.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
+import 'package:tabibu/features/hybrid/presentation/hybrid_assist.dart';
 import 'package:tabibu/features/orders/blocs/order_bloc/order_bloc.dart';
 import 'package:tabibu/features/orders/blocs/order_bloc/order_draft.dart';
 import 'package:tabibu/features/orders/blocs/order_bloc/order_event.dart';
@@ -28,9 +30,10 @@ import 'package:tabibu/l10n/l10n.dart';
 /// specimen, notes and payment, then "Create order". Problems show once
 /// the doctor has tried to create, not while they type.
 class OrderDetailsStep extends StatefulWidget {
-  const OrderDetailsStep({required this.state, super.key});
+  const OrderDetailsStep({required this.state, this.hybrid, super.key});
 
   final OrderState state;
+  final HybridAiService? hybrid;
 
   @override
   State<OrderDetailsStep> createState() => _OrderDetailsStepState();
@@ -305,6 +308,12 @@ class _OrderDetailsStepState extends State<OrderDetailsStep> {
                     : null,
                 onChanged: (value) =>
                     _add(OrderDetailsChanged(clinicalNotes: value)),
+              ),
+              HybridAssist(
+                task: .notesSummary,
+                controller: _notes,
+                online: !offline,
+                service: widget.hybrid,
               ),
               const SizedBox(height: AppSpacing.md),
               SectionHeader(title: l10n.orderPaymentLabel),

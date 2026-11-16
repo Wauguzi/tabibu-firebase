@@ -303,6 +303,29 @@ class AnalyticsService {
   Future<void> logNotificationsMarkedRead() =>
       _guard(() => _analytics.logEvent(name: 'notifications_marked_read'));
 
+  /// A hybrid run: where it ran (`on_device`, `in_cloud`) or the failure's
+  /// name. Task id and outcome only, never the text.
+  Future<void> logHybridInference({
+    required String task,
+    required String outcome,
+  }) => _guard(
+    () => _analytics.logEvent(
+      name: 'hybrid_inference',
+      parameters: {'task': task, 'outcome': outcome},
+    ),
+  );
+
+  /// What the person did with a proposal: `used` or `dismissed`.
+  Future<void> logHybridProposal({
+    required String task,
+    required String action,
+  }) => _guard(
+    () => _analytics.logEvent(
+      name: 'hybrid_proposal',
+      parameters: {'task': task, 'action': action},
+    ),
+  );
+
   Future<void> _guard(Future<void> Function() body) async {
     try {
       await body();

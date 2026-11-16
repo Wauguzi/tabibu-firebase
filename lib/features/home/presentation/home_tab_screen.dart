@@ -2,6 +2,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/constants/enums.dart';
+import 'package:tabibu/core/utils/nairobi_time.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
 import 'package:tabibu/features/home/presentation/widgets/home_header.dart';
@@ -22,7 +23,7 @@ class HomeTabScreen extends StatelessWidget {
     final date = DateFormat(
       'EEE d MMM',
       Localizations.localeOf(context).languageCode,
-    ).format(DateTime.now());
+    ).format(nairobiNow());
 
     final header = switch (session) {
       PatientSession(:final patient) => HomeHeader(

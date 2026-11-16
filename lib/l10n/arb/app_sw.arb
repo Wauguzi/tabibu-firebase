@@ -1811,5 +1811,14 @@
     "chatVoiceRecordFailed": "Rekodi hiyo ilikuwa fupi sana au haikuweza kuhifadhiwa. Jaribu tena, au andika.",
     "chatVoiceSendFailed": "Hatukuweza kutuma ujumbe huo wa sauti. Hakiki bado iko — jaribu tena, au uitupe.",
     "chatVoicePlayFailed": "Hatukuweza kucheza ujumbe huo wa sauti.",
-    "chatVoiceTranscriptUnavailable": "Nakala haipatikani kwa ujumbe wa sauti."
+    "chatVoiceTranscriptUnavailable": "Nakala haipatikani kwa ujumbe wa sauti.",
+    "hybridTidyNotes": "Pangilia maelezo yangu",
+    "hybridSummariseNotes": "Fupisha maelezo yangu",
+    "hybridUseThis": "Tumia hii",
+    "hybridDone": "Sawa",
+    "hybridOnThisPhone": "Kwenye simu hii",
+    "hybridInTheCloud": "Kwenye wingu",
+    "hybridUnavailable": "Usaidizi wa AI wa kwenye simu haupatikani kwenye simu hii.",
+    "hybridOffline": "Hii inahitaji muunganisho, au AI ya kwenye simu.",
+    "hybridFailed": "Hatukuweza kufanya hivyo sasa."
 }

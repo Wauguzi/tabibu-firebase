@@ -29,7 +29,8 @@ FeatureBlocs _loadedDoctorBlocs() {
 void main() {
   group('HomeTabScreen', () {
     // After a pump: the app's delegates load the date symbols.
-    String today() => DateFormat('EEE d MMM', 'en').format(DateTime.now());
+    // Nairobi's date, as the screens show it, whatever the runner's time zone.
+    String today() => DateFormat('EEE d MMM', 'en').format(nairobiNow());
 
     testWidgets("greets a patient with their area and today's date", (
       tester,

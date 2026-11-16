@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-REPO="${REPO:-Wauguzi/tabibu}"
+REPO="${REPO:-Wauguzi/tabibu-firebase}"
 GH="${GH:-gh}"
 
 # name|colour|description
@@ -47,6 +47,8 @@ LABELS=(
   "dependencies|0366D6|Dependency update (applied by Dependabot)"
   "dart|00B4AB|pub ecosystem update (applied by Dependabot)"
   "github_actions|2088FF|GitHub Actions ecosystem update (applied by Dependabot)"
+  "javascript|168700|npm ecosystem update (applied by Dependabot)"
+  "ruby|CE2D2D|Bundler ecosystem update (applied by Dependabot)"
 )
 
 RETIRE=("good first issue" "help wanted" "duplicate" "invalid" "question" "wontfix")

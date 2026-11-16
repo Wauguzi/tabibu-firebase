@@ -13,7 +13,7 @@ I take reports about it seriously and handle them privately.
 ## Reporting a vulnerability
 
 Report privately through GitHub:
-**[Report a vulnerability](https://github.com/Wauguzi/tabibu/security/advisories/new)** (the
+**[Report a vulnerability](https://github.com/Wauguzi/tabibu-firebase/security/advisories/new)** (the
 **Security** tab, then **Report a vulnerability**). Only the repository admins can see the
 report.
 

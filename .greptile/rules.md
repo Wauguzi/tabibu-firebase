@@ -40,17 +40,21 @@ finding.
 - **The risk check never confirms or rules out a disease** (S-7). Its advisory is a fixed template.
 - **AI output used without an approval is limited to the readers S-8 names** (S-8): the symptom
   summary and the risk advice to the doctor, the notes translation to the doctor and the
-  pathologist, a speaker's own transcript, and any voice-note transcript to the clinicians in that
-  conversation, who also hear the audio. Each is labelled as AI, and its input is de-identified. A
-  patient reads a clinician's transcript only after the sender shares it. Speech is the one exception:
-  it goes to the transcription model only, symptom audio is deleted after transcription, and voice
-  notes are stored as the sender's message. Any other path from model output to a person without an
-  approval is the P1 above.
+  pathologist, the on-device notes summary to the doctor who wrote the notes, a speaker's own
+  transcript, and any voice-note transcript to the clinicians in that conversation, who also hear
+  the audio. Each is labelled as AI. A patient reads a clinician's transcript only after the sender
+  shares it. The server accepts no audio. Every input is de-identified except two: the notes
+  summary's, which never leaves the device, and the patient's own words in the in-app symptom tidy,
+  which are stripped of phone numbers and emails and replace the field only on "Use this". Any
+  other path from model output to a person without an approval is the P1 above.
 
 ## Architecture boundaries
 
-- **The app never calls a model.** A model SDK, model endpoint or model key anywhere under `lib/`
-  is a defect. Model calls belong to the AI service in Cloud Functions, triggered through Firebase.
+- **The app calls a model only through Firebase.** A model key, a model endpoint or a non-Firebase
+  model SDK anywhere under `lib/` is a defect. Jobs belong to the AI service in Cloud Functions.
+  The one in-app path is the native hybrid plugins behind `tabibu/hybrid_ai`, which take a task id,
+  never a prompt: a `notes_summary` stays `ONLY_ON_DEVICE` and builds no cloud model, and every
+  tidy input passes `stripContactDetails` (S-8).
 - **The app talks to the backend only through the Firebase SDKs.** A raw HTTP client (`dio`,
   `http`, `HttpClient`) under `lib/` or in `pubspec.yaml` needs a CRQ that justifies the endpoint;
   without one it is a defect. A `badCertificateCallback` that returns `true` is a P1 finding in any
@@ -137,7 +141,7 @@ finding.
   change them after verification is a P1.
 - **`doctorUids` grants a patient's profile, never their cases.** A case read that trusts
   `doctorUids` instead of the case's own participants crosses the boundary.
-- **Free text goes through `InputSanitizer`** before it is stored or sent to the AI service.
+- **Free text goes through `sanitizePaste`** (`lib/core/helpers/paste_sanitizer.dart`), as a field formatter on paste and before any model call; the server's `sanitize.ts` runs again before storage and prompts.
 - **Nothing about a patient reaches Crashlytics.** Exception messages, `reason` strings and custom
   keys carry ids and types, never names, symptoms, results or free text; the user identifier, if
   set, is the uid. Crash reports leave the case and the country.

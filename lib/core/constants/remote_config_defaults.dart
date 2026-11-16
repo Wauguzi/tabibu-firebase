@@ -17,6 +17,15 @@ abstract final class RemoteConfigDefaults {
     'alert_drafting_enabled': true,
   };
 
+  /// The in-app hybrid tasks: a switch each, the on-device model channel and
+  /// the cloud model a tidy falls back to. They match `HybridSettings`.
+  static const hybrid = <String, Object>{
+    'hybrid_symptom_tidy_enabled': true,
+    'hybrid_notes_summary_enabled': true,
+    'hybrid_model_option': 'stable',
+    'hybrid_cloud_model': 'gemini-3.5-flash-lite',
+  };
+
   /// The force-update parameters.
   static const appUpdate = <String, Object>{
     'force_update': false,
@@ -27,5 +36,9 @@ abstract final class RemoteConfigDefaults {
     'update_message': '',
   };
 
-  static const values = <String, Object>{...appUpdate, ...killSwitches};
+  static const values = <String, Object>{
+    ...appUpdate,
+    ...killSwitches,
+    ...hybrid,
+  };
 }
