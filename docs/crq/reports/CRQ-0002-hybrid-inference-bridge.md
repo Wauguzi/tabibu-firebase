@@ -9,7 +9,7 @@
 | Date implemented | Pending: the device runs (§7) |
 | Priority | P2 High — see [`mobile_workflow.md` §7](../../workflow/reports/mobile_workflow.md#7-escalation--severity) |
 | Change type | Normal |
-| Commit(s) / PR | `feat/hybrid-bridge`; the pull request once Android lands |
+| Commit(s) / PR | [PR #14](https://github.com/Wauguzi/tabibu-firebase/pull/14), merged to `main` as `3e0458e` on 2026-11-16 (33 commits from `feat/hybrid-bridge`) |
 
 ## 1. Description of change
 
@@ -94,18 +94,19 @@ release; reverting the branch's commits removes the bridge.
 5. The hybrid copy into both ARB files; a summary's button reads Done.
 6. Gradle 9.5.0, AGP 9.3.1 and Kotlin 2.4.20, the minimums Flutter asks
    for; built-in Kotlin waits for FlutterFire (architecture §16 item 12).
-7. Device runs, then the pull request.
+7. The pull request, then the device runs: the pull request merged first so CI could build and distribute a signed APK for them.
 
 ## 7. Testing & verification evidence
 
 | Check | Result |
 |---|---|
 | `make analyze` / `make bloc-lint` | Pass — no issues |
-| `make test` (`TZ=UTC`) | Pass — 3,544 tests, including the stripping, Remote Config, retry, analytics and 2.0x tests |
+| `make test` (`TZ=UTC`) | Pass — 3,554 tests, including the stripping, Remote Config, retry, analytics, lifecycle and 2.0x tests; also run between 21:00 and 24:00 UTC, when Nairobi's date differs |
 | `make spell` / `make release-check` | Pass — 1,068 files; the version follows the convention |
-| iOS RunnerTests (simulator) | Pass — 4: source and status mapping, the routing matrix, the prompts; run on one named simulator |
+| iOS RunnerTests (simulator) | Pass — 6: source and status mapping, the routing matrix, the prompts, a status call with a model option, a network error; run on one named simulator |
 | iOS simulator build | Pass |
-| Android plugin | Pass — compiles; 5 JVM contract tests (routing, cut-off, failure codes); debug APK builds on the upgraded toolchain |
+| Android plugin | Pass — compiles; 5 JVM contract tests (routing, cut-off, failure codes, the model option); a signed release APK builds locally and in CI on the upgraded toolchain |
+| CI on the merged head (`fc5f445`) | Pass — `functions`, `test` and `build` side by side, then `distribute`, in 28 minutes; the build reached App Distribution and its Dart symbols Crashlytics |
 | Manual run | Pending: on-device in airplane mode on an Apple Intelligence device; cloud fallback on the iPhone 14; a physical Android phone |
 | Certification | Pending |
 
@@ -114,7 +115,7 @@ release; reverting the branch's commits removes the bridge.
 | Role | Required when | Name | Date | Decision |
 |---|---|---|---|---|
 | Author | Always | Theo | 2026-11-15 | — |
-| Engineering reviewer | Always, on the pull request | Greptile — pending | — | — |
+| Engineering reviewer | Always, on the pull request | Greptile | 2026-11-16 | Approved: 5/5 after one round, held on the final head |
 | Clinical Reviewer | §4 flags clinical-safety impact or changes clinical wording | Covered by CTO | 2026-11-15 | Approved: AI-labelled, applied only on the person's tap, never stored |
 | Security Analyst | §4 flags security impact | Covered by CTO | — | Pending the console steps (T-21, T-23) |
 | Compliance Officer | §4 flags data protection impact | Covered by CTO | 2026-11-15 | Approved: the S-8 exception, with contact details stripped |
@@ -143,7 +144,7 @@ test fail:
 8. No 2.0x text test; one now runs in English and Kiswahili.
 
 **Greptile round 1 (15 Nov) on PR #14.** Five P2 findings, fixed on this branch
-(commits: this round):
+(`16663c2`, `ebc6532`, `7ccd221`, `bd2d803`, `a7f1b50`):
 
 1. The web tidy always failed: a missing plugin read as "no model". `status()`
    now returns `unsupported` on `MissingPluginException`, hiding both actions.
@@ -158,7 +159,28 @@ test fail:
    (then strips contact details from a tidy), the architecture and review rules
    name `sanitizePaste`, and both bio fields sanitise a paste.
 
-Filled in further after the merge.
+Greptile scored 4/5 on the first review and 5/5 once these were fixed; the
+score held through the CI fixes below.
+
+**CI on the pull request (15–16 Nov).** The first runs to reach the signed
+release build failed in four ways, none of them in the hybrid code:
+
+1. The home header dated itself by the device's clock while its test used
+   Nairobi's, so the test failed between 21:00 and 24:00 UTC. The header now
+   uses `nairobiNow()`, like the doctor's home (`84aee73`).
+2. The first signed build was cancelled at the job's 45-minute limit, with
+   every check passed and the APK nearly built (`e42692a`, `2a38868`).
+3. AGP 9.3.1's release lint calls a Java 21 method, so it failed on CI's
+   JDK 17. CI now runs Gradle on JDK 21; the code still targets Java 17
+   (`5148b97`). The debug builds used to prove the upgrade never run that
+   lint.
+4. The runner then stopped responding mid-build. A private repository's
+   runner has 2 CPUs and 8 GB, so the tests and the signed build now run as
+   separate jobs, Gradle runs one worker, and testers get the build only when
+   both pass (`c56a288`).
+
+**Still to record:** the device runs in §7, which set the implementation
+date.
 
 ## 10. Related records
 
