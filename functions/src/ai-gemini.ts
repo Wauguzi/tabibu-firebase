@@ -44,11 +44,10 @@ export const AI_LOCATION_PARAM = 'ai_location';
 export const AI_TEXT_MODEL_PARAM = 'ai_text_model';
 
 /**
- * The lowest thinking level the SDK exposes. Gemini 3.x always thinks; MINIMAL keeps the
- * risk check and the symptom summary (and every other server call) on the cheapest
- * reasoning, as the old minimal setting did.
+ * The lowest thinking level the text model accepts, for every server call. The SDK also
+ * exposes MINIMAL, but gemini-3.8-flash refuses it with INVALID_ARGUMENT.
  */
-export const GEMINI_THINKING_MINIMAL = ThinkingLevel.MINIMAL;
+export const GEMINI_THINKING_LEVEL = ThinkingLevel.LOW;
 
 export interface GeminiGenerateRequest {
   model: string;
@@ -335,7 +334,7 @@ export async function callJson(args: CallArgs): Promise<unknown> {
     systemInstruction: args.systemInstruction,
     responseMimeType: 'application/json',
     responseSchema: args.schema,
-    thinkingConfig: { thinkingLevel: args.thinkingLevel ?? GEMINI_THINKING_MINIMAL },
+    thinkingConfig: { thinkingLevel: args.thinkingLevel ?? GEMINI_THINKING_LEVEL },
   };
   // Terminates: the only `continue` is attempt 1 on 429/503; every other path returns or throws.
   for (let attempt = 1; ; attempt += 1) {

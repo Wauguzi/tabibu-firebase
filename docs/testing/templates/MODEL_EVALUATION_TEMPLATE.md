@@ -32,7 +32,7 @@
 | Dataset | `[PatchCamelyon test split / NIH thin-smear set]` |
 | Sample | `[N items, how drawn, random seed — the fixed held-out sample]` |
 | Class balance in sample | `[positives / negatives]` |
-| Models and versions | `[e.g. gemini-3.8-flash, thinking minimal, prompt version …]` |
+| Models and versions | `[e.g. gemini-3.8-flash, thinking low, prompt version …]` |
 | Prompt version | `[id]` |
 | Decision threshold | `[value, and how it was chosen — never tuned on this sample]` |
 | Command | `[exact command that reproduces every number below]` |

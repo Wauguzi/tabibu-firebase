@@ -155,16 +155,21 @@ work is complete, before the APK goes out.
 
 Open until each is done:
 
-- Grant the Cloud Functions runtime service account Vertex AI User
+- ~~Grant the Cloud Functions runtime service account Vertex AI User
   (`roles/aiplatform.user`), deploy the functions, and run the pre-read
   evaluation with `--live` to confirm the model, the location and minimal
-  thinking, then file an evaluation report.
+  thinking, then file an evaluation report.~~ Done 16 Nov. The grant and the
+  deploy landed, and the live run confirmed the model and the location but
+  not the thinking level: `gemini-3.8-flash` refuses `MINIMAL`.
+  [CRQ-0003](./CRQ-0003-gemini-thinking-level.md) moved every call to `LOW`,
+  and [EVAL-0001](../../testing/reports/EVAL-0001-cancer-preread-gemini-baseline.md)
+  records the first figure.
 - Run the app on a device and certify this baseline.
 - Re-audit the threat model.
 
 ## 10. Related records
 
 - Architecture/design references: [AI service](../../architecture/reports/ai_preread_service.md), [architecture](../../architecture/reports/mobile_architecture.md), [threat model](../../security/reports/firebase_and_ai_service_threat_model.md)
-- Evaluation report(s): none yet (§9)
+- Evaluation report(s): [EVAL-0001](../../testing/reports/EVAL-0001-cancer-preread-gemini-baseline.md)
 - Related Incident Report(s): none
 - Related Problem record(s): none

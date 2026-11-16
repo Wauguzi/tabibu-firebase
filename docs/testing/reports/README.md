@@ -9,15 +9,15 @@ evaluation report.
 |---|---|---|---|
 | Unit & bloc | Logic is correct: helpers, blocs, measurement functions | `make test` | `test/` mirroring `lib/` |
 | Widget | Screens render and respond, at 1.0x and 2.0x text scale, in `en` and `sw` | `make test` | `test/features/**/presentation/` |
-| Rules | Every role and clinical-safety rule holds at the data boundary | `make rules-test` (arrives with Firebase) | `test/firestore_rules/` |
-| Model evaluation | The AI is accurate, not just fluent | AI service eval command | [EVAL reports](#evaluation-reports) |
+| Rules | Every role and clinical-safety rule holds at the data boundary | `make rules-test` | `test/firestore_rules/` |
+| Model evaluation | The AI is accurate, not just fluent | `npx ts-node scripts/eval-preread.ts --live` (from `functions/`) | [EVAL reports](#evaluation-reports) |
 | UAT | The feature works end to end for a real person | Manual, certified by me | [UAT reports](#uat-reports) |
 
-For now CI runs only the license check; format, analyze, `bloc_lint`, the
-tests and the spell check run locally through `make` until the
-purpose-built workflows land with the auth work. Passing checks are
-necessary but not sufficient: code is committed only after I have run it
-and certified it (see
+CI runs the format check, analyze, `bloc_lint`, the tests and the
+functions' lint, build and type-check on every pull request. The spell
+check and the rules and functions emulator tests run locally through
+`make`. Passing checks are necessary but not sufficient: code is
+committed only after I have run it and certified it (see
 [`mobile_workflow.md` §4](../../workflow/reports/mobile_workflow.md#4-core-workflow)).
 
 ## When to file a report
@@ -48,4 +48,4 @@ Numbers are zero-padded and sequential from `0001`, separately for each type.
 
 | Report | Profile | Date | Sensitivity | Specificity |
 |---|---|---|---|---|
-| — | — | — | — | None yet |
+| [EVAL-0001](./EVAL-0001-cancer-preread-gemini-baseline.md) | Cancer | 2026-11-16 | 70.0% (60.4–78.1%) | 79.0% (70.0–85.8%) |

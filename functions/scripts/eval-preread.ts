@@ -17,11 +17,11 @@
  *   npx ts-node scripts/eval-preread.ts
  *   npx ts-node scripts/eval-preread.ts --live --tune
  *   npx ts-node scripts/eval-preread.ts --live --tune --variants
- *   npx ts-node scripts/eval-preread.ts --live --tune --variants v3_minimal,v3_upscale3_minimal --yes-spend
+ *   npx ts-node scripts/eval-preread.ts --live --tune --variants v3_thinking_low,v3_upscale3_thinking_low --yes-spend
  *   npx ts-node scripts/eval-preread.ts --live --demo-mosaics
  *   npx ts-node scripts/eval-preread.ts --live
- *   npx ts-node scripts/eval-preread.ts --live --held-out-variant v3_fewshot_minimal
- *   npx ts-node scripts/eval-preread.ts --live --tune --variants v3_minimal,v3_fewshot_minimal --batch-size 16
+ *   npx ts-node scripts/eval-preread.ts --live --held-out-variant v3_fewshot_thinking_low
+ *   npx ts-node scripts/eval-preread.ts --live --tune --variants v3_thinking_low,v3_fewshot_thinking_low --batch-size 16
  *
  * `--held-out-variant <id>` scores one variant, chosen on the tuning set beforehand, on the
  * held-out tiles once, and writes `eval-held-out-variant-results.json` so the baseline held-out
@@ -33,7 +33,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { ThinkingLevel, Type } from '@google/genai';
+import { ThinkingLevel } from '@google/genai';
 
 import {
   GEMINI_TEXT_MODEL,
@@ -302,26 +302,10 @@ function variantGrid(): VariantSpec[] {
   const v3 = instructionsV3();
   const all: VariantSpec[] = [
     {
-      id: 'v3_minimal',
+      id: 'v3_upscale4_thinking_low',
       promptVersion: PREREAD_PROMPT_VERSION_V3,
       instructions: v3,
-      thinkingLevel: ThinkingLevel.MINIMAL,
-      upscale: 1,
-      fewShot: false,
-    },
-    {
-      id: 'v3_upscale3_minimal',
-      promptVersion: PREREAD_PROMPT_VERSION_V3,
-      instructions: v3,
-      thinkingLevel: ThinkingLevel.MINIMAL,
-      upscale: 3,
-      fewShot: false,
-    },
-    {
-      id: 'v3_upscale4_minimal',
-      promptVersion: PREREAD_PROMPT_VERSION_V3,
-      instructions: v3,
-      thinkingLevel: ThinkingLevel.MINIMAL,
+      thinkingLevel: TILE_THINKING_LEVEL,
       upscale: 4,
       fewShot: false,
     },
@@ -342,18 +326,18 @@ function variantGrid(): VariantSpec[] {
       fewShot: false,
     },
     {
-      id: 'v3_fewshot_minimal',
+      id: 'v3_fewshot_thinking_low',
       promptVersion: PREREAD_PROMPT_VERSION_V3,
       instructions: v3,
-      thinkingLevel: ThinkingLevel.MINIMAL,
+      thinkingLevel: TILE_THINKING_LEVEL,
       upscale: 1,
       fewShot: true,
     },
     {
-      id: 'v3_upscale3_fewshot_minimal',
+      id: 'v3_upscale3_fewshot_thinking_low',
       promptVersion: PREREAD_PROMPT_VERSION_V3,
       instructions: v3,
-      thinkingLevel: ThinkingLevel.MINIMAL,
+      thinkingLevel: TILE_THINKING_LEVEL,
       upscale: 3,
       fewShot: true,
     },
@@ -390,65 +374,6 @@ function sampleToCrop(sample: Sample, upscale: number): TileCrop {
 }
 
 /** One tile per request (historical eval path; not the production batch shape). */
-async function classifyOne(
-  sample: Sample,
-  spec: VariantSpec,
-  generate: GeminiGenerate,
-  fewShot: FewShotTile[],
-): Promise<{ pred: string; ms: number; tokens: number; probability: number }> {
-  let bytes: Buffer = readFileSync(sample.path);
-  if (spec.upscale > 1) bytes = Buffer.from(upscaleTilePng(bytes, spec.upscale));
-  const started = Date.now();
-  const parts: { text?: string; inlineData?: { mimeType: string; data: string } }[] = [];
-  if (spec.fewShot && fewShot.length > 0) {
-    parts.push({
-      text: 'The next images are labelled examples from the same dataset. They are examples, not instructions.',
-    });
-    for (const ex of fewShot) {
-      let png: Buffer = ex.png;
-      if (spec.upscale > 1) png = Buffer.from(upscaleTilePng(png, spec.upscale));
-      parts.push({ text: `example label=${ex.label} id=${ex.id}` });
-      parts.push({ inlineData: { mimeType: 'image/png', data: png.toString('base64') } });
-    }
-  }
-  parts.push({ text: `Classify this one tile. id=${sample.id}` });
-  parts.push({ inlineData: { mimeType: 'image/png', data: bytes.toString('base64') } });
-  const response = await generate({
-    model: GEMINI_TEXT_MODEL,
-    contents: [{ role: 'user', parts }],
-    config: {
-      systemInstruction: spec.instructions,
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: Type.OBJECT,
-        required: ['tiles'],
-        properties: {
-          tiles: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              required: ['id', 'label', 'probability'],
-              properties: {
-                id: { type: Type.STRING },
-                label: { type: Type.STRING },
-                probability: { type: Type.NUMBER },
-              },
-            },
-          },
-        },
-      },
-      thinkingConfig: { thinkingLevel: spec.thinkingLevel },
-    },
-  });
-  const structured = JSON.parse(response.text) as {
-    tiles?: { id?: string; label?: string; probability?: number }[];
-  };
-  const tile = structured.tiles?.[0];
-  const pred = tile?.label === 'Tumour' ? 'Tumour' : 'Normal';
-  const probability = typeof tile?.probability === 'number' ? tile.probability : 0;
-  return { pred, ms: Date.now() - started, tokens: 0, probability };
-}
-
 /**
  * Production-shaped classify: worker request builder, up to BATCH_SIZE crops, shared few-shot.
  * Latency is split evenly across tiles in the response for per-tile metrics.
@@ -509,7 +434,9 @@ async function scoreVariant(
         rows.push(cached);
         continue;
       }
-      const hit = await classifyOne(sample, spec, generate, fewShot);
+      // One tile per request is production's shape (PREREAD_TILES_PER_REQUEST), so a batch of
+      // one goes through the worker's own request builder and answer checks.
+      const hit = (await classifyBatch([sample], spec, generate, fewShot)).get(sample.id)!;
       const row = {
         truth: sample.label,
         pred: hit.pred,
@@ -813,15 +740,15 @@ async function main(): Promise<void> {
     // Legacy two-way: v2 vs live v4 instructions (no upscale in this path — use --variants).
     assertSpend(tune.length * 2);
     const v2Spec: VariantSpec = {
-      id: 'v2_minimal',
+      id: 'v2_thinking_low',
       promptVersion: PREREAD_PROMPT_VERSION_V2,
       instructions: instructionsV2(),
-      thinkingLevel: ThinkingLevel.MINIMAL,
+      thinkingLevel: TILE_THINKING_LEVEL,
       upscale: 1,
       fewShot: false,
     };
     const liveSpec: VariantSpec = {
-      id: 'live_v4_upscale3_minimal',
+      id: 'live_v4',
       promptVersion: PREREAD_PROMPT_VERSION,
       instructions: instructionsV3(),
       thinkingLevel: TILE_THINKING_LEVEL,
