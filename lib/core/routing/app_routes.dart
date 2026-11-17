@@ -66,7 +66,6 @@ import 'package:tabibu/features/profile/presentation/clinic_hours_screen.dart';
 import 'package:tabibu/features/profile/presentation/edit_profile_screen.dart';
 import 'package:tabibu/features/profile/presentation/help_screen.dart';
 import 'package:tabibu/features/profile/presentation/notification_settings_screen.dart';
-import 'package:tabibu/features/profile/presentation/patient_profile_screen.dart';
 import 'package:tabibu/features/profile/presentation/practitioner_profile_screen.dart';
 import 'package:tabibu/features/profile/presentation/privacy_policy_screen.dart';
 import 'package:tabibu/features/profile/presentation/privacy_screen.dart';
@@ -631,19 +630,6 @@ class PatientCalendarRoute extends GoRouteData with $PatientCalendarRoute {
   @override
   Widget build(BuildContext context, GoRouterState state) =>
       const CalendarScreen(role: .patient);
-}
-
-/// P-PROFILE-EDIT details.
-@TypedGoRoute<PatientProfileDetailsRoute>(
-  path: '${RoutePaths.patient}/profile/details',
-)
-class PatientProfileDetailsRoute extends GoRouteData
-    with $PatientProfileDetailsRoute {
-  const PatientProfileDetailsRoute();
-
-  @override
-  Widget build(BuildContext context, GoRouterState state) =>
-      const PatientProfileScreen();
 }
 
 /// P-PROFILE-EDIT edit.

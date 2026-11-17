@@ -47,8 +47,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _push(GoRouteData route) => unawaited(route.push<void>(context));
 
+  // There is no read-only details screen, so the pencil opens the edit form.
   void _openDetails() => _push(switch (widget.role) {
-    .patient => const PatientProfileDetailsRoute(),
+    .patient => const PatientEditProfileRoute(),
     .doctor => const DoctorProfileDetailsRoute(),
     .pathologist => const PathologistProfileDetailsRoute(),
   });

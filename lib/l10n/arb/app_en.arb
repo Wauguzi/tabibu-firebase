@@ -6924,61 +6924,25 @@
     "@profileDetailsBadPhone": {
         "description": "Bad phone error"
     },
-    "editProfileTitle": "My profile",
-    "@editProfileTitle": {
-        "description": "Patient profile title"
-    },
-    "editProfileSubtitle": "{age} years · {area}",
-    "@editProfileSubtitle": {
-        "description": "Patient profile subtitle; age and area",
-        "placeholders": {
-            "age": {
-                "type": "int"
-            },
-            "area": {
-                "type": "String"
-            }
-        }
-    },
     "editProfileEditTitle": "Edit profile",
     "@editProfileEditTitle": {
         "description": "Edit profile title"
     },
-    "editProfileAboutMe": "About me",
-    "@editProfileAboutMe": {
-        "description": "About me section"
+    "profileSavedToast": "Profile updated",
+    "@profileSavedToast": {
+        "description": "Shared notice after a profile save, shown on the screen the person returns to"
     },
     "editProfileDob": "Date of birth",
     "@editProfileDob": {
         "description": "Date of birth row"
     },
-    "editProfileDobValue": "{date} · {age} years",
-    "@editProfileDobValue": {
-        "description": "Date of birth value; date and age",
-        "placeholders": {
-            "age": {
-                "type": "int"
-            },
-            "date": {
-                "type": "String"
-            }
-        }
-    },
     "editProfileSex": "Sex",
     "@editProfileSex": {
         "description": "Sex row"
     },
-    "editProfilePhone": "Phone",
-    "@editProfilePhone": {
-        "description": "Phone row"
-    },
     "editProfileEmail": "Email",
     "@editProfileEmail": {
         "description": "Email row"
-    },
-    "editProfileArea": "My area",
-    "@editProfileArea": {
-        "description": "My area row"
     },
     "editProfileFirstName": "First name",
     "@editProfileFirstName": {

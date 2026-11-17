@@ -43,6 +43,15 @@ branch as it is found, certified on the phone, then recorded here.
    (dry by default, `--live` behind the project confirm) moved the 17 stored links: 1 patient,
    16 doctors and pathologists. No rule changed. Run on the live project and the patient's
    save certified on the iPhone, 17 Nov.
+5. **Editing the patient's profile took a detour, and a save gave no word.** The pencil on
+   the Profile card opened a read-only "My profile" screen, whose own pencil led to Edit
+   profile. The pencil now opens Edit profile directly, "My profile" and its route are gone,
+   and the patient's card draws on the same teal pattern as the practitioners'. After a save
+   the screen sometimes came back: the router re-ran its sign-in guard on every session
+   change, and a profile save changes the session, so the guard could restore the screen the
+   save had just closed. The guard now runs again only when what it reads changes (signed in
+   or out, and the role claims). A save now returns to the Profile tab with "Profile updated",
+   for patients and practitioners. Certified on the iPhone, 17 Nov.
 
 ## 2. Business justification
 
@@ -72,7 +81,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Security (rules, App Check, RASP, secrets) | Reviewed | Patch 4 brings stored photo URLs in line with the existing profile rules; the rules are unchanged |
 | Data protection (PHI, de-identification, model endpoints) | None | |
 | Design system / UI consistency | Extended | `GroupedRow` gains a caption and a disabled state: muted text, the neutral icon tone, no chevron, announced as a disabled button with its reason |
-| Localisation (en, sw) | Added | `chatRowWaitingCaption`, `errorConversationUnavailable` |
+| Localisation (en, sw) | Added, removed | Added `chatRowWaitingCaption`, `errorConversationUnavailable`, `resultsFilterWaiting`, `profileSavedToast`; removed the six strings only "My profile" used |
 | Existing data | None | |
 
 ## 5. Risk & rollback plan

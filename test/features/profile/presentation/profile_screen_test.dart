@@ -1,13 +1,46 @@
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:tabibu/core/constants/app_colors.dart';
 import 'package:tabibu/core/constants/enums.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
+import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_event.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_state.dart';
+import 'package:tabibu/features/profile/presentation/profile_screen.dart';
 import 'package:tabibu/features/profile/presentation/widgets/profile_identity_card.dart';
+import 'package:tabibu/l10n/l10n.dart';
 
 import '../../../helpers/helpers.dart';
+
+Widget _identityCards({AppLocalizations? l10n}) {
+  return Column(
+    children: [
+      PatientIdentityCard(
+        firstName: 'Amina',
+        lastName: 'Wambui',
+        phoneNumber: '+254712345678',
+        editLabel: l10n?.profileEdit ?? 'Edit profile',
+        onEdit: () {},
+      ),
+      PractitionerIdentityCard(
+        name: 'Dr. Wanjiru Kamau',
+        subtitle: l10n == null
+            ? 'General surgery · Aga Khan University Hospital'
+            : l10n.profileRoleAtFacility(
+                l10n.profilePathologist,
+                'Aga Khan University Hospital',
+              ),
+        verifiedLabel: l10n?.doctorProfileVerified ?? 'KMPDC verified',
+        editLabel: l10n?.profileEdit ?? 'Edit profile',
+        onEdit: () {},
+      ),
+    ],
+  );
+}
 
 void main() {
   group('ProfileScreen', () {
@@ -374,15 +407,54 @@ void main() {
       }
     });
 
-    testWidgets('the patient pencil opens the profile details', (tester) async {
+    testWidgets('the patient pencil opens edit profile in one push', (
+      tester,
+    ) async {
       tallView(tester);
-      await tester.pumpRoleApp(RoleSessions.patient, '/patient/profile');
-      await tester.pumpAndSettle();
+      PackageInfo.setMockInitialValues(
+        appName: 'Tabibu',
+        packageName: 'com.tabibukenya.tabibu',
+        version: '1.0.02',
+        buildNumber: '1002',
+        buildSignature: '',
+      );
+      final auth = MockAuthBloc();
+      when(
+        () => auth.state,
+      ).thenReturn(SignInSuccess(session: RoleSessions.patient));
+      final blocs = FeatureBlocs();
+      final router = GoRouter(
+        initialLocation: '/patient/profile',
+        routes: [
+          GoRoute(
+            path: '/patient/profile',
+            builder: (_, _) => MultiBlocProvider(
+              providers: [
+                BlocProvider<AuthBloc>.value(value: auth),
+                ...blocs.providers,
+              ],
+              child: const ProfileScreen(role: .patient),
+            ),
+          ),
+          GoRoute(
+            path: '/patient/profile/edit',
+            builder: (_, _) => const Text('stub edit profile'),
+          ),
+          GoRoute(
+            path: '/patient/profile/details',
+            builder: (_, _) => const Text('stub my profile'),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
 
+      await tester.pumpRouterApp(router);
+      await tester.pumpAndSettle();
       await tester.tap(find.byType(CircleIconButton));
       await tester.pumpAndSettle();
 
-      expect(find.text('About me'), findsOneWidget);
+      expect(find.text('stub edit profile'), findsOneWidget);
+      expect(find.text('stub my profile'), findsNothing);
     });
 
     testWidgets('back from a settings screen returns to the tab', (
@@ -435,29 +507,100 @@ void main() {
       expect(find.text('Shown to doctors'), findsOneWidget);
     });
 
-    testWidgets('the patient card raises by tone in dark mode', (tester) async {
-      tallView(tester);
-      await tester.pumpRoleApp(
-        RoleSessions.patient,
-        '/patient/profile',
-        themeMode: ThemeMode.dark,
-      );
-      await tester.pumpAndSettle();
+    testWidgets('identity cards draw on the pattern in light and dark', (
+      tester,
+    ) async {
+      for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+        await tester.pumpApp(_identityCards(), themeMode: mode);
+        await tester.pump();
 
-      final context = tester.element(find.byType(PatientIdentityCard));
-      final scheme = Theme.of(context).colorScheme;
-      final card = tester.widget<DecoratedBox>(
-        find
-            .descendant(
-              of: find.byType(PatientIdentityCard),
-              matching: find.byType(DecoratedBox),
-            )
-            .first,
-      );
-      expect(
-        (card.decoration as BoxDecoration).color,
-        scheme.surfaceContainerHigh,
-      );
+        expect(find.byType(PatternCard), findsNWidgets(2));
+        expect(
+          tester.widget<Text>(find.text('Amina W.')).style?.color,
+          AppColors.white,
+        );
+        expect(
+          tester.widget<Text>(find.text('+254 712 *** ***')).style?.color,
+          AppColors.white.withValues(alpha: 0.8),
+        );
+        expect(
+          tester.widget<Text>(find.text('Dr. Wanjiru Kamau')).style?.color,
+          AppColors.white,
+        );
+        expect(
+          tester
+              .widget<Text>(
+                find.text('General surgery · Aga Khan University Hospital'),
+              )
+              .style
+              ?.color,
+          AppColors.white.withValues(alpha: 0.8),
+        );
+
+        final scheme = Theme.of(
+          tester.element(find.byType(PatientIdentityCard)),
+        ).colorScheme;
+        final buttons = find.byType(CircleIconButton);
+        expect(tester.widget<CircleIconButton>(buttons.at(0)).onCard, isTrue);
+        expect(tester.widget<CircleIconButton>(buttons.at(1)).onCard, isFalse);
+        expect(
+          tester
+              .widget<Material>(
+                find.descendant(
+                  of: buttons.at(0),
+                  matching: find.byType(Material),
+                ),
+              )
+              .color,
+          scheme.surfaceContainerLow,
+        );
+        expect(
+          tester
+              .widget<Material>(
+                find.descendant(
+                  of: buttons.at(1),
+                  matching: find.byType(Material),
+                ),
+              )
+              .color,
+          scheme.surfaceContainerLowest,
+        );
+        for (final index in [0, 1]) {
+          expect(
+            tester
+                .widget<AssetIcon>(
+                  find.descendant(
+                    of: buttons.at(index),
+                    matching: find.byType(AssetIcon),
+                  ),
+                )
+                .color,
+            scheme.onSurface,
+          );
+        }
+      }
+    });
+
+    testWidgets('identity cards fit at 2.0x Swahili on narrow and large', (
+      tester,
+    ) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+      });
+      final l10n = lookupAppLocalizations(const Locale('sw'));
+      for (final width in [360.0, 840.0]) {
+        tester.view.physicalSize = Size(width, 2400);
+        tester.view.devicePixelRatio = 1;
+        tester.platformDispatcher.textScaleFactorTestValue = 2;
+        await tester.pumpApp(
+          _identityCards(l10n: l10n),
+          locale: const Locale('sw'),
+        );
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      }
     });
 
     testWidgets('renders in Swahili in dark mode at 2.0x text', (tester) async {
