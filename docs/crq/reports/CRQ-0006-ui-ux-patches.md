@@ -76,6 +76,17 @@ branch as it is found, certified on the phone, then recorded here.
    The initials now sit directly on the square, at their earlier size, using the avatar's own
    rule (`Avatar.initialsOf`, no title); they also sit under a photo, so one that fails to load
    shows them rather than a blank. Certified on the iPhone, 17 Nov.
+9. **The County and Sub-county sheets left white space and blurred their rows.** The shared
+   select sheet (My area, and sign-up's area and title pickers) capped its list at 60 % of the
+   screen inside a near full-height sheet, and drew each row as a separate card. The list now
+   reaches the sheet's bottom edge on any phone, with the search fixed above it and the list
+   still lazy, and the rows sit on the sheet itself, divided by the Profile menus' hairline,
+   with no card, shadow or fill: a check marks the choice, announced as selected. Note for
+   review: the sheet measures the space below the list after layout, and hands a downward
+   drag at the list's top to the sheet's own scroll position so drag-to-dismiss still works,
+   because `TabibuBottomSheet` gives its content no fixed height; letting that sheet host a
+   list directly would be the cleaner change, deliberately not made in a patch. Certified on
+   the iPhone, 17 Nov.
 
 ## 2. Business justification
 
@@ -126,11 +137,11 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Check | Result |
 |---|---|
 | `make analyze` / `make bloc-lint` | Pass — no issues |
-| `make test` (`TZ=UTC`) | Pass — 3,717 after patch 6 |
+| `make test` (`TZ=UTC`) | Pass — 3,722 after patch 9 |
 | `make functions-test` | Pass — 664, with the photo URL check and the Storage copy (patch 4) |
 | `make spell` | Pass — 0 issues |
 | Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed |
-| Manual run | Patches 1 to 8 certified on the iPhone 14, 17 Nov; the run continues |
+| Manual run | Patches 1 to 9 certified on the iPhone 14, 17 Nov; the patient's side is done |
 | Certification | Pending the end of the run |
 
 ## 8. Approval
