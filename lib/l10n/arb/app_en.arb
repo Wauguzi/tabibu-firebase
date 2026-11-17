@@ -2855,6 +2855,15 @@
             }
         }
     },
+    "resultsFilterWaiting": "Waiting · {count}",
+    "@resultsFilterWaiting": {
+        "description": "Results tab: Waiting filter chip with the result count",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
     "resultsFilterWithDoctor": "With your doctor · {count}",
     "@resultsFilterWithDoctor": {
         "description": "Results tab: With your doctor filter chip with the result count",

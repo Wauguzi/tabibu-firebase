@@ -31,6 +31,10 @@ branch as it is found, certified on the phone, then recorded here.
    wrap that broke onto a second line in Swahili and at larger text, pushing the list down.
    They now sit on one line that scrolls sideways, as Find a doctor's specialty filters do.
    Certified on the iPhone, 17 Nov.
+3. **The Results filters did not add up.** "All" counted every result, but only "With your
+   doctor" and "Shared" had pills, so results still waiting for the pathologist made All look
+   inflated. A "Waiting" pill now counts them, and Waiting, With your doctor and Shared always
+   add up to All. Certified on the iPhone, 17 Nov.
 
 ## 2. Business justification
 

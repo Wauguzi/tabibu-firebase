@@ -624,6 +624,7 @@
     "resultsSubtitle": "Yaliyoshirikiwa na daktari wako",
     "resultsSearchHint": "Tafuta vipimo au madaktari",
     "resultsFilterAll": "Zote · {count}",
+    "resultsFilterWaiting": "Zinazosubiri · {count}",
     "resultsFilterWithDoctor": "Kwa daktari wako · {count}",
     "resultsFilterShared": "Zilizoshirikiwa · {count}",
     "resultsSlideTitle": "Matokeo ya {testName}",

@@ -236,15 +236,91 @@ void main() {
       expect(find.text('Lymph node'), findsNothing);
     });
 
+    testWidgets('the three status pills sum to All', (tester) async {
+      _useTallSurface(tester);
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final cases = [
+        _case(uid: 'p1', resultState: 'Pending', testName: 'Breast ultrasound'),
+        _case(uid: 'p2', resultState: 'Pending', testName: 'Thyroid panel'),
+        _case(uid: 'w1', resultState: 'WithDoctor', testName: 'Lymph node'),
+        _case(
+          uid: 'u1',
+          resultState: 'UpdateWithDoctor',
+          testName: 'Liver panel',
+        ),
+        _case(
+          uid: 'r1',
+          resultState: 'Released',
+          testName: 'Full blood count',
+          releasedAt: '2024-09-12T00:00:00Z',
+        ),
+      ];
+      bool isWaiting(CaseModel c) => c.resultStateValue == .pending;
+      bool isWithDoctor(CaseModel c) =>
+          c.resultStateValue == .withDoctor ||
+          c.resultStateValue == .updateWithDoctor;
+      bool isShared(CaseModel c) => c.resultStateValue == .released;
+      final waiting = cases.where(isWaiting).length;
+      final withDoctor = cases.where(isWithDoctor).length;
+      final shared = cases.where(isShared).length;
+      expect(waiting + withDoctor + shared, cases.length);
+      await pumpScreen(tester, cases: CasesLoadSuccess(cases: cases));
+
+      expect(find.text(l10n.resultsFilterAll(5)), findsOneWidget);
+      expect(find.text(l10n.resultsFilterWaiting(2)), findsOneWidget);
+      expect(find.text(l10n.resultsFilterWithDoctor(2)), findsOneWidget);
+      expect(find.text(l10n.resultsFilterShared(1)), findsOneWidget);
+    });
+
+    testWidgets('waiting shows only pending rows without the slide', (
+      tester,
+    ) async {
+      _useTallSurface(tester);
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      await pumpScreen(tester, cases: CasesLoadSuccess(cases: _filterCases()));
+
+      await tester.tap(find.text(l10n.resultsFilterWaiting(1)));
+      await tester.pump();
+
+      expect(find.text('Breast ultrasound'), findsOneWidget);
+      expect(find.text('Lymph node'), findsNothing);
+      expect(find.text('Full blood count'), findsNothing);
+      expect(find.text('Malaria smear'), findsNothing);
+      expect(find.byType(ResultsSlide), findsNothing);
+    });
+
+    testWidgets('pills run All, Waiting, With your doctor, Shared', (
+      tester,
+    ) async {
+      _useTallSurface(tester);
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      await pumpScreen(tester, cases: CasesLoadSuccess(cases: _filterCases()));
+
+      double dx(String label) => tester.getCenter(find.text(label)).dx;
+      expect(
+        dx(l10n.resultsFilterAll(4)),
+        lessThan(dx(l10n.resultsFilterWaiting(1))),
+      );
+      expect(
+        dx(l10n.resultsFilterWaiting(1)),
+        lessThan(dx(l10n.resultsFilterWithDoctor(1))),
+      );
+      expect(
+        dx(l10n.resultsFilterWithDoctor(1)),
+        lessThan(dx(l10n.resultsFilterShared(2))),
+      );
+    });
+
     testWidgets('filter pills share one line', (tester) async {
       _useNarrowSurface(tester);
       await pumpScreen(tester, cases: CasesLoadSuccess(cases: _filterCases()));
 
       final chips = find.byType(TabibuFilterChip);
-      expect(chips, findsNWidgets(3));
+      expect(chips, findsNWidgets(4));
       final line = tester.getCenter(chips.at(0)).dy;
       expect(tester.getCenter(chips.at(1)).dy, line);
       expect(tester.getCenter(chips.at(2)).dy, line);
+      expect(tester.getCenter(chips.at(3)).dy, line);
       final scroller = tester.widget<SingleChildScrollView>(
         find.byType(SingleChildScrollView),
       );
@@ -266,10 +342,11 @@ void main() {
 
       expect(tester.takeException(), isNull);
       final chips = find.byType(TabibuFilterChip);
-      expect(chips, findsNWidgets(3));
+      expect(chips, findsNWidgets(4));
       final line = tester.getCenter(chips.at(0)).dy;
       expect(tester.getCenter(chips.at(1)).dy, line);
       expect(tester.getCenter(chips.at(2)).dy, line);
+      expect(tester.getCenter(chips.at(3)).dy, line);
 
       final shared = find.text(l10n.resultsFilterShared(2));
       final width =

@@ -26,7 +26,7 @@ import 'package:tabibu/features/reports/presentation/widgets/results_slide.dart'
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
-enum _ResultsFilter { all, withDoctor, shared }
+enum _ResultsFilter { all, waiting, withDoctor, shared }
 
 /// P-11a. The patient's Results tab: filters, the with-doctor slide, and rows.
 class ResultsScreen extends StatefulWidget {
@@ -82,6 +82,8 @@ class _ResultsScreenState extends State<ResultsScreen> {
     );
   }
 
+  bool _isWaiting(CaseModel c) => c.resultStateValue == .pending;
+
   bool _isWithDoctor(CaseModel c) =>
       c.resultStateValue == .withDoctor ||
       c.resultStateValue == .updateWithDoctor;
@@ -125,12 +127,14 @@ class _ResultsScreenState extends State<ResultsScreen> {
     final folded = foldForSearch(query);
 
     final all = casesState.cases;
+    final waitingCount = all.where(_isWaiting).length;
     final withDoctorCount = all.where(_isWithDoctor).length;
     final sharedCount = all.where(_isShared).length;
 
     final searched = all.where((c) => _matchesQuery(c, folded)).toList();
     final filtered = switch (_filter) {
       .all => searched,
+      .waiting => searched.where(_isWaiting).toList(),
       .withDoctor => searched.where(_isWithDoctor).toList(),
       .shared => searched.where(_isShared).toList(),
     };
@@ -140,7 +144,10 @@ class _ResultsScreenState extends State<ResultsScreen> {
         (casesState is CasesInitial || casesState is CasesLoadInProgress) &&
         all.isEmpty;
     final noSearchHits = folded.isNotEmpty && searched.isEmpty;
-    final showSlide = slideCase != null && _filter != .shared && folded.isEmpty;
+    final showSlide =
+        slideCase != null &&
+        (_filter == .all || _filter == .withDoctor) &&
+        folded.isEmpty;
 
     return ShellTabPage(
       role: .patient,
@@ -202,6 +209,12 @@ class _ResultsScreenState extends State<ResultsScreen> {
                   label: l10n.resultsFilterAll(all.length),
                   selected: _filter == .all,
                   onTap: () => setState(() => _filter = .all),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                TabibuFilterChip(
+                  label: l10n.resultsFilterWaiting(waitingCount),
+                  selected: _filter == .waiting,
+                  onTap: () => setState(() => _filter = .waiting),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 TabibuFilterChip(
