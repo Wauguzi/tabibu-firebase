@@ -17,7 +17,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
 
   final Role role;
 
-  static final _drafted = DateTime.utc(2026, 10, 27);
+  static final _drafted = DateTime.utc(2026, 11, 17);
 
   @override
   Widget build(BuildContext context) {
@@ -42,14 +42,15 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   title: l10n.privacyPolicyTitle,
                 ),
                 const SizedBox(height: AppSpacing.md),
+                _PolicyCard(sections: _sections(l10n)),
+                // The draft status closes the policy, as a footnote.
+                const SizedBox(height: AppSpacing.md),
                 Text(
                   role == .patient
                       ? l10n.privacyDraftPatient(date)
                       : l10n.privacyDraftClinician(date),
                   style: _muted(context),
                 ),
-                const SizedBox(height: AppSpacing.md),
-                _PolicyCard(sections: _sections(l10n)),
               ],
             ),
           ),

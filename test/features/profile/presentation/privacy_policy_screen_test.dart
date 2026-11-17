@@ -25,7 +25,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text(_en.privacyPolicyTitle), findsOneWidget);
-      expect(find.text(_en.privacyDraftPatient('27 Oct 2026')), findsOneWidget);
+      expect(find.text(_en.privacyDraftPatient('17 Nov 2026')), findsOneWidget);
       for (final section in [
         (_en.privacyP1Title, _en.privacyP1Body),
         (_en.privacyP2Title, _en.privacyP2Body),
@@ -37,6 +37,11 @@ void main() {
         expect(find.text(section.$1), findsOneWidget, reason: section.$1);
         expect(find.text(section.$2), findsOneWidget, reason: section.$1);
       }
+      // The draft line closes the policy, below its last section.
+      expect(
+        tester.getTopLeft(find.text(_en.privacyDraftPatient('17 Nov 2026'))).dy,
+        greaterThan(tester.getBottomLeft(find.text(_en.privacyP6Body)).dy),
+      );
     });
 
     testWidgets('a doctor: five clinician sections', (tester) async {
@@ -48,7 +53,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text(_en.privacyDraftClinician('27 Oct 2026')),
+        find.text(_en.privacyDraftClinician('17 Nov 2026')),
         findsOneWidget,
       );
       for (final section in [
@@ -74,7 +79,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text(_en.privacyDraftClinician('27 Oct 2026')),
+        find.text(_en.privacyDraftClinician('17 Nov 2026')),
         findsOneWidget,
       );
       for (final section in [
@@ -98,7 +103,7 @@ void main() {
       );
       await tester.pump();
 
-      expect(find.text(_sw.privacyDraftPatient('27 Okt 2026')), findsOneWidget);
+      expect(find.text(_sw.privacyDraftPatient('17 Nov 2026')), findsOneWidget);
     });
   });
 }
