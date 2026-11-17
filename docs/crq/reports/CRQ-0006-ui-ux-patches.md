@@ -111,6 +111,13 @@ branch as it is found, certified on the phone, then recorded here.
     but the dialog kept to the safe area by default, so the dimmed screen showed above and
     below it. It now runs edge to edge, with its own safe area inside. Certified on the
     iPhone, 17 Nov.
+14. **Opening a case logged a denied score read.** Before the pathologist scores a pre-read
+    run there is no score document; the rule for `prereadScores` (and `reportProvenance`)
+    read `resource.data` unguarded, so the read was denied rather than answered as missing.
+    The app already treated a missing score as normal, so nothing broke, but each open logged
+    a red failure. The case's own pathologist now reads a missing document as not found;
+    no one else gains a read (RT-203, and RT-101 unchanged). Rules deployed 17 Nov; the log
+    certified clean on the iPhone.
 
 ## 2. Business justification
 
@@ -126,7 +133,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 
 - **Push on the iPhone:** the free Personal Team cannot add the push entitlement, so APNs
   issues no token; the in-app inbox still works and Android receives pushes (CRQ-0004 §3).
-- **Server rules:** no Firestore or Functions rule changes; the app explains the server's
+- **Server rules:** none beyond patch 14's missing-document read; the app explains the server's
   existing refusals.
 
 ## 4. Impact assessment
@@ -134,7 +141,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Area | Impact | Notes |
 |---|---|---|
 | Data model (Firestore, Hive) | None | |
-| Roles & case scoping | None | The server's chat rule is unchanged |
+| Roles & case scoping | Reviewed | The chat rule is unchanged; patch 14 lets the case's own pathologist read a not-yet-written score or provenance as missing, no one else |
 | Clinical safety | None | No AI output, result or alert path changes |
 | AI service (prompts, models, thresholds) | None | |
 | Security (rules, App Check, RASP, secrets) | Changed | Patch 4 brings stored photo URLs in line with the existing profile rules, which are unchanged. Patch 6 changes the app lock: one method at a time, fingerprint/face no longer behind a PIN, the phone's passcode its fallback (threat model T-11) |
@@ -163,6 +170,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | `make analyze` / `make bloc-lint` | Pass — no issues |
 | `make test` (`TZ=UTC`) | Pass — 3,722 after patch 9 |
 | `make functions-test` | Pass — 664, with the photo URL check and the Storage copy (patch 4) |
+| `make rules-test` | Pass — 249, with RT-203 (patch 14) |
 | `make spell` | Pass — 0 issues |
 | Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed |
 | Manual run | Patches 1 to 11 certified on the iPhone 14, 17 Nov; the patient's side is done, the doctor's under way |
@@ -175,7 +183,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Author | Always | Theo | 2026-11-17 | — |
 | Engineering reviewer | Always, on the pull request | Greptile — pending | — | — |
 | Clinical Reviewer | §4 flags clinical-safety impact or changes clinical wording | N/A | — | — |
-| Security Analyst | §4 flags security impact | Covered by CTO | 2026-11-17 | Approved: photos move into the owner's Storage folder, the rules stay strict; the lock's fallback is the phone's passcode, by decision, and every change of method needs the current one first |
+| Security Analyst | §4 flags security impact | Covered by CTO | 2026-11-17 | Approved: photos move into the owner's Storage folder, the rules stay strict; the lock's fallback is the phone's passcode, by decision, and every change of method needs the current one first; the score rule answers missing only to the case's own pathologist |
 | Compliance Officer | §4 flags data protection impact | N/A | — | — |
 | Lead Designer | §4 flags design-system impact | Covered by CTO | 2026-11-17 | Approved: the disabled row follows the disabled button's muted colour |
 
