@@ -162,6 +162,12 @@ void main() {
         find.textContaining(_en.orderSlidesPixelSizeLabel, findRichText: true),
         findsOneWidget,
       );
+      // Its fill matches the card, so a picked row's field needs the
+      // hairline to be seen before it is tapped.
+      expect(
+        tester.widget<TabibuTextField>(find.byType(TabibuTextField)).bordered,
+        isTrue,
+      );
     });
 
     testWidgets('a valid pixel size is sent; garbage is a field error', (
@@ -351,7 +357,7 @@ void main() {
       expect(upload.onTap, isNull);
     });
 
-    testWidgets('an uploaded row outlines its locked pixel-size field', (
+    testWidgets('every row outlines its pixel-size field; uploaded is locked', (
       tester,
     ) async {
       await pumpCard(
@@ -374,8 +380,8 @@ void main() {
           .widgetList<TabibuTextField>(find.byType(TabibuTextField))
           .toList();
       expect(fields, hasLength(2));
-      expect(fields.first.bordered, isFalse);
-      expect(fields.last.bordered, isTrue);
+      expect(fields.every((field) => field.bordered), isTrue);
+      expect(fields.first.readOnly, isFalse);
       expect(fields.last.readOnly, isTrue);
     });
 

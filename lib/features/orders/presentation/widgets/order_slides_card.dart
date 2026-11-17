@@ -298,9 +298,9 @@ class _SlideRowState extends State<_SlideRow> {
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             errorText: _invalid ? l10n.orderSlidesPixelSizeInvalid : null,
             readOnly: slide.isSettled,
-            // Uploaded rows keep a hairline so the locked size still reads
-            // as a filled field on the card.
-            bordered: slide.status == .uploaded,
+            // The field's fill is the card's own white, so without a
+            // hairline it is invisible until focused.
+            bordered: true,
             onChanged: _sized,
           ),
           if (failed) ...[

@@ -97,6 +97,11 @@ branch as it is found, certified on the phone, then recorded here.
     applied the file to the live directory without a reseed (dry by default, `--live` behind
     the project confirm, seeded accounts only, photos copied into Storage): 9 of 9, 17 Nov.
     Two accounts that were not seeded were left alone. Certified on the iPhone, 17 Nov.
+11. **The slide pixel-size field was invisible until tapped.** On the order's slide card the
+    field's fill is the card's own white, and only an uploaded slide drew a hairline. Every
+    row now draws the hairline the app uses for fields on white surfaces (as on the case notes
+    sheet and Sample received); the uploaded row stays locked. The first patch of the doctor's
+    run. Certified on the iPhone, 17 Nov.
 
 ## 2. Business justification
 
@@ -151,7 +156,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | `make functions-test` | Pass — 664, with the photo URL check and the Storage copy (patch 4) |
 | `make spell` | Pass — 0 issues |
 | Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed |
-| Manual run | Patches 1 to 10 certified on the iPhone 14, 17 Nov; the patient's side is done |
+| Manual run | Patches 1 to 11 certified on the iPhone 14, 17 Nov; the patient's side is done, the doctor's under way |
 | Certification | Pending the end of the run |
 
 ## 8. Approval
