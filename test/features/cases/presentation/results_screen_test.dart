@@ -35,6 +35,32 @@ void _useTallSurface(WidgetTester tester) {
   });
 }
 
+void _useNarrowSurface(WidgetTester tester) {
+  tester.view.physicalSize = const Size(360, 2400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(() {
+    tester.view.resetPhysicalSize();
+    tester.view.resetDevicePixelRatio();
+  });
+}
+
+List<CaseModel> _filterCases() => [
+  _case(uid: '1', resultState: 'WithDoctor', testName: 'Lymph node'),
+  _case(
+    uid: '2',
+    resultState: 'Released',
+    testName: 'Full blood count',
+    releasedAt: '2024-09-12T00:00:00Z',
+  ),
+  _case(
+    uid: '3',
+    resultState: 'Released',
+    testName: 'Malaria smear',
+    releasedAt: '2024-07-03T00:00:00Z',
+  ),
+  _case(uid: '4', resultState: 'Pending', testName: 'Breast ultrasound'),
+];
+
 DateTime _nairobi({required int plusDays, required int hour, int minute = 0}) {
   final now = nairobiNow();
   final day = DateTime.utc(
@@ -194,11 +220,76 @@ void main() {
       expect(find.text(l10n.resultsFilterWithDoctor(1)), findsOneWidget);
       expect(find.text(l10n.resultsFilterShared(2)), findsOneWidget);
 
-      await tester.tap(find.text(l10n.resultsFilterShared(2)));
+      final shared = find.text(l10n.resultsFilterShared(2));
+      await tester.scrollUntilVisible(
+        shared,
+        200,
+        scrollable: find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.tap(shared);
       await tester.pump();
       expect(find.byType(ResultsSlide), findsNothing);
       expect(find.text('Full blood count'), findsOneWidget);
       expect(find.text('Lymph node'), findsNothing);
+    });
+
+    testWidgets('filter pills share one line', (tester) async {
+      _useNarrowSurface(tester);
+      await pumpScreen(tester, cases: CasesLoadSuccess(cases: _filterCases()));
+
+      final chips = find.byType(TabibuFilterChip);
+      expect(chips, findsNWidgets(3));
+      final line = tester.getCenter(chips.at(0)).dy;
+      expect(tester.getCenter(chips.at(1)).dy, line);
+      expect(tester.getCenter(chips.at(2)).dy, line);
+      final scroller = tester.widget<SingleChildScrollView>(
+        find.byType(SingleChildScrollView),
+      );
+      expect(scroller.scrollDirection, Axis.horizontal);
+    });
+
+    testWidgets('shared scrolls into view at 2.0x Swahili on a narrow screen', (
+      tester,
+    ) async {
+      _useNarrowSurface(tester);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final l10n = lookupAppLocalizations(const Locale('sw'));
+      await pumpScreen(
+        tester,
+        locale: const Locale('sw'),
+        cases: CasesLoadSuccess(cases: _filterCases()),
+      );
+
+      expect(tester.takeException(), isNull);
+      final chips = find.byType(TabibuFilterChip);
+      expect(chips, findsNWidgets(3));
+      final line = tester.getCenter(chips.at(0)).dy;
+      expect(tester.getCenter(chips.at(1)).dy, line);
+      expect(tester.getCenter(chips.at(2)).dy, line);
+
+      final shared = find.text(l10n.resultsFilterShared(2));
+      final width =
+          tester.view.physicalSize.width / tester.view.devicePixelRatio;
+      expect(tester.getRect(shared).right, greaterThan(width));
+      await tester.scrollUntilVisible(
+        shared,
+        200,
+        scrollable: find.descendant(
+          of: find.byType(SingleChildScrollView),
+          matching: find.byType(Scrollable),
+        ),
+      );
+      await tester.tap(shared);
+      await tester.pump();
+
+      expect(find.byType(ResultsSlide), findsNothing);
+      expect(find.text('Full blood count'), findsOneWidget);
+      expect(find.text('Lymph node'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('search filters by test name', (tester) async {

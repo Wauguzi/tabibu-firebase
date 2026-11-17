@@ -193,26 +193,30 @@ class _ResultsScreenState extends State<ResultsScreen> {
           ),
         ] else ...[
           const SizedBox(height: AppSpacing.md),
-          Wrap(
-            spacing: AppSpacing.xs,
-            runSpacing: AppSpacing.xs,
-            children: [
-              TabibuFilterChip(
-                label: l10n.resultsFilterAll(all.length),
-                selected: _filter == .all,
-                onTap: () => setState(() => _filter = .all),
-              ),
-              TabibuFilterChip(
-                label: l10n.resultsFilterWithDoctor(withDoctorCount),
-                selected: _filter == .withDoctor,
-                onTap: () => setState(() => _filter = .withDoctor),
-              ),
-              TabibuFilterChip(
-                label: l10n.resultsFilterShared(sharedCount),
-                selected: _filter == .shared,
-                onTap: () => setState(() => _filter = .shared),
-              ),
-            ],
+          // A wrap puts Swahili and large text on a second line.
+          SingleChildScrollView(
+            scrollDirection: .horizontal,
+            child: Row(
+              children: [
+                TabibuFilterChip(
+                  label: l10n.resultsFilterAll(all.length),
+                  selected: _filter == .all,
+                  onTap: () => setState(() => _filter = .all),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                TabibuFilterChip(
+                  label: l10n.resultsFilterWithDoctor(withDoctorCount),
+                  selected: _filter == .withDoctor,
+                  onTap: () => setState(() => _filter = .withDoctor),
+                ),
+                const SizedBox(width: AppSpacing.sm),
+                TabibuFilterChip(
+                  label: l10n.resultsFilterShared(sharedCount),
+                  selected: _filter == .shared,
+                  onTap: () => setState(() => _filter = .shared),
+                ),
+              ],
+            ),
           ),
           if (showSlide) ...[
             const SizedBox(height: AppSpacing.md),

@@ -27,6 +27,10 @@ branch as it is found, certified on the phone, then recorded here.
    "Chat opens once your doctor accepts the appointment" and offers Back. The doctor's side
    needed no change: its chat entry appears only for an accepted visit. Certified on the
    iPhone, 17 Nov.
+2. **The Results filters took two lines.** "All", "With your doctor" and "Shared" sat in a
+   wrap that broke onto a second line in Swahili and at larger text, pushing the list down.
+   They now sit on one line that scrolls sideways, as Find a doctor's specialty filters do.
+   Certified on the iPhone, 17 Nov.
 
 ## 2. Business justification
 
@@ -76,10 +80,10 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Check | Result |
 |---|---|
 | `make analyze` / `make bloc-lint` | Pass — no issues |
-| `make test` (`TZ=UTC`) | Pass — 3,684 after patch 1 |
+| `make test` (`TZ=UTC`) | Pass — 3,686 after patch 2 |
 | `make spell` | Pass — 0 issues |
-| Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed |
-| Manual run | Patch 1 certified on the iPhone 14, 17 Nov; the run continues |
+| Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap |
+| Manual run | Patches 1 and 2 certified on the iPhone 14, 17 Nov; the run continues |
 | Certification | Pending the end of the run |
 
 ## 8. Approval
