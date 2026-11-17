@@ -35,6 +35,14 @@ branch as it is found, certified on the phone, then recorded here.
    doctor" and "Shared" had pills, so results still waiting for the pathologist made All look
    inflated. A "Waiting" pill now counts them, and Waiting, With your doctor and Shared always
    add up to All. Certified on the iPhone, 17 Nov.
+4. **A profile with a stock photo could not be saved.** The profile rules accept a photo only
+   as the project's own Storage download URL, on every save, but the seed stored the demo
+   practitioners' stock photos as links, and one was set by hand on the demo patient, so each
+   of those accounts was refused (`permission-denied`) on any profile save. The seed now copies
+   each photo into `profilePictures/{uid}/` first, and `functions/scripts/fix-demo-photos.ts`
+   (dry by default, `--live` behind the project confirm) moved the 17 stored links: 1 patient,
+   16 doctors and pathologists. No rule changed. Run on the live project and the patient's
+   save certified on the iPhone, 17 Nov.
 
 ## 2. Business justification
 
@@ -46,6 +54,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 **In scope:** the patches listed in §1, their tests and the strings they add.
 
 **Explicitly out of scope:**
+
 
 - **Push on the iPhone:** the free Personal Team cannot add the push entitlement, so APNs
   issues no token; the in-app inbox still works and Android receives pushes (CRQ-0004 §3).
@@ -60,7 +69,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Roles & case scoping | None | The server's chat rule is unchanged |
 | Clinical safety | None | No AI output, result or alert path changes |
 | AI service (prompts, models, thresholds) | None | |
-| Security (rules, App Check, RASP, secrets) | None | |
+| Security (rules, App Check, RASP, secrets) | Reviewed | Patch 4 brings stored photo URLs in line with the existing profile rules; the rules are unchanged |
 | Data protection (PHI, de-identification, model endpoints) | None | |
 | Design system / UI consistency | Extended | `GroupedRow` gains a caption and a disabled state: muted text, the neutral icon tone, no chevron, announced as a disabled button with its reason |
 | Localisation (en, sw) | Added | `chatRowWaitingCaption`, `errorConversationUnavailable` |
@@ -85,6 +94,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 |---|---|
 | `make analyze` / `make bloc-lint` | Pass — no issues |
 | `make test` (`TZ=UTC`) | Pass — 3,686 after patch 2 |
+| `make functions-test` | Pass — 664, with the photo URL check and the Storage copy (patch 4) |
 | `make spell` | Pass — 0 issues |
 | Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap |
 | Manual run | Patches 1 and 2 certified on the iPhone 14, 17 Nov; the run continues |
@@ -97,7 +107,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Author | Always | Theo | 2026-11-17 | — |
 | Engineering reviewer | Always, on the pull request | Greptile — pending | — | — |
 | Clinical Reviewer | §4 flags clinical-safety impact or changes clinical wording | N/A | — | — |
-| Security Analyst | §4 flags security impact | N/A | — | — |
+| Security Analyst | §4 flags security impact | Covered by CTO | 2026-11-17 | Approved: photos move into the owner's Storage folder, the rules stay strict |
 | Compliance Officer | §4 flags data protection impact | N/A | — | — |
 | Lead Designer | §4 flags design-system impact | Covered by CTO | 2026-11-17 | Approved: the disabled row follows the disabled button's muted colour |
 
