@@ -611,11 +611,14 @@ service cloud.firestore {
         allow create, delete: if false;
       }
 
+      // Missing until written: the case's own pathologist reads that as
+      // "not found", not a denial.
       match /prereadScores/{runUid} {
         allow read: if signedIn()
             && ((role() == 'pathologist'
                  && parent().pathologistUid == request.auth.uid
-                 && resource.data.pathologistUid == request.auth.uid)
+                 && (resource == null
+                     || resource.data.pathologistUid == request.auth.uid))
                 || isAdmin());
         allow write: if false;
       }
@@ -624,7 +627,8 @@ service cloud.firestore {
         allow read: if signedIn()
             && ((role() == 'pathologist'
                  && parent().pathologistUid == request.auth.uid
-                 && resource.data.pathologistUid == request.auth.uid)
+                 && (resource == null
+                     || resource.data.pathologistUid == request.auth.uid))
                 || isAdmin());
         allow write: if false;
       }
