@@ -87,6 +87,16 @@ branch as it is found, certified on the phone, then recorded here.
    because `TabibuBottomSheet` gives its content no fixed height; letting that sheet host a
    list directly would be the cleaner change, deliberately not made in a patch. Certified on
    the iPhone, 17 Nov.
+10. **Eight seeded directory doctors had no photo, and one photo cut off a head.** The demo
+    directory data (`functions/data/demo_directory.json`) now gives every seeded doctor a
+    photo of someone who looks like a clinician and matches the name's gender, with varied
+    skin tones and no face used twice; Lucy Wambui's is replaced; and Kevin Omondi becomes
+    Dr. Arjun Mehta, a Kenyan Asian name, since no unused free photo of a dark-skinned male
+    doctor could be found. Each photo is a stock model from Pexels or Unsplash, its author,
+    source and licence read from the photo's own page. `functions/scripts/apply-directory-photos.ts`
+    applied the file to the live directory without a reseed (dry by default, `--live` behind
+    the project confirm, seeded accounts only, photos copied into Storage): 9 of 9, 17 Nov.
+    Two accounts that were not seeded were left alone. Certified on the iPhone, 17 Nov.
 
 ## 2. Business justification
 
@@ -141,7 +151,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | `make functions-test` | Pass — 664, with the photo URL check and the Storage copy (patch 4) |
 | `make spell` | Pass — 0 issues |
 | Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed |
-| Manual run | Patches 1 to 9 certified on the iPhone 14, 17 Nov; the patient's side is done |
+| Manual run | Patches 1 to 10 certified on the iPhone 14, 17 Nov; the patient's side is done |
 | Certification | Pending the end of the run |
 
 ## 8. Approval

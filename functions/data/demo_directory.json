@@ -1,5 +1,5 @@
 {
-  "_about": "Demo practitioners for the test directory (make seed-directory). Fictional people at real Nairobi facilities; every licence number starts DEMO-. A photo is a stock model from Pexels, free under the Pexels License with its source and author recorded, never a picture of the named person; null shows initials.",
+  "_about": "Demo practitioners for the test directory (make seed-directory). Fictional people at real Nairobi facilities; every licence number starts DEMO-. A photo is a stock model from Pexels or Unsplash, free under its licence with its source and author recorded, never a picture of the named person; null shows initials. An entry's key is the account's email (directory-{key}) and stays when a demo name changes, so the account is kept.",
   "practitioners": [
     {
       "key": "otieno-james",
@@ -35,7 +35,12 @@
       "bio": "Children from birth to their teens, fevers to follow-ups. A demo profile in Tabibu's test environment.",
       "phoneNumber": "+254700000202",
       "kmpdcNumber": "DEMO-D-0102",
-      "photo": null
+      "photo": {
+        "url": "https://images.pexels.com/photos/32669711/pexels-photo-32669711.jpeg?auto=compress&cs=tinysrgb&w=512&h=512&fit=crop",
+        "source": "https://www.pexels.com/photo/smiling-female-doctor-in-burgundy-hijab-with-stethoscope-32669711/",
+        "author": "Skylight Views",
+        "licence": "Pexels License (https://www.pexels.com/license/)"
+      }
     },
     {
       "key": "wairimu-grace",
@@ -214,8 +219,8 @@
       "phoneNumber": "+254700000211",
       "kmpdcNumber": "DEMO-D-0111",
       "photo": {
-        "url": "https://images.pexels.com/photos/19963169/pexels-photo-19963169.jpeg?auto=compress&cs=tinysrgb&w=512&h=512&fit=crop",
-        "source": "https://www.pexels.com/photo/doctor-sitting-and-talking-on-phone-19963169/",
+        "url": "https://images.pexels.com/photos/19963130/pexels-photo-19963130.jpeg?auto=compress&cs=tinysrgb&w=512&h=512&fit=crop",
+        "source": "https://www.pexels.com/photo/smiling-doctor-with-stethoscope-19963130/",
         "author": "Tessy Agbonome",
         "licence": "Pexels License (https://www.pexels.com/license/)"
       }
@@ -224,8 +229,8 @@
       "key": "omondi-kevin",
       "isPathologist": false,
       "title": "Dr.",
-      "firstName": "Kevin",
-      "lastName": "Omondi",
+      "firstName": "Arjun",
+      "lastName": "Mehta",
       "facilityId": "88a63b52-4cc1-4db2-a73d-a88c2a9bb816",
       "specialties": [
         "General practice",
@@ -234,7 +239,12 @@
       "bio": "Outpatient care and fevers in Kibra and Langata. A demo profile in Tabibu's test environment.",
       "phoneNumber": "+254700000212",
       "kmpdcNumber": "DEMO-D-0112",
-      "photo": null
+      "photo": {
+        "url": "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?w=512&h=512&fit=crop&crop=faces&fm=jpg&q=80",
+        "source": "https://unsplash.com/photos/man-in-white-dress-shirt-wearing-black-framed-eyeglasses-pTrhfmj2jDA",
+        "author": "Usman Yousaf",
+        "licence": "Unsplash License (https://unsplash.com/license)"
+      }
     },
     {
       "key": "chebet-mercy",
@@ -249,7 +259,12 @@
       "bio": "Pregnancy care and safe delivery. A demo profile in Tabibu's test environment.",
       "phoneNumber": "+254700000213",
       "kmpdcNumber": "DEMO-D-0113",
-      "photo": null
+      "photo": {
+        "url": "https://images.unsplash.com/photo-1678695972687-033fa0bdbac9?w=512&h=512&fit=crop&crop=faces&fm=jpg&q=80",
+        "source": "https://unsplash.com/photos/a-woman-wearing-a-white-coat-and-a-stethoscope-TPT4pevJEmQ",
+        "author": "Ato Aikins",
+        "licence": "Unsplash License (https://unsplash.com/license)"
+      }
     },
     {
       "key": "karanja-samuel",
@@ -264,7 +279,12 @@
       "bio": "Ear, nose and throat conditions in adults and children. A demo profile in Tabibu's test environment.",
       "phoneNumber": "+254700000214",
       "kmpdcNumber": "DEMO-D-0114",
-      "photo": null
+      "photo": {
+        "url": "https://images.unsplash.com/photo-1622253692010-333f2da6031d?w=512&h=512&fit=crop&crop=faces&fm=jpg&q=80",
+        "source": "https://unsplash.com/photos/man-in-blue-medical-scrubs-279xIHymPYY",
+        "author": "Bruno Rodrigues",
+        "licence": "Unsplash License (https://unsplash.com/license)"
+      }
     },
     {
       "key": "achieng-rose",
@@ -280,7 +300,12 @@
       "bio": "Families in Kayole and Komarock, children included. A demo profile in Tabibu's test environment.",
       "phoneNumber": "+254700000215",
       "kmpdcNumber": "DEMO-D-0115",
-      "photo": null
+      "photo": {
+        "url": "https://images.pexels.com/photos/7578806/pexels-photo-7578806.jpeg?auto=compress&cs=tinysrgb&w=512&h=512&fit=crop",
+        "source": "https://www.pexels.com/photo/portrait-of-a-doctor-smiling-7578806/",
+        "author": "cottonbro studio",
+        "licence": "Pexels License (https://www.pexels.com/license/)"
+      }
     },
     {
       "key": "muthoni-jane",
@@ -296,7 +321,12 @@
       "bio": "Heart health, blood pressure and diabetes. A demo profile in Tabibu's test environment.",
       "phoneNumber": "+254700000216",
       "kmpdcNumber": "DEMO-D-0116",
-      "photo": null
+      "photo": {
+        "url": "https://images.pexels.com/photos/19218034/pexels-photo-19218034.jpeg?auto=compress&cs=tinysrgb&w=512&h=512&fit=crop",
+        "source": "https://www.pexels.com/photo/smiling-doctor-in-a-lab-coat-and-with-a-stethoscope-19218034/",
+        "author": "Carmel Nsenga",
+        "licence": "Pexels License (https://www.pexels.com/license/)"
+      }
     },
     {
       "key": "akinyi-beatrice",
@@ -353,7 +383,12 @@
       "bio": "Reads haematology cases. A demo profile in Tabibu's test environment.",
       "phoneNumber": "+254700000303",
       "kmpdcNumber": "DEMO-P-0103",
-      "photo": null
+      "photo": {
+        "url": "https://images.pexels.com/photos/19596247/pexels-photo-19596247.jpeg?auto=compress&cs=tinysrgb&w=512&h=512&fit=crop",
+        "source": "https://www.pexels.com/photo/portrait-of-smiling-black-woman-doctor-in-medical-robe-19596247/",
+        "author": "MARTINS JOHN",
+        "licence": "Pexels License (https://www.pexels.com/license/)"
+      }
     },
     {
       "key": "otieno-paul",
@@ -389,7 +424,12 @@
       "bio": "Reads cytology and histopathology cases. A demo profile in Tabibu's test environment.",
       "phoneNumber": "+254700000305",
       "kmpdcNumber": "DEMO-P-0105",
-      "photo": null
+      "photo": {
+        "url": "https://images.pexels.com/photos/4031690/pexels-photo-4031690.jpeg?auto=compress&cs=tinysrgb&w=512&h=512&fit=crop",
+        "source": "https://www.pexels.com/photo/portrait-of-female-scientist-in-white-lab-coat-smiling-4031690/",
+        "author": "Edward Jenner",
+        "licence": "Pexels License (https://www.pexels.com/license/)"
+      }
     },
     {
       "key": "kibet-stephen",
