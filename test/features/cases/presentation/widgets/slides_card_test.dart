@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/cases/data/models/slide_image_model.dart';
 import 'package:tabibu/features/cases/presentation/widgets/slides_card.dart';
 import 'package:tabibu/l10n/l10n.dart';
@@ -63,6 +64,40 @@ void main() {
     await pump(tester, [one], asked: <String>[]);
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('a tapped slide opens edge to edge, not floating', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3;
+    // A notch and a home indicator, as on the iPhone.
+    tester.view.padding = const FakeViewPadding(top: 141, bottom: 102);
+    addTearDown(tester.view.reset);
+    await tester.pumpApp(
+      SlidesCard(
+        slides: const [one],
+        urlFor: (path) async => 'https://example.test/$path',
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    tester.takeException();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SlidesCard),
+        matching: find.byType(Tappable),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    // Test images cannot load; that error is not what this test is about.
+    tester.takeException();
+
+    final page = tester.getRect(find.byType(Dialog));
+    expect(page.top, 0);
+    expect(page.bottom, 2532 / 3);
   });
 
   testWidgets('nothing at all without slides', (tester) async {

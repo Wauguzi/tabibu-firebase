@@ -110,6 +110,10 @@ class _SlidesCardState extends State<SlidesCard> {
   Future<void> _open(BuildContext context, String url, SlideImageModel slide) =>
       showDialog<void>(
         context: context,
+        // Edge to edge: the default safe area left the dimmed screen showing
+        // above and below, so the slide looked like it floated over it. The
+        // page keeps its own safe area inside.
+        useSafeArea: false,
         builder: (_) => _FullSlide(url: url, scale: slide.micronsPerPixel),
       );
 }

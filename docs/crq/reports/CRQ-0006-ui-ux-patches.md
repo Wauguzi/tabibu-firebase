@@ -107,6 +107,10 @@ branch as it is found, certified on the phone, then recorded here.
     since the rules take :00 and :30; the old code rounded a free pick. The times are outlined
     picker fields: `PickerField` gains `bordered`, the hairline a text field on a sheet uses.
     Certified on the iPhone, 17 Nov.
+13. **A tapped slide looked like it floated.** The full-slide view is a full-screen dialog,
+    but the dialog kept to the safe area by default, so the dimmed screen showed above and
+    below it. It now runs edge to edge, with its own safe area inside. Certified on the
+    iPhone, 17 Nov.
 
 ## 2. Business justification
 
