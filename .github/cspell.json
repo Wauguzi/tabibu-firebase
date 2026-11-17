@@ -541,7 +541,10 @@
     "zinazokufikia",
     "zinazopendekezwa",
     "zito",
-    "Zote"
+    "Zote",
+    "Arjun",
+    "Mehta",
+    "Omondi"
   ],
   "ignorePaths": [
     "**/lib/firebase_options.dart",
