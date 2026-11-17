@@ -66,34 +66,62 @@ class GroupedRowsCard extends StatelessWidget {
   }
 }
 
-/// One row of a [GroupedRowsCard]: a toned icon tile and a title, padded
-/// like any card. A tap makes it a button with a chevron.
+/// One row of a [GroupedRowsCard]: a toned icon tile, a title and an
+/// optional caption, padded like any card. A tap makes it a button with a
+/// chevron; a disabled button is muted, has no chevron and says why in its
+/// caption.
 class GroupedRow extends StatelessWidget {
   const GroupedRow({
     required this.icon,
     required this.tone,
     required this.title,
+    this.supporting,
     this.onTap,
+    this.enabled = true,
     super.key,
   });
 
   final SvgGenImage icon;
   final IconTone tone;
   final String title;
+  final String? supporting;
   final VoidCallback? onTap;
+  final bool enabled;
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final onTap = this.onTap;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final onTap = enabled ? this.onTap : null;
+    final muted = !enabled;
+    final supporting = this.supporting;
     final row = Padding(
       padding: AppStyles.cardPadding,
       child: Row(
         children: [
-          IconTile(icon: icon, tone: tone),
+          IconTile(icon: icon, tone: muted ? .neutral : tone),
           const SizedBox(width: AppSpacing.sm),
           Expanded(
-            child: Text(title, style: Theme.of(context).textTheme.titleSmall),
+            child: Column(
+              crossAxisAlignment: .start,
+              children: [
+                Text(
+                  title,
+                  style: muted
+                      ? theme.textTheme.titleSmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        )
+                      : theme.textTheme.titleSmall,
+                ),
+                if (supporting != null && supporting.isNotEmpty)
+                  Text(
+                    supporting,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+              ],
+            ),
           ),
           if (onTap != null) ...[
             const SizedBox(width: AppSpacing.sm),
@@ -107,11 +135,19 @@ class GroupedRow extends StatelessWidget {
         ],
       ),
     );
+    if (muted && this.onTap != null) {
+      // Still announced as the control it will become, with why it is off.
+      return MergeSemantics(
+        child: Semantics(button: true, enabled: false, child: row),
+      );
+    }
     if (onTap == null) return row;
     return MergeSemantics(
       child: Semantics(
         button: true,
-        label: title,
+        label: supporting == null || supporting.isEmpty
+            ? title
+            : '$title\n$supporting',
         onTap: onTap,
         child: Tappable(
           onTap: onTap,

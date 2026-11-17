@@ -182,6 +182,7 @@ void main() {
         'invalidCount': AppError.invalidSlides,
         'voiceDisabled': AppError.voiceUnavailable,
         'prereadPending': AppError.prereadPending,
+        'conversationUnavailable': AppError.conversationUnavailable,
       };
       for (final entry in keys.entries) {
         final exception = _TestFunctionsException(

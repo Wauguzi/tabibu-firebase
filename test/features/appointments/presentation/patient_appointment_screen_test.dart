@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -188,6 +191,76 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('stub chat a-up'), findsOneWidget);
+    });
+
+    testWidgets('a requested visit shows the chat, off, until the doctor '
+        'accepts', (tester) async {
+      _useTallSurface(tester);
+      final requested = upcoming.copyWith(status: 'Requested');
+      final states = StreamController<AppointmentsState>();
+      addTearDown(states.close);
+      whenListen(
+        appointments,
+        states.stream,
+        initialState: AppointmentsLoadSuccess(appointments: [requested]),
+      );
+      await tester.pumpRouterApp(router());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Appointment chat'), findsOneWidget);
+      expect(find.text('Opens once Dr. Wanjiru Kamau accepts'), findsOneWidget);
+      await tester.tap(find.text('Appointment chat'), warnIfMissed: false);
+      await tester.pumpAndSettle();
+      expect(find.text('stub chat a-up'), findsNothing);
+
+      states.add(AppointmentsLoadSuccess(appointments: [upcoming]));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Opens once Dr. Wanjiru Kamau accepts'), findsNothing);
+      await tester.tap(find.text('Appointment chat'));
+      await tester.pumpAndSettle();
+      expect(find.text('stub chat a-up'), findsOneWidget);
+    });
+
+    for (final status in ['Declined', 'Cancelled', 'Expired', 'NoShow']) {
+      testWidgets('a $status visit offers no chat', (tester) async {
+        _useTallSurface(tester);
+        when(() => appointments.state).thenReturn(
+          AppointmentsLoadSuccess(
+            appointments: [upcoming.copyWith(status: status)],
+          ),
+        );
+        await tester.pumpApp(screen());
+        await tester.pumpAndSettle();
+
+        expect(find.text('Appointment chat'), findsNothing);
+      });
+    }
+
+    testWidgets('the waiting caption fits at 2.0x text in Swahili', (
+      tester,
+    ) async {
+      _useTallSurface(tester);
+      when(() => appointments.state).thenReturn(
+        AppointmentsLoadSuccess(
+          appointments: [upcoming.copyWith(status: 'Requested')],
+        ),
+      );
+      await tester.pumpApp(
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: screen(),
+        ),
+        locale: const Locale('sw'),
+      );
+      await tester.pumpAndSettle();
+
+      final sw = lookupAppLocalizations(const Locale('sw'));
+      expect(tester.takeException(), isNull);
+      expect(
+        find.text(sw.chatRowWaitingCaption('Dr. Wanjiru Kamau')),
+        findsOneWidget,
+      );
     });
 
     testWidgets('a past visit with a case links its results', (tester) async {

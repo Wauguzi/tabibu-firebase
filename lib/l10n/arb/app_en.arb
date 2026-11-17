@@ -72,6 +72,10 @@
     "@errorPrereadPending": {
         "description": "Shown when a report cannot start because the pre-read is still running"
     },
+    "errorConversationUnavailable": "Chat opens once your doctor accepts the appointment.",
+    "@errorConversationUnavailable": {
+        "description": "Shown when the appointment chat is opened before the doctor has accepted the booking"
+    },
     "workspaceAwaitingPrereadCheck": "Check again",
     "@workspaceAwaitingPrereadCheck": {
         "description": "Pathologist: re-reads the case while waiting for the pre-read"
@@ -6533,6 +6537,15 @@
     "chatRowTitle": "Appointment chat",
     "@chatRowTitle": {
         "description": "Appointment screen chat row"
+    },
+    "chatRowWaitingCaption": "Opens once {doctor} accepts",
+    "@chatRowWaitingCaption": {
+        "description": "Patient appointment screen: caption under the disabled chat row while the booking awaits the doctor",
+        "placeholders": {
+            "doctor": {
+                "type": "String"
+            }
+        }
     },
     "chatRowBody": "Opens on {date} and closes when it ends.",
     "@chatRowBody": {

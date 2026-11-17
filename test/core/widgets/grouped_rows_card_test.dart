@@ -188,6 +188,123 @@ void main() {
       expect(taps, 1);
       handle.dispose();
     });
+
+    GroupedRowsCard disabledChat({VoidCallback? onTap}) => GroupedRowsCard(
+      children: [
+        GroupedRow(
+          icon: Assets.icons.chatIcon,
+          tone: .mint,
+          title: 'Appointment chat',
+          supporting: 'Opens once Dr. Achieng Odhiambo accepts',
+          enabled: false,
+          onTap: onTap,
+        ),
+      ],
+    );
+
+    testWidgets('a disabled row is muted, says why, and does not tap', (
+      tester,
+    ) async {
+      var taps = 0;
+      final handle = tester.ensureSemantics();
+      await tester.pumpApp(disabledChat(onTap: () => taps++));
+      await tester.pumpAndSettle();
+
+      final scheme = Theme.of(
+        tester.element(find.byType(GroupedRow)),
+      ).colorScheme;
+      expect(
+        tester.widget<Text>(find.text('Appointment chat')).style?.color,
+        scheme.onSurfaceVariant,
+      );
+      expect(
+        tester.widget<IconTile>(find.byType(IconTile)).tone,
+        IconTone.neutral,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (w) => w is AssetIcon && w.asset == Assets.icons.forwardIcon,
+        ),
+        findsNothing,
+      );
+      expect(
+        tester.getSemantics(find.byType(GroupedRow)),
+        isSemantics(
+          label: 'Appointment chat\nOpens once Dr. Achieng Odhiambo accepts',
+          isButton: true,
+          hasEnabledState: true,
+          isEnabled: false,
+          hasTapAction: false,
+        ),
+      );
+      await tester.tap(find.text('Appointment chat'), warnIfMissed: false);
+      expect(taps, 0);
+      handle.dispose();
+    });
+
+    testWidgets('an enabled row reads its caption after the title', (
+      tester,
+    ) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpApp(
+        GroupedRowsCard(
+          children: [
+            GroupedRow(
+              icon: Assets.icons.chatIcon,
+              tone: .mint,
+              title: 'Appointment chat',
+              supporting: 'Open until 5 PM',
+              onTap: () {},
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getSemantics(find.byType(GroupedRow)),
+        isSemantics(
+          label: 'Appointment chat\nOpen until 5 PM',
+          isButton: true,
+          hasTapAction: true,
+        ),
+      );
+      handle.dispose();
+    });
+
+    // cspell:ignore Mazungumzo Hufunguka akikubali
+    testWidgets('a disabled caption wraps at 2.0x text in Swahili at 360 dp', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpApp(
+        MediaQuery(
+          data: const MediaQueryData(
+            size: Size(360, 800),
+            textScaler: TextScaler.linear(2),
+          ),
+          child: GroupedRowsCard(
+            children: [
+              GroupedRow(
+                icon: Assets.icons.chatIcon,
+                tone: .mint,
+                title: 'Mazungumzo ya miadi',
+                supporting: 'Hufunguka Dkt. Achieng Odhiambo akikubali',
+                enabled: false,
+                onTap: () {},
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        find.text('Hufunguka Dkt. Achieng Odhiambo akikubali'),
+        findsOneWidget,
+      );
+    });
   });
 
   group('DashedDivider', () {

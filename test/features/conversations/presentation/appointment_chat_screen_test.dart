@@ -179,6 +179,27 @@ void main() {
       expect(find.byType(MdtComposer), findsOneWidget);
     });
 
+    testWidgets('a chat refused before acceptance offers Back, not Retry', (
+      tester,
+    ) async {
+      await pumpChat(
+        tester,
+        state: const ChatLoadFailure(error: .conversationUnavailable),
+      );
+      final l10n = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(l10n.errorConversationUnavailable), findsOneWidget);
+      expect(find.text(l10n.commonBack), findsOneWidget);
+      expect(find.text(l10n.commonRetry), findsNothing);
+    });
+
+    testWidgets('any other failure still offers Retry', (tester) async {
+      await pumpChat(tester, state: const ChatLoadFailure(error: .unknown));
+      final l10n = lookupAppLocalizations(const Locale('en'));
+
+      expect(find.text(l10n.commonRetry), findsOneWidget);
+    });
+
     testWidgets('a closed thread is read-only: no composer, follow-up for '
         'the patient', (tester) async {
       await pumpChat(

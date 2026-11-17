@@ -259,10 +259,17 @@ class _AppointmentChatScreenState extends State<AppointmentChatScreen> {
                     title: state.error.description(l10n),
                     icon: Assets.icons.chatIcon,
                     actions: [
-                      TabibuButton.primary(
-                        label: l10n.commonRetry,
-                        onTap: _open,
-                      ),
+                      // Retrying cannot help until the doctor accepts.
+                      if (state.error == .conversationUnavailable)
+                        TabibuButton.primary(
+                          label: l10n.commonBack,
+                          onTap: context.pop,
+                        )
+                      else
+                        TabibuButton.primary(
+                          label: l10n.commonRetry,
+                          onTap: _open,
+                        ),
                     ],
                   ),
                 ),

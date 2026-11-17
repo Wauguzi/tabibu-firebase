@@ -308,6 +308,8 @@ enum AppError implements Exception {
   voiceUnavailable,
   // The report waits for a running pre-read (`prereadPending`).
   prereadPending,
+  // Appointment chat before the doctor accepts (`conversationUnavailable`).
+  conversationUnavailable,
   unknown;
 
   /// Maps a callable's `message` reason key to its [AppError], falling back
@@ -371,6 +373,7 @@ enum AppError implements Exception {
       'invalidSlides' || 'invalidCount' => AppError.invalidSlides,
       'voiceDisabled' => AppError.voiceUnavailable,
       'prereadPending' => AppError.prereadPending,
+      'conversationUnavailable' => AppError.conversationUnavailable,
       _ => null,
     };
     return reason ?? fromFirebaseCode(e.code);
@@ -482,6 +485,7 @@ enum AppError implements Exception {
     .noRoleAssigned => l10n.errorNoRoleAssigned,
     .voiceUnavailable => l10n.symptomVoiceUnavailable,
     .prereadPending => l10n.errorPrereadPending,
+    .conversationUnavailable => l10n.errorConversationUnavailable,
     .unknown => l10n.errorUnknown,
   };
 }
