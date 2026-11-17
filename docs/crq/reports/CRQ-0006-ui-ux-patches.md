@@ -71,6 +71,11 @@ branch as it is found, certified on the phone, then recorded here.
 7. **The privacy policy's draft line led the page and carried an old date.** "Draft · last
    updated 27 Oct 2026" sat above the policy; it now closes it, below the last section, and
    reads 17 Nov 2026, for patients and clinicians. Certified on the iPhone, 17 Nov.
+8. **A doctor without a photo showed a box within a box.** The directory card (Home and Find a
+   doctor) drew the avatar's own paler tile inside its photo square, which read as a gradient.
+   The initials now sit directly on the square, at their earlier size, using the avatar's own
+   rule (`Avatar.initialsOf`, no title); they also sit under a photo, so one that fails to load
+   shows them rather than a blank. Certified on the iPhone, 17 Nov.
 
 ## 2. Business justification
 
@@ -125,7 +130,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | `make functions-test` | Pass — 664, with the photo URL check and the Storage copy (patch 4) |
 | `make spell` | Pass — 0 issues |
 | Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed |
-| Manual run | Patches 1 to 7 certified on the iPhone 14, 17 Nov; the run continues |
+| Manual run | Patches 1 to 8 certified on the iPhone 14, 17 Nov; the run continues |
 | Certification | Pending the end of the run |
 
 ## 8. Approval

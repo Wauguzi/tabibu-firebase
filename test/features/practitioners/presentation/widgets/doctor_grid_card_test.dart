@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/practitioners/presentation/widgets/doctor_grid_card.dart';
 
 import '../../../../helpers/helpers.dart';
@@ -28,6 +29,25 @@ void main() {
       await pumpCard(tester);
       expect(find.text('Dr. James Otieno'), findsOneWidget);
       expect(find.text('General physician'), findsOneWidget);
+    });
+
+    testWidgets('without a photo, initials sit on the square, no inner tile', (
+      tester,
+    ) async {
+      await pumpCard(tester);
+
+      expect(find.text('JO'), findsOneWidget, reason: 'no title in initials');
+      expect(find.byType(Avatar), findsNothing);
+      // Centred on the photo square.
+      final square = tester.getRect(find.byType(AspectRatio));
+      expect(
+        tester.getCenter(find.text('JO')).dx,
+        closeTo(square.center.dx, 1),
+      );
+      expect(
+        tester.getCenter(find.text('JO')).dy,
+        closeTo(square.center.dy, 1),
+      );
     });
 
     testWidgets('fires onTap', (tester) async {
