@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/reports/presentation/widgets/revision_sheet.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
@@ -90,6 +91,22 @@ void main() {
   });
 
   group('AddendumSheet', () {
+    testWidgets('the addendum field is outlined on the white sheet', (
+      tester,
+    ) async {
+      await open(
+        tester,
+        AddendumSheet.show,
+        locale: const Locale('en'),
+        mode: ThemeMode.light,
+        scale: 1,
+      );
+      expect(
+        tester.widget<TabibuTextField>(find.byType(TabibuTextField)).bordered,
+        isTrue,
+      );
+    });
+
     testWidgets('fits a phone at 1.0x and 2.0x, both languages, both modes', (
       tester,
     ) async {

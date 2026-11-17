@@ -169,6 +169,8 @@ class _MoveFormState extends State<_MoveForm> {
         Text(l10n.cancelAppointmentOtherHint),
         const SizedBox(height: AppSpacing.sm),
         TabibuTextField(
+          // A white field on the white sheet: the hairline makes it seen.
+          bordered: true,
           label: l10n.cancelAppointmentNote,
           hint: l10n.cancelAppointmentNoteHint,
           controller: _note,

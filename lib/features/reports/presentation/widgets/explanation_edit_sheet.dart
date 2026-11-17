@@ -72,6 +72,8 @@ class _ExplanationEditFormState extends State<ExplanationEditForm> {
       children: [
         for (final entry in _controllers.entries) ...[
           TabibuTextField(
+            // A white field on the white sheet: the hairline makes it seen.
+            bordered: true,
             label: widget.language,
             controller: entry.value,
             maxLines: 8,

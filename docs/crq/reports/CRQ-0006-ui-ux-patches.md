@@ -118,6 +118,10 @@ branch as it is found, certified on the phone, then recorded here.
     a red failure. The case's own pathologist now reads a missing document as not found;
     no one else gains a read (RT-203, and RT-101 unchanged). Rules deployed 17 Nov; the log
     certified clean on the iPhone.
+15. **Text fields on bottom sheets were invisible until tapped.** A field's fill is the
+    sheet's own white, and only two sheets drew the field hairline. Every sheet field now does:
+    amend reason and addendum, the explanation edit, the region question, decline booking,
+    move, cancel, and the alert edit and reject sheets. Certified on the iPhone, 17 Nov.
 
 ## 2. Business justification
 

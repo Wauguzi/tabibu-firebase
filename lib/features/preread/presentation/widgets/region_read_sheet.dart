@@ -143,6 +143,8 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
           crossAxisAlignment: .stretch,
           children: [
             TabibuTextField(
+              // A white field on the white sheet: the hairline makes it seen.
+              bordered: true,
               label: l10n.regionQuestionHint,
               controller: _question,
               maxLines: 3,

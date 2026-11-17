@@ -71,6 +71,8 @@ class _RevisionFormState extends State<_RevisionForm> {
         Text(amend ? l10n.signedCaseAmendBody : l10n.signedCaseAddendumBody),
         const SizedBox(height: AppSpacing.md),
         TabibuTextField(
+          // A white field on the white sheet: the hairline makes it seen.
+          bordered: true,
           label: amend
               ? l10n.signedCaseAmendReasonLabel
               : l10n.signedCaseAddendumTextLabel,

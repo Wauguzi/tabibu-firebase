@@ -73,6 +73,8 @@ class _AlertRejectFormState extends State<AlertRejectForm> {
         ],
         const SizedBox(height: AppSpacing.xs),
         TabibuTextField(
+          // A white field on the white sheet: the hairline makes it seen.
+          bordered: true,
           label: l10n.alertReviewNoteLabel,
           hint: l10n.alertReviewNoteHint,
           controller: _note,
