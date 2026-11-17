@@ -10,7 +10,13 @@ abstract interface class BiometricAuthenticator {
 
   /// True only when the person was recognised. [reason] is the system
   /// prompt's text, supplied by the screen, which owns the strings.
-  Future<bool> authenticate({required String reason});
+  /// [biometricOnly] false lets the phone's own passcode finish an unlock.
+  /// Turning the method on or off keeps it true, so a passcode alone cannot
+  /// change the setting.
+  Future<bool> authenticate({
+    required String reason,
+    bool biometricOnly = true,
+  });
 }
 
 @LazySingleton(as: BiometricAuthenticator)
@@ -30,14 +36,15 @@ class LocalBiometricAuthenticator implements BiometricAuthenticator {
     }
   }
 
-  /// Biometrics only: the device passcode would be a second, uncounted way
-  /// past the PIN.
   @override
-  Future<bool> authenticate({required String reason}) async {
+  Future<bool> authenticate({
+    required String reason,
+    bool biometricOnly = true,
+  }) async {
     try {
       return await _auth.authenticate(
         localizedReason: reason,
-        biometricOnly: true,
+        biometricOnly: biometricOnly,
       );
     } on Object catch (_) {
       return false;

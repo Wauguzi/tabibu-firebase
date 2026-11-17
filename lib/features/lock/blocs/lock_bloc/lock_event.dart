@@ -46,22 +46,40 @@ final class LockPinVerifyRequested extends LockEvent {
   List<Object?> get props => [pin];
 }
 
-/// Turning biometrics on needs the PIN; turning it off does not, since it
-/// removes a way in rather than adding one.
-final class LockBiometricsToggleRequested extends LockEvent {
-  const LockBiometricsToggleRequested({
-    required this.enable,
-    required this.pin,
-  });
+/// Turns fingerprint/face on. [pin] is the current PIN when that is the
+/// method, and empty when the lock is off. The digits must not reach a log.
+final class LockBiometricEnableRequested extends LockEvent {
+  const LockBiometricEnableRequested({required this.reason, this.pin = ''});
 
-  final bool enable;
+  final String reason;
   final String pin;
 
   @override
   bool get stringify => false;
 
   @override
-  List<Object?> get props => [enable, pin];
+  List<Object?> get props => [reason, pin];
+}
+
+/// Turns fingerprint/face off. Only a successful prompt changes the method.
+final class LockBiometricDisableRequested extends LockEvent {
+  const LockBiometricDisableRequested({required this.reason});
+
+  final String reason;
+
+  @override
+  List<Object?> get props => [reason];
+}
+
+/// Starts a switch from fingerprint/face to a PIN. The prompt comes first;
+/// the PIN is saved by [LockPinCreateRequested] afterwards.
+final class LockBiometricReplaceRequested extends LockEvent {
+  const LockBiometricReplaceRequested({required this.reason});
+
+  final String reason;
+
+  @override
+  List<Object?> get props => [reason];
 }
 
 final class LockDisableRequested extends LockEvent {
@@ -88,6 +106,12 @@ final class LockAfterChanged extends LockEvent {
 
 final class LockAppBackgrounded extends LockEvent {
   const LockAppBackgrounded();
+}
+
+/// The create-PIN screen closed, saved or not: a fingerprint/face prompt's
+/// permission to replace it with a PIN ends with the screen.
+final class LockPinCreateLeft extends LockEvent {
+  const LockPinCreateLeft();
 }
 
 final class LockAppResumed extends LockEvent {

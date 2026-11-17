@@ -10,8 +10,11 @@ import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_event.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_state.dart';
+import 'package:tabibu/features/lock/blocs/lock_bloc/lock_state.dart';
+import 'package:tabibu/features/lock/data/lock_storage.dart';
 import 'package:tabibu/features/profile/presentation/profile_screen.dart';
 import 'package:tabibu/features/profile/presentation/widgets/profile_identity_card.dart';
+import 'package:tabibu/features/profile/presentation/widgets/settings_group.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
 import '../../../helpers/helpers.dart';
@@ -137,6 +140,36 @@ void main() {
       expect(find.text('Clinic hours'), findsNothing);
       expect(find.text('Alerts and security'), findsOneWidget);
     });
+
+    for (final (method, shown) in [
+      (LockMethod.none, 'Off'),
+      (LockMethod.pin, '4-digit PIN'),
+      (LockMethod.biometric, 'Fingerprint or face'),
+    ]) {
+      testWidgets('the App lock row names the method: ${method.name}', (
+        tester,
+      ) async {
+        tallView(tester);
+        final blocs = FeatureBlocs();
+        when(() => blocs.lock.state).thenReturn(
+          LockLoadSuccess(method: method, enabled: method != LockMethod.none),
+        );
+        await tester.pumpRoleApp(
+          RoleSessions.patient,
+          '/patient/profile',
+          blocs: blocs,
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.descendant(
+            of: find.widgetWithText(SettingsRow, 'App lock'),
+            matching: find.text(shown),
+          ),
+          findsOneWidget,
+        );
+      });
+    }
 
     testWidgets('a doctor who does not approve alerts sees no notice', (
       tester,

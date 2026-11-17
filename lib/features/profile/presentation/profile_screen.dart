@@ -162,12 +162,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
       title: l10n.notificationSettingsTitle,
       onTap: _openNotifications,
     );
-    // Bundle 53: app lock settings (S-3). Supporting mirrors the lock state.
-    final lockOn = context.watch<LockBloc>().state.enabled;
+    // Names the method that is on, so a fingerprint lock is not shown as
+    // a PIN.
     final appLock = SettingsRow(
       icon: Assets.icons.shieldIcon,
       title: l10n.appLockTitle,
-      supporting: lockOn ? l10n.appLockPin : l10n.appLockOff,
+      supporting: switch (context.watch<LockBloc>().state.method) {
+        .pin => l10n.appLockPin,
+        .biometric => l10n.appLockBio,
+        .none => l10n.appLockOff,
+      },
       onTap: () => unawaited(switch (widget.role) {
         .patient => const PatientAppLockRoute().push<void>(context),
         .pathologist => const PathologistAppLockRoute().push<void>(context),

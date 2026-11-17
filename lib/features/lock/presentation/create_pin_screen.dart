@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart' hide LockState;
@@ -23,6 +25,20 @@ class CreatePinScreen extends StatefulWidget {
 class _CreatePinScreenState extends State<CreatePinScreen> {
   String? _first;
   var _mismatch = false;
+  // Read while mounted: dispose cannot look up the tree.
+  late final LockBloc _lock;
+
+  @override
+  void initState() {
+    super.initState();
+    _lock = context.read<LockBloc>();
+  }
+
+  @override
+  void dispose() {
+    _lock.add(const LockPinCreateLeft());
+    super.dispose();
+  }
 
   String _body(AppLocalizations l10n) => switch (widget.role) {
     .patient => l10n.appLockCreatePatient,
@@ -41,7 +57,18 @@ class _CreatePinScreenState extends State<CreatePinScreen> {
           current is LockWriteFailure,
       listener: (context, state) {
         if (state is LockPinCreateSuccess) {
+          // This screen says so, after it has gone: a notice opened first
+          // would be the route the pop closes.
+          final root = Navigator.of(context, rootNavigator: true).context;
           context.pop();
+          unawaited(
+            showTabibuNotification(
+              root,
+              message: l10n.appLockPinSetToast,
+              isError: false,
+              dismissLabel: l10n.commonDismiss,
+            ),
+          );
           return;
         }
         if (state is LockPinMismatch) {

@@ -11,9 +11,9 @@ import 'package:tabibu/features/lock/blocs/lock_bloc/lock_state.dart';
 import 'package:tabibu/features/lock/data/biometric_authenticator.dart';
 import 'package:tabibu/features/lock/data/lock_storage.dart';
 
-/// The app lock: a four-digit PIN, with biometrics as an extra way in and
-/// never the only one. Five wrong PINs sign the person out rather than
-/// offer a reset, so nothing here is a way around authentication.
+/// The app lock: one method at a time, off, a four-digit PIN, or
+/// fingerprint/face. Five wrong PINs sign the person out. That allowance
+/// belongs to the PIN; the phone's own passcode limits fingerprint/face.
 ///
 /// A PIN is only ever an argument: it is hashed in [LockStorage], never
 /// held, emitted or logged. Only setting outcomes reach analytics, never a
@@ -33,13 +33,22 @@ class LockBloc extends Bloc<LockEvent, LockState> {
     on<LockColdStart>(_onColdStart, transformer: sequential());
     on<LockPinCreateRequested>(_onPinCreate, transformer: sequential());
     on<LockPinVerifyRequested>(_onPinVerify, transformer: sequential());
-    on<LockBiometricsToggleRequested>(
-      _onBiometricsToggle,
+    on<LockBiometricEnableRequested>(
+      _onBiometricEnable,
+      transformer: sequential(),
+    );
+    on<LockBiometricDisableRequested>(
+      _onBiometricDisable,
+      transformer: sequential(),
+    );
+    on<LockBiometricReplaceRequested>(
+      _onBiometricReplace,
       transformer: sequential(),
     );
     on<LockDisableRequested>(_onDisable, transformer: sequential());
     on<LockAfterChanged>(_onAfterChanged, transformer: sequential());
     on<LockAppBackgrounded>(_onBackgrounded, transformer: sequential());
+    on<LockPinCreateLeft>(_onPinCreateLeft, transformer: sequential());
     on<LockAppResumed>(_onResumed, transformer: sequential());
     on<LockBiometricUnlockRequested>(
       _onBiometricUnlock,
@@ -62,6 +71,12 @@ class LockBloc extends Bloc<LockEvent, LockState> {
 
   DateTime? _backgroundedAt;
 
+  /// Set when the fingerprint/face prompt has allowed a PIN to replace it.
+  /// A mismatch keeps it, so the person can re-enter the PIN; saving,
+  /// leaving the create-PIN screen, the app going to the background or a
+  /// reset ends it, so the permission never outlives that one screen.
+  bool _pinReplacesBiometric = false;
+
   Future<void> _onStatusRequested(
     LockStatusRequested event,
     Emitter<LockState> emit,
@@ -82,6 +97,7 @@ class LockBloc extends Bloc<LockEvent, LockState> {
   ) async {
     emit(
       LockLoadInProgress(
+        method: state.method,
         enabled: state.enabled,
         biometricsEnabled: state.biometricsEnabled,
         lockAfterSeconds: state.lockAfterSeconds,
@@ -106,23 +122,41 @@ class LockBloc extends Bloc<LockEvent, LockState> {
     if (state.locked) return;
     if (!LockStorage.isValidPin(event.pin) ||
         !LockStorage.isValidPin(event.confirmPin)) {
-      emit(LockPinMalformed(enabled: state.enabled, locked: state.locked));
+      emit(
+        LockPinMalformed(
+          method: state.method,
+          enabled: state.enabled,
+          locked: state.locked,
+        ),
+      );
       return;
     }
     if (event.pin != event.confirmPin) {
-      emit(LockPinMismatch(enabled: state.enabled, locked: state.locked));
+      emit(
+        LockPinMismatch(
+          method: state.method,
+          enabled: state.enabled,
+          locked: state.locked,
+        ),
+      );
       return;
     }
     try {
-      // Replacing a PIN without the old one would be a way around the PIN.
-      if (await _storage.isEnabled()) {
+      final current = await _storage.method();
+      final replacing = current == .biometric && _pinReplacesBiometric;
+      // Replacing a PIN without the old one, or dropping fingerprint/face
+      // without the prompt, would be a way around the lock.
+      if (current != .none && !replacing) {
         emit(_writeFailure(AppError.unknown));
         return;
       }
       emit(_inProgress());
       await _storage.setPin(event.pin);
-      await _storage.setBiometrics(enabled: false);
+      _pinReplacesBiometric = false;
       unawaited(_analytics.logLockEnabled());
+      if (replacing) {
+        unawaited(_analytics.logLockBiometricsChanged(enabled: false));
+      }
       emit(
         LockPinCreateSuccess(
           lockAfterSeconds: await _storage.lockAfterSeconds(),
@@ -138,10 +172,7 @@ class LockBloc extends Bloc<LockEvent, LockState> {
     Emitter<LockState> emit,
   ) async {
     try {
-      if (!await _storage.isEnabled()) {
-        emit(await _status(locked: false));
-        return;
-      }
+      if (await _storage.method() != .pin) return;
       if (!await _checkPin(event.pin, emit)) return;
       emit(await _status(locked: false));
     } on Object catch (_) {
@@ -149,28 +180,87 @@ class LockBloc extends Bloc<LockEvent, LockState> {
     }
   }
 
-  Future<void> _onBiometricsToggle(
-    LockBiometricsToggleRequested event,
+  Future<void> _onBiometricEnable(
+    LockBiometricEnableRequested event,
     Emitter<LockState> emit,
   ) async {
     if (state.locked) return;
     try {
-      if (event.enable) {
-        if (!await _checkPin(event.pin, emit)) return;
-        if (!await _biometrics.isAvailable()) {
-          emit(
-            LockBiometricUnavailable(
-              enabled: state.enabled,
-              locked: state.locked,
-              lockAfterSeconds: state.lockAfterSeconds,
-            ),
-          );
-          return;
-        }
+      final current = await _storage.method();
+      if (current == .biometric) {
+        emit(await _status(locked: false));
+        return;
       }
-      await _storage.setBiometrics(enabled: event.enable);
-      unawaited(_analytics.logLockBiometricsChanged(enabled: event.enable));
+      if (current == .pin && !await _checkPin(event.pin, emit)) return;
+      if (!await _biometrics.isAvailable()) {
+        emit(
+          LockBiometricUnavailable(
+            method: current,
+            enabled: current != .none,
+            locked: state.locked,
+            lockAfterSeconds: state.lockAfterSeconds,
+          ),
+        );
+        return;
+      }
+      // The default keeps this biometric-only, so a passcode cannot turn it on.
+      final recognised = await _biometrics.authenticate(reason: event.reason);
+      if (!recognised) {
+        emit(await _status(locked: state.locked));
+        return;
+      }
+      emit(_inProgress());
+      await _storage.setMethod(.biometric);
+      _pinReplacesBiometric = false;
+      unawaited(_analytics.logLockBiometricsChanged(enabled: true));
+      if (current == .none) unawaited(_analytics.logLockEnabled());
       emit(await _status(locked: false));
+    } on Object catch (_) {
+      emit(_writeFailure(AppError.unknown));
+    }
+  }
+
+  Future<void> _onBiometricDisable(
+    LockBiometricDisableRequested event,
+    Emitter<LockState> emit,
+  ) async {
+    if (state.locked) return;
+    try {
+      if (await _storage.method() != .biometric) return;
+      final recognised = await _biometrics.authenticate(reason: event.reason);
+      if (!recognised) {
+        emit(await _status(locked: false));
+        return;
+      }
+      emit(_inProgress());
+      await _storage.clearAll();
+      _pinReplacesBiometric = false;
+      unawaited(_analytics.logLockBiometricsChanged(enabled: false));
+      unawaited(_analytics.logLockDisabled());
+      emit(const LockDisableSuccess());
+    } on Object catch (_) {
+      emit(_writeFailure(AppError.unknown));
+    }
+  }
+
+  Future<void> _onBiometricReplace(
+    LockBiometricReplaceRequested event,
+    Emitter<LockState> emit,
+  ) async {
+    if (state.locked) return;
+    try {
+      if (await _storage.method() != .biometric) return;
+      final recognised = await _biometrics.authenticate(reason: event.reason);
+      if (!recognised) {
+        emit(await _status(locked: false));
+        return;
+      }
+      _pinReplacesBiometric = true;
+      emit(
+        LockPinCreateAllowed(
+          lockAfterSeconds: await _storage.lockAfterSeconds(),
+        ),
+      );
     } on Object catch (_) {
       emit(_writeFailure(AppError.unknown));
     }
@@ -182,9 +272,11 @@ class LockBloc extends Bloc<LockEvent, LockState> {
   ) async {
     if (state.locked) return;
     try {
+      if (await _storage.method() != .pin) return;
       if (!await _checkPin(event.pin, emit)) return;
       emit(_inProgress());
       await _storage.clearAll();
+      _pinReplacesBiometric = false;
       unawaited(_analytics.logLockDisabled());
       emit(const LockDisableSuccess());
     } on Object catch (_) {
@@ -212,6 +304,11 @@ class LockBloc extends Bloc<LockEvent, LockState> {
 
   void _onBackgrounded(LockAppBackgrounded event, Emitter<LockState> emit) {
     _backgroundedAt = _now();
+    _pinReplacesBiometric = false;
+  }
+
+  void _onPinCreateLeft(LockPinCreateLeft event, Emitter<LockState> emit) {
+    _pinReplacesBiometric = false;
   }
 
   /// Locks once the time away reaches the chosen delay; 0 locks on any
@@ -221,7 +318,7 @@ class LockBloc extends Bloc<LockEvent, LockState> {
     _backgroundedAt = null;
     if (since == null || state.locked) return;
     try {
-      if (!await _storage.isEnabled()) return;
+      if (await _storage.method() == .none) return;
       final after = Duration(seconds: await _storage.lockAfterSeconds());
       if (_now().difference(since) < after) return;
       emit(await _status(locked: true));
@@ -235,27 +332,15 @@ class LockBloc extends Bloc<LockEvent, LockState> {
     Emitter<LockState> emit,
   ) async {
     try {
-      if (!await _storage.isEnabled() || !await _storage.biometricsEnabled()) {
-        return;
-      }
-      final failures = await _storage.failedAttempts();
-      final until = await _storage.lockoutUntil();
-      // Biometrics must not outlast the attempt limit.
-      if (failures >= lockMaxAttempts ||
-          (until != null && until.isAfter(_now().toUtc()))) {
+      if (await _storage.method() != .biometric) return;
+      // The phone's passcode is the fallback, and the phone counts the
+      // tries. The PIN's five-attempt sign-out does not apply here.
+      final recognised = await _biometrics.authenticate(
+        reason: event.reason,
+        biometricOnly: false,
+      );
+      if (!recognised) {
         emit(await _status(locked: true));
-        return;
-      }
-      if (!await _biometrics.authenticate(reason: event.reason)) {
-        emit(
-          LockBiometricFailed(
-            enabled: state.enabled,
-            locked: state.locked,
-            biometricsEnabled: state.biometricsEnabled,
-            lockAfterSeconds: state.lockAfterSeconds,
-            attemptsRemaining: state.attemptsRemaining,
-          ),
-        );
         return;
       }
       await _storage.resetFailures();
@@ -267,6 +352,7 @@ class LockBloc extends Bloc<LockEvent, LockState> {
 
   void _onReset(LockReset event, Emitter<LockState> emit) {
     _backgroundedAt = null;
+    _pinReplacesBiometric = false;
     emit(const LockInitial());
   }
 
@@ -275,6 +361,7 @@ class LockBloc extends Bloc<LockEvent, LockState> {
     Emitter<LockState> emit,
   ) async {
     _backgroundedAt = null;
+    _pinReplacesBiometric = false;
     try {
       await _storage.clearAll();
       emit(const LockInitial());
@@ -295,6 +382,7 @@ class LockBloc extends Bloc<LockEvent, LockState> {
       emit(
         LockOutActive(
           lockoutUntil: until,
+          method: state.method,
           enabled: state.enabled,
           locked: state.locked,
           biometricsEnabled: state.biometricsEnabled,
@@ -324,6 +412,7 @@ class LockBloc extends Bloc<LockEvent, LockState> {
       emit(
         LockPinWrong(
           attemptsRemaining: lockMaxAttempts - count,
+          method: state.method,
           enabled: state.enabled,
           locked: state.locked,
           biometricsEnabled: state.biometricsEnabled,
@@ -335,25 +424,26 @@ class LockBloc extends Bloc<LockEvent, LockState> {
   }
 
   Future<LockState> _status({required bool locked}) async {
-    final enabled = await _storage.isEnabled();
-    final biometrics = enabled && await _storage.biometricsEnabled();
+    final method = await _storage.method();
+    final enabled = method != .none;
     final after = await _storage.lockAfterSeconds();
     final failures = await _storage.failedAttempts();
     final stored = await _storage.lockoutUntil();
     final until = stored != null && stored.isAfter(_now().toUtc())
         ? stored
         : null;
-    if (enabled && failures >= lockMaxAttempts) {
+    if (method == .pin && failures >= lockMaxAttempts) {
       return LockSignOutRequired(
         lockoutUntil: until,
-        biometricsEnabled: biometrics,
+        method: method,
         lockAfterSeconds: after,
       );
     }
     return LockLoadSuccess(
+      method: method,
       enabled: enabled,
       locked: enabled && locked,
-      biometricsEnabled: biometrics,
+      biometricsEnabled: method == .biometric,
       lockAfterSeconds: after,
       attemptsRemaining: max(0, lockMaxAttempts - failures),
       lockoutUntil: until,
@@ -363,11 +453,12 @@ class LockBloc extends Bloc<LockEvent, LockState> {
   LockSignOutRequired _signOutRequired({DateTime? until}) =>
       LockSignOutRequired(
         lockoutUntil: until,
-        biometricsEnabled: state.biometricsEnabled,
+        method: .pin,
         lockAfterSeconds: state.lockAfterSeconds,
       );
 
   LockWriteInProgress _inProgress() => LockWriteInProgress(
+    method: state.method,
     enabled: state.enabled,
     locked: state.locked,
     biometricsEnabled: state.biometricsEnabled,
@@ -379,6 +470,7 @@ class LockBloc extends Bloc<LockEvent, LockState> {
 
   LockWriteFailure _writeFailure(AppError error) => LockWriteFailure(
     error: error,
+    method: state.method,
     enabled: state.enabled,
     locked: state.locked,
     biometricsEnabled: state.biometricsEnabled,
@@ -390,6 +482,7 @@ class LockBloc extends Bloc<LockEvent, LockState> {
 
   LockLoadFailure _loadFailure({bool locked = false}) => LockLoadFailure(
     error: AppError.unknown,
+    method: state.method,
     enabled: state.enabled,
     locked: locked,
     biometricsEnabled: state.biometricsEnabled,

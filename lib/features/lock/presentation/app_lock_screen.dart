@@ -52,28 +52,46 @@ class _AppLockScreenState extends State<AppLockScreen> {
     );
   }
 
-  Future<void> _togglePin(LockState state) async {
-    if (state.enabled) {
-      final pin = await _askPin(context, title: context.l10n.appLockEnterPin);
-      if (pin == null || !mounted) return;
-      context.read<LockBloc>().add(LockDisableRequested(pin: pin));
-      return;
-    }
-    await switch (widget.role) {
+  Future<void> _openCreatePin() {
+    return switch (widget.role) {
       .patient => const PatientCreatePinRoute().push<void>(context),
       .pathologist => const PathologistCreatePinRoute().push<void>(context),
       _ => const DoctorCreatePinRoute().push<void>(context),
     };
   }
 
+  Future<void> _togglePin(LockState state) async {
+    switch (state.method) {
+      case .pin:
+        final pin = await _askPin(context, title: context.l10n.appLockEnterPin);
+        if (pin == null || !mounted) return;
+        context.read<LockBloc>().add(LockDisableRequested(pin: pin));
+      case .biometric:
+        context.read<LockBloc>().add(
+          LockBiometricReplaceRequested(reason: context.l10n.appLockToOpen),
+        );
+      case .none:
+        await _openCreatePin();
+    }
+  }
+
   Future<void> _toggleBio(LockState state, {required bool enable}) async {
-    final pin = enable
-        ? await _askPin(context, title: context.l10n.appLockEnterPin)
-        : '';
-    if (enable && (pin == null || pin.isEmpty)) return;
+    final l10n = context.l10n;
+    if (!enable) {
+      context.read<LockBloc>().add(
+        LockBiometricDisableRequested(reason: l10n.appLockToOpen),
+      );
+      return;
+    }
+    var pin = '';
+    if (state.method == .pin) {
+      final entered = await _askPin(context, title: l10n.appLockEnterPin);
+      if (entered == null || entered.isEmpty || !mounted) return;
+      pin = entered;
+    }
     if (!mounted) return;
     context.read<LockBloc>().add(
-      LockBiometricsToggleRequested(enable: enable, pin: pin ?? ''),
+      LockBiometricEnableRequested(reason: l10n.appLockToOpen, pin: pin),
     );
   }
 
@@ -87,8 +105,12 @@ class _AppLockScreenState extends State<AppLockScreen> {
           current is LockPinWrong ||
           current is LockWriteFailure ||
           current is LockDisableSuccess ||
-          current is LockPinCreateSuccess,
+          current is LockPinCreateAllowed,
       listener: (context, state) {
+        if (state is LockPinCreateAllowed) {
+          unawaited(_openCreatePin());
+          return;
+        }
         final message = switch (state) {
           LockBiometricUnavailable() => l10n.appLockNoBioShort,
           LockPinWrong(:final attemptsRemaining) => l10n.appLockWrongPin(
@@ -96,7 +118,6 @@ class _AppLockScreenState extends State<AppLockScreen> {
           ),
           LockWriteFailure(:final error) => error?.description(l10n),
           LockDisableSuccess() => l10n.appLockOff,
-          LockPinCreateSuccess() => l10n.appLockPinSetToast,
           _ => null,
         };
         if (message == null) return;
@@ -137,7 +158,7 @@ class _AppLockScreenState extends State<AppLockScreen> {
                         SettingsSwitchRow(
                           icon: Assets.icons.shieldIcon,
                           title: l10n.appLockPin,
-                          value: state.enabled,
+                          value: state.method == .pin,
                           onChanged: state.locked
                               ? null
                               : (_) => unawaited(_togglePin(state)),
@@ -155,8 +176,8 @@ class _AppLockScreenState extends State<AppLockScreen> {
                           SettingsSwitchRow(
                             icon: Assets.icons.fingerprintIcon,
                             title: l10n.appLockBio,
-                            value: state.biometricsEnabled,
-                            onChanged: !state.enabled || state.locked
+                            value: state.method == .biometric,
+                            onChanged: state.locked
                                 ? null
                                 : (value) => unawaited(
                                     _toggleBio(state, enable: value),

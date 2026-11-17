@@ -45,17 +45,43 @@ void main() {
       expect(store['tabibu.lock.pinHash'], isNotNull);
       expect(store['tabibu.lock.pinSalt'], isNotNull);
       expect(store['tabibu.lock.enabled'], 'true');
+      expect(store['tabibu.lock.method'], 'pin');
+      expect(store.containsKey('tabibu.lock.biometricsEnabled'), isFalse);
       expect(await storage.isEnabled(), isTrue);
+      expect(await storage.method(), LockMethod.pin);
       expect(await storage.verifyPin('4829'), isTrue);
       expect(await storage.verifyPin('0000'), isFalse);
     });
 
     test('clearAll removes only the lock keys', () async {
       await storage.setPin('4829');
-      await storage.setBiometrics(enabled: true);
+      store['tabibu.lock.biometricsEnabled'] = 'true';
       await storage.clearAll();
       expect(store.keys.where((k) => k.startsWith('tabibu.lock.')), isEmpty);
       expect(await storage.isEnabled(), isFalse);
+      expect(await storage.method(), LockMethod.none);
+    });
+
+    test('an older PIN plus the biometrics flag reads as pin', () async {
+      store['tabibu.lock.enabled'] = 'true';
+      store['tabibu.lock.pinHash'] = 'legacy-hash';
+      store['tabibu.lock.biometricsEnabled'] = 'true';
+      expect(await storage.method(), LockMethod.pin);
+      expect(store['tabibu.lock.biometricsEnabled'], 'true');
+      await storage.setPin('4829');
+      expect(store.containsKey('tabibu.lock.biometricsEnabled'), isFalse);
+      expect(await storage.method(), LockMethod.pin);
+      expect(store['tabibu.lock.method'], 'pin');
+    });
+
+    test('fingerprint replaces the PIN hash', () async {
+      await storage.setPin('4829');
+      await storage.setMethod(LockMethod.biometric);
+      expect(store['tabibu.lock.pinHash'], isNull);
+      expect(store['tabibu.lock.pinSalt'], isNull);
+      expect(store.containsKey('tabibu.lock.biometricsEnabled'), isFalse);
+      expect(await storage.method(), LockMethod.biometric);
+      expect(await storage.isEnabled(), isTrue);
     });
 
     test('refuses a PIN that is not four digits', () async {

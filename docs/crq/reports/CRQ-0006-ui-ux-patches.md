@@ -52,6 +52,22 @@ branch as it is found, certified on the phone, then recorded here.
    save had just closed. The guard now runs again only when what it reads changes (signed in
    or out, and the role claims). A save now returns to the Profile tab with "Profile updated",
    for patients and practitioners. Certified on the iPhone, 17 Nov.
+6. **The app lock offered a fingerprint/face switch that could not be turned on, and its
+   screens misled.** Biometrics were built as an extra way in on top of the PIN, so the switch
+   stayed disabled until a PIN existed. The lock is now one method at a time: off, a 4-digit
+   PIN, or fingerprint/face, stored as one value (an older phone holding both reads as the
+   PIN). Turning fingerprint/face on or off, or switching from it to a PIN, needs the phone's
+   own prompt first; a phone with none enrolled is refused with the shared notice, which
+   recommends the PIN; a cancelled prompt changes nothing. Unlocking with fingerprint/face
+   offers the phone's passcode as the fallback; the PIN keeps its five-attempt sign-out. The
+   prompt's permission to set a PIN in its place ends when that screen closes or the app goes
+   to the background. Alongside: `NSFaceIDUsageDescription` added, without which iOS refuses
+   Face ID; "Lock after" shows the chosen delay as an on switch instead of forward arrows; the
+   Profile row names the method that is on, not "4-digit PIN" for both; a saved PIN closed a
+   notice instead of its own screen, leaving the person on Create PIN (two listeners on one
+   success), and now returns to App lock with "PIN set"; and "Forgot PIN?" opened its sheet
+   behind the lock cover, so the tap looked dead, and now asks inside the cover, with Sign in
+   again (which clears the PIN with the session) or Back. Certified on the iPhone 14, 17 Nov.
 
 ## 2. Business justification
 
@@ -78,7 +94,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Roles & case scoping | None | The server's chat rule is unchanged |
 | Clinical safety | None | No AI output, result or alert path changes |
 | AI service (prompts, models, thresholds) | None | |
-| Security (rules, App Check, RASP, secrets) | Reviewed | Patch 4 brings stored photo URLs in line with the existing profile rules; the rules are unchanged |
+| Security (rules, App Check, RASP, secrets) | Changed | Patch 4 brings stored photo URLs in line with the existing profile rules, which are unchanged. Patch 6 changes the app lock: one method at a time, fingerprint/face no longer behind a PIN, the phone's passcode its fallback (threat model T-11) |
 | Data protection (PHI, de-identification, model endpoints) | None | |
 | Design system / UI consistency | Extended | `GroupedRow` gains a caption and a disabled state: muted text, the neutral icon tone, no chevron, announced as a disabled button with its reason |
 | Localisation (en, sw) | Added, removed | Added `chatRowWaitingCaption`, `errorConversationUnavailable`, `resultsFilterWaiting`, `profileSavedToast`; removed the six strings only "My profile" used |
@@ -102,11 +118,11 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Check | Result |
 |---|---|
 | `make analyze` / `make bloc-lint` | Pass — no issues |
-| `make test` (`TZ=UTC`) | Pass — 3,686 after patch 2 |
+| `make test` (`TZ=UTC`) | Pass — 3,717 after patch 6 |
 | `make functions-test` | Pass — 664, with the photo URL check and the Storage copy (patch 4) |
 | `make spell` | Pass — 0 issues |
-| Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap |
-| Manual run | Patches 1 and 2 certified on the iPhone 14, 17 Nov; the run continues |
+| Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed |
+| Manual run | Patches 1 to 6 certified on the iPhone 14, 17 Nov; the run continues |
 | Certification | Pending the end of the run |
 
 ## 8. Approval
@@ -116,7 +132,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Author | Always | Theo | 2026-11-17 | — |
 | Engineering reviewer | Always, on the pull request | Greptile — pending | — | — |
 | Clinical Reviewer | §4 flags clinical-safety impact or changes clinical wording | N/A | — | — |
-| Security Analyst | §4 flags security impact | Covered by CTO | 2026-11-17 | Approved: photos move into the owner's Storage folder, the rules stay strict |
+| Security Analyst | §4 flags security impact | Covered by CTO | 2026-11-17 | Approved: photos move into the owner's Storage folder, the rules stay strict; the lock's fallback is the phone's passcode, by decision, and every change of method needs the current one first |
 | Compliance Officer | §4 flags data protection impact | N/A | — | — |
 | Lead Designer | §4 flags design-system impact | Covered by CTO | 2026-11-17 | Approved: the disabled row follows the disabled button's muted colour |
 
@@ -126,7 +142,7 @@ Filled in after the run.
 
 ## 10. Related records
 
-- Architecture/design references: [design system](../../design/reports/mobile_design_system.md), [CRQ-0004](./CRQ-0004-device-run-fixes.md), [CRQ-0005](./CRQ-0005-ai-logic-templates-and-speech.md)
+- Architecture/design references: [design system](../../design/reports/mobile_design_system.md), [CRQ-0004](./CRQ-0004-device-run-fixes.md), [CRQ-0005](./CRQ-0005-ai-logic-templates-and-speech.md), [threat model](../../security/reports/firebase_and_ai_service_threat_model.md) (T-11)
 - Evaluation report(s): none
 - Related Incident Report(s): none
 - Related Problem record(s): none
