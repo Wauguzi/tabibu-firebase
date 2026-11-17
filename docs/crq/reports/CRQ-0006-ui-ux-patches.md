@@ -102,6 +102,11 @@ branch as it is found, certified on the phone, then recorded here.
     row now draws the hairline the app uses for fields on white surfaces (as on the case notes
     sheet and Sample received); the uploaded row stays locked. The first patch of the doctor's
     run. Certified on the iPhone, 17 Nov.
+12. **Clinic hours used Material's clock dial, and its times did not read as fields.** Opens and
+    Closes now open the app's Cupertino wheel (as for the date of birth), in half hours only,
+    since the rules take :00 and :30; the old code rounded a free pick. The times are outlined
+    picker fields: `PickerField` gains `bordered`, the hairline a text field on a sheet uses.
+    Certified on the iPhone, 17 Nov.
 
 ## 2. Business justification
 

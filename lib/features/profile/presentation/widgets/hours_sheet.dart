@@ -1,7 +1,15 @@
+import 'package:cupertino_ui/cupertino_ui.dart'
+    show
+        CupertinoDatePicker,
+        CupertinoTheme,
+        CupertinoThemeData,
+        showCupertinoModalPopup;
 import 'package:material_ui/material_ui.dart';
+import 'package:tabibu/core/constants/app_colors.dart';
 import 'package:tabibu/core/constants/app_radii.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
+import 'package:tabibu/features/auth/presentation/widgets/picker_field.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
@@ -47,29 +55,62 @@ class _HoursBodyState extends State<_HoursBody> {
   late int _end = widget.endMinute;
   bool _badRange = false;
 
-  /// The picker lands anywhere; the rules take the :00/:30 grid inside the
-  /// day, so the pick rounds to the nearest half hour.
-  int _grid(TimeOfDay picked) {
-    final rounded = (picked.hour * 60 + picked.minute + 15) ~/ 30 * 30;
-    return rounded.clamp(0, 1410);
+  /// The rules take the :00/:30 grid inside the day; the wheel offers only
+  /// those, and its first position must sit on the grid too.
+  static int _onGrid(int minutes) => (minutes ~/ 30 * 30).clamp(0, 1410);
+
+  /// The app's Cupertino wheel, as for the date of birth, in half hours.
+  /// Turning it sets the time; there is nothing to confirm.
+  Future<void> _pick(bool isStart) async {
+    final theme = Theme.of(context);
+    final today = DateUtils.dateOnly(DateTime.now());
+    final minutes = _onGrid(isStart ? _start : _end);
+    await showCupertinoModalPopup<void>(
+      context: context,
+      builder: (context) => Container(
+        height: 216,
+        padding: const EdgeInsets.only(top: 6),
+        margin: EdgeInsets.only(
+          bottom: MediaQuery.viewInsetsOf(context).bottom,
+        ),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(AppRadii.tile),
+            topRight: Radius.circular(AppRadii.tile),
+          ),
+        ),
+        child: SafeArea(
+          top: false,
+          child: CupertinoTheme(
+            data: CupertinoThemeData(brightness: theme.brightness),
+            child: CupertinoDatePicker(
+              backgroundColor: AppColors.transparent,
+              mode: .time,
+              minuteInterval: 30,
+              use24hFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+              initialDateTime: today.add(Duration(minutes: minutes)),
+              onDateTimeChanged: (picked) {
+                if (!mounted) return;
+                final chosen = _onGrid(picked.hour * 60 + picked.minute);
+                setState(() {
+                  if (isStart) {
+                    _start = chosen;
+                  } else {
+                    _end = chosen;
+                  }
+                  _badRange = false;
+                });
+              },
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
-  Future<void> _pick(bool isStart) async {
-    final minutes = isStart ? _start : _end;
-    final picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60),
-    );
-    if (picked == null || !mounted) return;
-    setState(() {
-      if (isStart) {
-        _start = _grid(picked);
-      } else {
-        _end = _grid(picked);
-      }
-      _badRange = false;
-    });
-  }
+  String _time(BuildContext context, int minutes) =>
+      TimeOfDay(hour: minutes ~/ 60, minute: minutes % 60).format(context);
 
   void _save() {
     if (_end - _start < 30) {
@@ -118,44 +159,26 @@ class _HoursBodyState extends State<_HoursBody> {
         ),
         if (_open) ...[
           const SizedBox(height: AppSpacing.md),
+          // Fields that open the wheel, outlined as fields on a sheet are.
           Row(
+            crossAxisAlignment: .start,
             children: [
               Expanded(
-                child: Text(
-                  l10n.clinicHoursOpens,
-                  style: textTheme.titleMedium,
-                ),
-              ),
-              const SizedBox(width: AppSpacing.md),
-              Expanded(
-                child: Text(
-                  l10n.clinicHoursCloses,
-                  style: textTheme.titleMedium,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Row(
-            children: [
-              Expanded(
-                child: TabibuButton.outline(
-                  label: TimeOfDay(
-                    hour: _start ~/ 60,
-                    minute: _start % 60,
-                  ).format(context),
-                  icon: AssetIcon(Assets.icons.clockIcon, size: 20),
+                child: PickerField(
+                  label: l10n.clinicHoursOpens,
+                  value: _time(context, _start),
+                  leading: Assets.icons.clockIcon,
+                  bordered: true,
                   onTap: () => _pick(true),
                 ),
               ),
               const SizedBox(width: AppSpacing.md),
               Expanded(
-                child: TabibuButton.outline(
-                  label: TimeOfDay(
-                    hour: _end ~/ 60,
-                    minute: _end % 60,
-                  ).format(context),
-                  icon: AssetIcon(Assets.icons.clockIcon, size: 20),
+                child: PickerField(
+                  label: l10n.clinicHoursCloses,
+                  value: _time(context, _end),
+                  leading: Assets.icons.clockIcon,
+                  bordered: true,
                   onTap: () => _pick(false),
                 ),
               ),

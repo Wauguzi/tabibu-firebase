@@ -18,6 +18,7 @@ class PickerField extends StatelessWidget {
     this.leading,
     this.errorText,
     this.excludeSemantics = true,
+    this.bordered = false,
     super.key,
   }) : assert(
          value != null || child != null || hint != null,
@@ -37,6 +38,10 @@ class PickerField extends StatelessWidget {
   /// which must stay visible to screen readers.
   final bool excludeSemantics;
 
+  /// A hairline before any error, as [TabibuTextField.bordered]: the box's
+  /// fill matches a sheet or card, so without it the field is not seen.
+  final bool bordered;
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -51,7 +56,11 @@ class PickerField extends StatelessWidget {
       decoration: BoxDecoration(
         color: scheme.surfaceContainerLowest,
         borderRadius: BorderRadius.circular(AppRadii.field),
-        border: hasError ? Border.all(color: scheme.error) : null,
+        border: hasError
+            ? Border.all(color: scheme.error)
+            : bordered
+            ? Border.all(color: scheme.outline)
+            : null,
       ),
       child: Row(
         children: [
