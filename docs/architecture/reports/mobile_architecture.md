@@ -793,9 +793,8 @@ In summary:
   in `bootstrap.dart`, with a test that lists all eight. The in-app AI calls
   have their own client switches, with no server job behind them:
   `hybrid_symptom_tidy_enabled`, `hybrid_notes_summary_enabled`,
-  `region_read_enabled` and `explanation_listen_enabled`, all on in the live
-  project (the app's own defaults keep voice input and the region read off
-  until Remote Config loads)
+  `region_read_enabled` and `explanation_listen_enabled`, all on by default,
+  as in the live project
   ([AI service §7](./ai_preread_service.md#7-kill-switches)).
 - **Remote Config at startup**: `bootstrap` sets in-app defaults,
   then fetches and activates within the bootstrap timeout; on any failure

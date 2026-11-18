@@ -26,7 +26,7 @@
 | **Patient explanation** | The doctor marks a result discussed | The signed, de-identified text | A plain-language explanation in English and Swahili, each written and checked on its own | The ordering doctor, who approves each before the patient sees it, and can ask again for a language the check refused (`requestReportText`) |
 | **Alert drafting** | The detector raises a signal | Disease, county, rule and the bundled guidance; no case data and no numbers | Doctor guidance and a patient notice in en and sw, with placeholders | The alert approver. If the model fails, a fixed template draft is used |
 
-**Speech.** Voice input for symptoms is on in the live project; the app's own default is off until Remote Config loads (`voice_input_enabled`). The
+**Speech.** Voice input for symptoms is on (`voice_input_enabled`); the server's own default fails closed. The
 server accepts no audio: the app sends the recording to an AI Logic template
 (§9) and `recordSymptomTranscript` stores the machine transcript, readable by
 no client, after checking the caller, the switch, a daily cap and its shape.
@@ -221,8 +221,8 @@ per-user quota. No prompt is written in the app.
 
 | Call | Who | How | Output | Switch |
 |---|---|---|---|---|
-| **Symptom transcription** | The patient, booking | Server prompt template `symptom-transcribe-v1-0-0`, the WAV held in memory for the one call | JSON `transcript` and `language`; an unclear recording fails closed. The patient checks the text before booking | `voice_input_enabled`, on in the live project; the app's own default is off until Remote Config loads |
-| **Region read** | The case's pathologist, in the viewer | Server prompt template `slide-region-read-v1-0-0`, the crop the pathologist framed (at most 1024 px) and an optional question, no case field | Impression, features, uncertainty in words and a caveat, in the Ask AI panel under the slide, in the AI frame; held in the screen's state only, never saved, no copy action | `region_read_enabled`, on in the live project; the app's own default is off until Remote Config loads |
+| **Symptom transcription** | The patient, booking | Server prompt template `symptom-transcribe-v1-0-0`, the WAV held in memory for the one call | JSON `transcript` and `language`; an unclear recording fails closed. The patient checks the text before booking | `voice_input_enabled`, on |
+| **Region read** | The case's pathologist, in the viewer | Server prompt template `slide-region-read-v1-0-0`, the crop the pathologist framed (at most 1024 px) and an optional question, no case field | Impression, features, uncertainty in words and a caveat, in the Ask AI panel under the slide, in the AI frame; held in the screen's state only, never saved, no copy action | `region_read_enabled`, on |
 | **Listen to this summary** | The patient, on their result | `gemini-3.8-flash-tts` (`ai_tts_model`), voice `Achernar` (`ai_tts_voice`), the approved explanation verbatim, no system instruction or temperature | A WAV, saved for the player as `.wav` so iOS decodes it, played in the app, labelled as a computer-generated voice, cached in memory for the screen | `explanation_listen_enabled`, on; shown only for an approved explanation |
 
 - **Templates live in the console**, locked, under the id of their file in

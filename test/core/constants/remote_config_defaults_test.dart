@@ -14,14 +14,12 @@ void main() {
       'voice_input_enabled',
       'alert_drafting_enabled',
     });
-    final on = {...RemoteConfigDefaults.killSwitches}
-      ..remove('voice_input_enabled');
-    expect(on.values, everyElement(isTrue));
+    expect(RemoteConfigDefaults.killSwitches.values, everyElement(isTrue));
   });
 
-  test('voice input is off by default', () {
-    expect(RemoteConfigDefaults.killSwitches['voice_input_enabled'], isFalse);
-    expect(RemoteConfigDefaults.values['voice_input_enabled'], isFalse);
+  test('voice input is on by default, as in the live project', () {
+    expect(RemoteConfigDefaults.killSwitches['voice_input_enabled'], isTrue);
+    expect(RemoteConfigDefaults.values['voice_input_enabled'], isTrue);
   });
 
   test('symptom speech defaults name the template and keep tokens off', () {
@@ -32,7 +30,7 @@ void main() {
       'ai_tts_model': 'gemini-3.8-flash-tts',
       'ai_tts_voice': 'Achernar',
       'ai_template_slide_region': 'slide-region-read-v1-0-0',
-      'region_read_enabled': false,
+      'region_read_enabled': true,
       'explanation_listen_enabled': true,
     });
     expect(RemoteConfigDefaults.values['ai_limited_use_tokens'], isFalse);
@@ -42,9 +40,9 @@ void main() {
     expect(RemoteConfigDefaults.values['explanation_listen_enabled'], isTrue);
   });
 
-  test('the region read is off by default', () {
-    expect(RemoteConfigDefaults.ai['region_read_enabled'], isFalse);
-    expect(RemoteConfigDefaults.values['region_read_enabled'], isFalse);
+  test('the region read is on by default, as in the live project', () {
+    expect(RemoteConfigDefaults.ai['region_read_enabled'], isTrue);
+    expect(RemoteConfigDefaults.values['region_read_enabled'], isTrue);
   });
 
   test('the defaults keep the force-update parameters', () {

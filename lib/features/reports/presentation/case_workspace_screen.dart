@@ -324,8 +324,8 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
     try {
       return FirebaseRemoteConfig.instance.getBool(regionReadEnabledKey);
     } on Object catch (_) {
-      // The client default is off. A missing config must not show the action.
-      return false;
+      // A config that cannot be read keeps the default, on.
+      return true;
     }
   }
 

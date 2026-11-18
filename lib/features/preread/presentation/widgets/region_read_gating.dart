@@ -1,4 +1,4 @@
-/// Client kill switch for the region read. Default off; the defaults file
+/// Client kill switch for the region read. Default on; the defaults file
 /// owns the value.
 const regionReadEnabledKey = 'region_read_enabled';
 

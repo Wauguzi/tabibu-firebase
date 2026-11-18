@@ -199,9 +199,13 @@ branch as it is found, certified on the phone, then recorded here.
 28. **The docs matched the old plan.** The architecture, AI service, design system, workflow,
     notifications and threat model documents presented a web demo as shipped and said voice
     input and the region read were off. They now say the entry is iOS with an Android APK (the
-    code still builds for the web), that the in-app AI calls are on in the live project with
-    the app's own defaults off until Remote Config loads, that every server job runs on
+    code still builds for the web), that the in-app AI calls are on in the live project, that every server job runs on
     `gemini-3.8-flash`, and that each explanation language can be asked for again.
+29. **The app's own defaults lagged the live project.** Voice input and the region read
+    defaulted off in the app (and a config that could not be read hid them), while the live
+    Remote Config had both on. Both now default on, as the listen switch already did. The
+    server's `voice_input_enabled` keeps failing closed when its template cannot load, so a
+    transcript is still refused there.
 
 ## 2. Business justification
 
