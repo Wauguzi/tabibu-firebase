@@ -358,7 +358,10 @@ class _Body extends StatelessWidget {
         KeyValueCard(title: l10n.doctorCaseOrder, rows: orderRows),
         if (caseModel.slideImages.isNotEmpty) ...[
           const SizedBox(height: AppSpacing.md),
-          SlidesCard(slides: caseModel.slideImages),
+          SlidesCard(
+            slides: caseModel.slideImages,
+            orderNumber: caseModel.orderNumber,
+          ),
         ],
         if (openable) ...[
           const SizedBox(height: AppSpacing.lg),

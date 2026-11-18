@@ -103,7 +103,10 @@ class _SampleReceivedViewState extends State<SampleReceivedView> {
           const SizedBox(height: AppSpacing.md),
         ],
         if (widget.caseModel.slideImages.isNotEmpty) ...[
-          SlidesCard(slides: widget.caseModel.slideImages),
+          SlidesCard(
+            slides: widget.caseModel.slideImages,
+            orderNumber: widget.caseModel.orderNumber,
+          ),
           const SizedBox(height: AppSpacing.md),
         ],
         TabibuTextField(
