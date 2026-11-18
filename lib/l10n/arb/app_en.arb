@@ -8415,6 +8415,15 @@
     "@explanationRejectedBody": {
         "description": "Explanation review: the doctor rejected the draft and none is left to review"
     },
+    "explanationLanguageFailed": "The {language} explanation couldn't be written, so it was not sent to the patient.",
+    "@explanationLanguageFailed": {
+        "description": "Explanation review: one language's draft failed. The language name is English or Kiswahili. No failure reason.",
+        "placeholders": {
+            "language": {
+                "type": "String"
+            }
+        }
+    },
     "resultsWaitingBodyNoDate": "{doctor} has your reviewed results. You can read them here after your appointment.",
     "@resultsWaitingBodyNoDate": {
         "description": "Result waiting: gradient card body when the appointment date is not known",

@@ -31,6 +31,18 @@ final class ReportDiscussedRequested extends ReportReaderEvent {
   const ReportDiscussedRequested();
 }
 
+/// Ask the server to write one failed explanation again. The other language
+/// is left as it is.
+final class ExplanationRetryRequested extends ReportReaderEvent {
+  const ExplanationRetryRequested({required this.language});
+
+  /// `en` or `sw`.
+  final String language;
+
+  @override
+  List<Object?> get props => [language];
+}
+
 /// The doctor's decision on one language's AI explanation: approve as is
 /// (no [editedText]), approve their edits, or reject.
 final class ExplanationDecisionRequested extends ReportReaderEvent {

@@ -167,6 +167,16 @@ branch as it is found, certified on the phone, then recorded here.
     opened. The screen now refreshes the cases on open; until they arrive, the code field is off,
     Open report waits with its loading dots, and a full code does not submit itself. Certified
     on the iPhone, 18 Nov.
+24. **A refused explanation language vanished.** The server writes the English and Kiswahili
+    explanations separately, and its safety check can refuse either one (`AdvicePhrase`). The
+    review folded both into one state, so a refused language was simply missing. Each language
+    now stands on its own: a refused one says "The English explanation couldn't be written, so
+    it was not sent to the patient." with Try again, which asks the existing `requestReportText`
+    for that language only. The new draft still waits for the doctor's approval, and the refused
+    text and its reason are never shown. Approve as is keeps its colour and shows the loading
+    dots while it runs; a loading primary button no longer turns grey anywhere in the app.
+    Certified on the iPhone, 18 Nov: both drafts were refused after Mark as discussed, Try again
+    brought both back, and both were approved as is.
 
 ## 2. Business justification
 
@@ -191,12 +201,12 @@ says why something is unavailable, and when it will be, replaces a generic failu
 |---|---|---|
 | Data model (Firestore, Hive) | None | |
 | Roles & case scoping | Reviewed | The chat rule is unchanged; patch 14 lets the case's own pathologist read a not-yet-written score or provenance as missing, no one else |
-| Clinical safety | Changed | Patches 19 and 20: where Ask AI's answer appears (screen state only, never saved), and the report pre-filled from the AI draft after the score, signed before it reaches anyone |
+| Clinical safety | Changed | Patches 19 and 20: where Ask AI's answer appears (screen state only, never saved), and the report pre-filled from the AI draft after the score, signed before it reaches anyone. Patch 24: a refused explanation language can be asked for again; the new draft is still approved by the doctor before the patient sees it |
 | AI service (prompts, models, thresholds) | None | |
 | Security (rules, App Check, RASP, secrets) | Changed | Patch 4 brings stored photo URLs in line with the existing profile rules, which are unchanged. Patch 6 changes the app lock: one method at a time, fingerprint/face no longer behind a PIN, the phone's passcode its fallback (threat model T-11) |
 | Data protection (PHI, de-identification, model endpoints) | None | |
-| Design system / UI consistency | Extended | `GroupedRow` gains a caption and a disabled state: muted text, the neutral icon tone, no chevron, announced as a disabled button with its reason |
-| Localisation (en, sw) | Added, removed | Added `chatRowWaitingCaption`, `errorConversationUnavailable`, `resultsFilterWaiting`, `profileSavedToast`; removed the six strings only "My profile" used |
+| Design system / UI consistency | Extended | `GroupedRow` gains a caption and a disabled state: muted text, the neutral icon tone, no chevron, announced as a disabled button with its reason. `TabibuButton.primary` keeps its colour while loading (patch 24) |
+| Localisation (en, sw) | Added, removed | Added `chatRowWaitingCaption`, `errorConversationUnavailable`, `resultsFilterWaiting`, `profileSavedToast`, `explanationLanguageFailed`; removed the six strings only "My profile" used |
 | Existing data | None | |
 
 ## 5. Risk & rollback plan

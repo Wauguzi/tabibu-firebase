@@ -1,5 +1,6 @@
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:tabibu/core/constants/enums.dart';
 import 'package:tabibu/core/services/analytics_service.dart';
@@ -12,6 +13,7 @@ import 'package:tabibu/features/reports/data/datasources/report_firebase.dart';
 import 'package:tabibu/features/reports/data/models/pathology_report_model.dart';
 import 'package:tabibu/features/reports/data/models/report_text_approved_model.dart';
 import 'package:tabibu/features/reports/data/models/report_text_model.dart';
+import 'package:tabibu/l10n/l10n.dart';
 
 class _MockReports extends Mock implements ReportCacheHelper {}
 
@@ -229,6 +231,55 @@ void main() {
         const ReportReaderOpened(uid: 'd1', role: Role.doctor, caseUid: _case),
       ),
       verify: (bloc) => expect(bloc.state.explanations, {'en': _draft}),
+    );
+
+    blocTest<ReportReaderBloc, ReportReaderState>(
+      'a failed language is marked failed beside a ready draft',
+      setUp: () {
+        when(
+          () => reports.syncReports('d1', role: Role.doctor),
+        ).thenAnswer((_) async => [_report(released: true)]);
+        when(
+          () => remote.fetchReportText(
+            caseUid: any(named: 'caseUid'),
+            textUid: any(named: 'textUid'),
+          ),
+        ).thenAnswer((invocation) async {
+          final id = invocation.namedArguments[#textUid] as String;
+          if (id.endsWith('_en')) {
+            return ReportTextModel.empty().copyWith(
+              uid: id,
+              language: 'en',
+              status: 'Failed',
+              failureReason: 'AdvicePhrase',
+              machineText: const {'found': 'Take this medicine daily.'},
+            );
+          }
+          return ReportTextModel.empty().copyWith(
+            uid: id,
+            language: 'sw',
+            status: 'Ready',
+            machineText: const {'found': 'Kiswahili draft'},
+          );
+        });
+      },
+      build: build,
+      act: (bloc) => bloc.add(
+        const ReportReaderOpened(uid: 'd1', role: Role.doctor, caseUid: _case),
+      ),
+      verify: (bloc) {
+        expect(bloc.state.explanations.keys, ['sw']);
+        expect(
+          bloc.state.explanations['sw']?.machineText['found'],
+          'Kiswahili draft',
+        );
+        expect(bloc.state.failedExplanations.keys, ['en']);
+        expect(
+          bloc.state.failedExplanations['en']?.failureReason,
+          'AdvicePhrase',
+        );
+        expect(bloc.state.explanations, isNotEmpty);
+      },
     );
 
     blocTest<ReportReaderBloc, ReportReaderState>(
@@ -586,6 +637,107 @@ void main() {
             approved: any(named: 'approved'),
           ),
         );
+      },
+    );
+  });
+
+  group('explanation retry', () {
+    ReportTextModel failedEnglish() => ReportTextModel.empty().copyWith(
+      uid: 'v1_Explanation_en',
+      language: 'en',
+      status: 'Failed',
+      failureReason: 'AdvicePhrase',
+    );
+
+    ReportTextModel readySwahili() => ReportTextModel.empty().copyWith(
+      uid: 'v1_Explanation_sw',
+      language: 'sw',
+      status: 'Ready',
+      machineText: const {'found': 'Kiswahili draft'},
+    );
+
+    ReportReaderLoadSuccess withFailure() => ReportReaderLoadSuccess(
+      uid: 'd1',
+      role: Role.doctor,
+      caseUid: _case,
+      report: _report(released: true),
+      explanations: {'sw': readySwahili()},
+      failedExplanations: {'en': failedEnglish()},
+    );
+
+    void stubRequest({AppError? error}) {
+      when(
+        () => remote.requestReportText(
+          caseUid: any(named: 'caseUid'),
+          reportUid: any(named: 'reportUid'),
+          kind: any(named: 'kind'),
+          language: any(named: 'language'),
+        ),
+      ).thenAnswer((_) async {
+        if (error != null) throw error;
+        return {'status': 'ok'};
+      });
+    }
+
+    blocTest<ReportReaderBloc, ReportReaderState>(
+      'try again asks for that language once and shows it being written',
+      setUp: () {
+        stubRequest();
+        when(
+          () => remote.fetchReportText(
+            caseUid: any(named: 'caseUid'),
+            textUid: any(named: 'textUid'),
+          ),
+        ).thenAnswer((invocation) async {
+          final id = invocation.namedArguments[#textUid] as String;
+          if (id.endsWith('_en')) {
+            return ReportTextModel.empty().copyWith(
+              uid: id,
+              language: 'en',
+              status: 'Queued',
+            );
+          }
+          return readySwahili();
+        });
+      },
+      build: build,
+      seed: withFailure,
+      act: (bloc) => bloc.add(const ExplanationRetryRequested(language: 'en')),
+      verify: (bloc) {
+        verify(
+          () => remote.requestReportText(
+            caseUid: _case,
+            reportUid: 'v1',
+            kind: 'Explanation',
+            language: 'en',
+          ),
+        ).called(1);
+        expect(bloc.state.writingLanguages, contains('en'));
+        expect(bloc.state.failedExplanations.containsKey('en'), isFalse);
+        expect(bloc.state.explanations.containsKey('sw'), isTrue);
+      },
+    );
+
+    blocTest<ReportReaderBloc, ReportReaderState>(
+      'a refused retry shows the error and leaves the language failed',
+      setUp: () => stubRequest(error: AppError.permissionDenied),
+      build: build,
+      seed: withFailure,
+      act: (bloc) => bloc.add(const ExplanationRetryRequested(language: 'en')),
+      verify: (bloc) {
+        expect(bloc.state, isA<ReportReaderWriteFailure>());
+        expect(
+          (bloc.state as ReportReaderWriteFailure).error,
+          AppError.permissionDenied,
+        );
+        expect(
+          (bloc.state as ReportReaderWriteFailure).error.description(
+            lookupAppLocalizations(const Locale('en')),
+          ),
+          isNotEmpty,
+        );
+        expect(bloc.state.failedExplanations.containsKey('en'), isTrue);
+        expect(bloc.state.writingLanguages, isNot(contains('en')));
       },
     );
   });

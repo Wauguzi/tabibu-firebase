@@ -1768,6 +1768,7 @@
     "workspaceAiPrereadDisclaimer": "Kanusho: Usomaji wa awali wa AI, si matokeo",
     "explanationFailedBody": "AI imeshindwa kuandika maelezo haya. Hakuna kilichotumwa kwa mgonjwa.",
     "explanationRejectedBody": "Umeweka maelezo haya kando. Hakuna kilichotumwa kwa mgonjwa.",
+    "explanationLanguageFailed": "Maelezo ya {language} hayakuandikwa, kwa hiyo hayakutumwa kwa mgonjwa.",
     "resultsWaitingBodyNoDate": "{doctor} ana matokeo yako yaliyokaguliwa. Unaweza kuyasoma hapa baada ya miadi yako.",
     "resultsWaitingBodyNoDoctor": "Daktari wako ana matokeo yako yaliyokaguliwa. Unaweza kuyasoma hapa baada ya miadi yako ya {date}.",
     "resultsWaitingBodyBare": "Daktari wako ana matokeo yako yaliyokaguliwa. Unaweza kuyasoma hapa baada ya miadi yako.",

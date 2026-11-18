@@ -95,9 +95,13 @@ class _TabibuButtonState extends State<TabibuButton> {
     final foregroundColor = widget.foregroundColor;
     final variant = widget._variant;
     final enabled = widget._enabled;
+    // Loading still is the action, so the primary colour stays. A tap is
+    // refused separately, which is what used to turn it the grey of Edit.
+    final primaryFill =
+        variant == .primary && (widget.onTap != null || isLoading);
 
     final background = switch (variant) {
-      .primary => enabled ? status.ink : scheme.surfaceContainerHigh,
+      .primary => primaryFill ? status.ink : scheme.surfaceContainerHigh,
       .secondary => scheme.surfaceContainerHigh,
       .outline => scheme.surfaceContainerLowest,
       .ghost => AppColors.transparent,
@@ -106,7 +110,7 @@ class _TabibuButtonState extends State<TabibuButton> {
         foregroundColor ??
         switch (variant) {
           .primary =>
-            enabled
+            primaryFill
                 ? (scheme.brightness == .dark
                       ? AppColors.inkLight
                       : AppColors.white)

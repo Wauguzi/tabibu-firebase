@@ -172,6 +172,40 @@ class ExplanationReviewSection extends StatelessWidget {
     );
   }
 
+  /// A failed language, named, with another try. The worker's reason stays
+  /// off the screen.
+  Widget _failedLanguageCard({
+    required AppLocalizations l10n,
+    required String language,
+    required bool busy,
+    required bool retrying,
+    required VoidCallback onRetry,
+  }) {
+    return NoticeCard(
+      icon: Assets.icons.cancelCircleIcon,
+      variant: .attention,
+      body: l10n.explanationLanguageFailed(
+        explanationLanguageName(l10n, language),
+      ),
+      action: TabibuButton.ghost(
+        label: l10n.commonRetry,
+        isLoading: retrying,
+        onTap: busy ? null : onRetry,
+      ),
+    );
+  }
+
+  /// One language still being written, beside another that can already be
+  /// read. While every language is still being written, the waiting card
+  /// covers them instead.
+  Widget _writingLanguageCard(AppLocalizations l10n) {
+    return NoticeCard(
+      icon: Assets.icons.hourglassIcon,
+      variant: .neutral,
+      body: l10n.explanationWaitingForDraft,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -210,10 +244,13 @@ class ExplanationReviewSection extends StatelessWidget {
         }
 
         final name = _firstName(l10n);
-        final drafts = state.explanations.entries.toList()
-          ..sort((a, b) => a.key.compareTo(b.key));
-        final approved = state.approved.entries.toList()
-          ..sort((a, b) => a.key.compareTo(b.key));
+        const languages = ['en', 'sw'];
+        final anyOutcome = languages.any(
+          (language) =>
+              state.explanations.containsKey(language) ||
+              state.approved.containsKey(language) ||
+              state.failedExplanations.containsKey(language),
+        );
 
         Widget draftCard(String language, ReportTextModel draft) {
           final title = l10n.explanationDraftTitle(
@@ -229,18 +266,33 @@ class ExplanationReviewSection extends StatelessWidget {
             ),
             onEdit: () => _edit(context, language, draft),
             onMore: () => _reject(context, language, title),
+            approving: writing && state.decidingLanguage == language,
           );
         }
 
         final cards = <Widget>[
-          for (final MapEntry(:key, value: draft) in drafts)
-            draftCard(key, draft),
-          for (final MapEntry(:key, value: text) in approved)
-            ApprovedExplanationCard(
-              language: explanationLanguageName(l10n, key),
-              segments: text.approvedText.values.toList(),
-            ),
-          if (drafts.isEmpty && approved.isEmpty)
+          for (final language in languages) ...[
+            if (state.explanations[language] case final draft?)
+              draftCard(language, draft)
+            else if (state.approved[language] case final text?)
+              ApprovedExplanationCard(
+                language: explanationLanguageName(l10n, language),
+                segments: text.approvedText.values.toList(),
+              )
+            else if (state.failedExplanations.containsKey(language))
+              _failedLanguageCard(
+                l10n: l10n,
+                language: language,
+                busy: busy,
+                retrying: writing && state.retryingLanguage == language,
+                onRetry: () => context.read<ReportReaderBloc>().add(
+                  ExplanationRetryRequested(language: language),
+                ),
+              )
+            else if (anyOutcome && state.writingLanguages.contains(language))
+              _writingLanguageCard(l10n),
+          ],
+          if (!anyOutcome)
             _emptyPhaseCard(
               l10n: l10n,
               state: state,
