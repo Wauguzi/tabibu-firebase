@@ -122,6 +122,46 @@ branch as it is found, certified on the phone, then recorded here.
     sheet's own white, and only two sheets drew the field hairline. Every sheet field now does:
     amend reason and addendum, the explanation edit, the region question, decline booking,
     move, cancel, and the alert edit and reject sheets. Certified on the iPhone, 17 Nov.
+16. **A tapped slide's full view had no order and no double tap.** It now carries the order
+    number as its title and the slide's details beneath, as the order header does, and a double
+    tap zooms in about the tapped point (a second returns), since a pinch can be taken by the
+    page. Certified on the iPhone, 18 Nov.
+17. **Accept and Sample received looked frozen for a second.** Each write is followed by a
+    reload of the case, and the button stopped spinning at the write; it now spins until the
+    next screen is ready. Certified on the iPhone, 18 Nov.
+18. **The slide's controls.** The region read is a short **✦ Ask AI** at the slide's bottom
+    right (screen readers still hear "Ask AI about this region"), no longer wrapping under the
+    heat-map toggle; zoom is two round 48 dp buttons with a gap, zooming about the centre of
+    the view instead of the image's corner. Certified on the iPhone, 18 Nov.
+19. **Ask AI's answer lives in the workspace.** The sheet only asks (a "Question" field, its
+    hint, only the Ask button spinning); the answer goes to a panel under the slide, "Ask AI
+    draft" in the AI frame with its model and template showing and "Disclaimer: Ask AI draft,
+    not a result"; before any ask the panel says how to use it, and a new ask replaces the last.
+    The pre-read card's "not a result" row became a disclaimer inside the card. Both AI
+    summaries open with their models listed and keep the person's choice across scrolling
+    (`AiDraftFrame.initiallyExpanded`, kept in `PageStorage`). The answer is held in the
+    screen's state only: never saved, no copy action, never in a write, cleared when the case
+    changes, and only for the case's accepted pathologist (S-8, CRQ-0005). Certified on the
+    iPhone, 18 Nov.
+20. **Reporting was one long page whose order was enforced but not shown.** It is now two
+    steps: 1 · AI score, then 2 · Diagnosis, which waits until the score is saved and says why;
+    saving folds the score to "Done · overall n of 5" behind its arrow and opens Diagnosis. The
+    six required score questions carry the required mark, and their answers sit on one
+    scrolling line. Once Diagnosis opens on a scored case with a ready pre-read and an untouched
+    draft, the AI's diagnosis and comments are filled in to be edited ("Edit the remarks before
+    you sign"), replacing the Start from AI / Write my own buttons; the rules already allow
+    that start only after a score, the pathologist's own text is never replaced, revisions never
+    get it, and the report reaches the doctor only when signed (S-2). Critical finding and
+    notifiable diseases are switches. Certified on the iPhone, 18 Nov.
+21. **The Signed tab counted the wrong set.** Its card counted today under every pill but This
+    week, so Notifiable showed "0 · Signed today" over older cases. It now counts what the pill
+    shows, hides at zero, and an empty pill says so below the pills. Certified on the iPhone,
+    18 Nov.
+22. **A notice blocked the screen until it went.** Every notice ("Draft saved" and the rest)
+    was a modal route with an invisible full-screen barrier, so scrolling and taps hit the
+    barrier. It now sits on the root overlay with no barrier: the screen keeps working, a pop
+    can no longer close a notice in place of a screen (the cause of two earlier patches), and
+    screen readers hear it as a live region. Certified on the iPhone, 18 Nov.
 
 ## 2. Business justification
 
@@ -146,7 +186,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 |---|---|---|
 | Data model (Firestore, Hive) | None | |
 | Roles & case scoping | Reviewed | The chat rule is unchanged; patch 14 lets the case's own pathologist read a not-yet-written score or provenance as missing, no one else |
-| Clinical safety | None | No AI output, result or alert path changes |
+| Clinical safety | Changed | Patches 19 and 20: where Ask AI's answer appears (screen state only, never saved), and the report pre-filled from the AI draft after the score, signed before it reaches anyone |
 | AI service (prompts, models, thresholds) | None | |
 | Security (rules, App Check, RASP, secrets) | Changed | Patch 4 brings stored photo URLs in line with the existing profile rules, which are unchanged. Patch 6 changes the app lock: one method at a time, fingerprint/face no longer behind a PIN, the phone's passcode its fallback (threat model T-11) |
 | Data protection (PHI, de-identification, model endpoints) | None | |
@@ -172,12 +212,12 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Check | Result |
 |---|---|
 | `make analyze` / `make bloc-lint` | Pass — no issues |
-| `make test` (`TZ=UTC`) | Pass — 3,722 after patch 9 |
+| `make test` (`TZ=UTC`) | Pass — 3,776 after patch 22 |
 | `make functions-test` | Pass — 664, with the photo URL check and the Storage copy (patch 4) |
 | `make rules-test` | Pass — 249, with RT-203 (patch 14) |
 | `make spell` | Pass — 0 issues |
 | Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed |
-| Manual run | Patches 1 to 11 certified on the iPhone 14, 17 Nov; the patient's side is done, the doctor's under way |
+| Manual run | Patches 1 to 22 certified on the iPhone 14, 17–18 Nov; the patient's and doctor's sides are done, the pathologist's under way |
 | Certification | Pending the end of the run |
 
 ## 8. Approval
@@ -186,7 +226,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 |---|---|---|---|---|
 | Author | Always | Theo | 2026-11-17 | — |
 | Engineering reviewer | Always, on the pull request | Greptile — pending | — | — |
-| Clinical Reviewer | §4 flags clinical-safety impact or changes clinical wording | N/A | — | — |
+| Clinical Reviewer | §4 flags clinical-safety impact or changes clinical wording | Covered by CTO | 2026-11-18 | Approved: the AI draft is framed as AI until edited, starts only after the score, never replaces the pathologist's text, and reaches the doctor only when signed; Ask AI stays unsaved and pathologist-only |
 | Security Analyst | §4 flags security impact | Covered by CTO | 2026-11-17 | Approved: photos move into the owner's Storage folder, the rules stay strict; the lock's fallback is the phone's passcode, by decision, and every change of method needs the current one first; the score rule answers missing only to the case's own pathologist |
 | Compliance Officer | §4 flags data protection impact | N/A | — | — |
 | Lead Designer | §4 flags design-system impact | Covered by CTO | 2026-11-17 | Approved: the disabled row follows the disabled button's muted colour |
