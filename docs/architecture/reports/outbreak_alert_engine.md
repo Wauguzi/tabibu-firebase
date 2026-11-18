@@ -282,7 +282,9 @@ match /publicAlerts/{id} {
 
 `isAlertApprover()` is `isAdmin() && token.alertApprover == true`. A
 synthetic notice reaches demo accounts only. A patient's list query must
-filter `patientsReleased == true`.
+filter `patientsReleased == true`, and every list query filters on the
+account's own kind: a demo account asks for `synthetic == true`, anyone else
+for `false`, because one row the reader may not see fails the whole list.
 
 ## 10. Demo
 
@@ -297,7 +299,9 @@ Two cases show the rules, all synthetic:
 **Demo alerts are marked.** A synthetic alert uses the demo templates, whose
 every headline and body begins "Demo:" ("Majaribio:"), carries a banner in the
 app, and reaches only the seeded demo accounts and the demo topics
-(`alerts_patient_demo_{countyId}_{lang}`).
+(`alerts_patient_demo_{countyId}_{lang}`). The functions run with
+`ALERTS_SYNTHETIC=true` (`functions/.env`, from `functions/.env.example`), so
+every event signed in this project is synthetic.
 
 Each produces a draft in both languages, an approval, and the alert arriving
 on a doctor's phone and then a patient's.
@@ -321,3 +325,4 @@ the alert scope, the guidance and the attribution.
 | Date | Change | Author |
 |---|---|---|
 | 2026-11-15 | Crafted for this repository. | Theo |
+| 2026-11-18 | §9 and §10: demo accounts read demo notices; the functions' synthetic flag. | Theo |

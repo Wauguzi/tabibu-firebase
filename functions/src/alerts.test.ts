@@ -28,7 +28,8 @@ import type { Caller } from './common';
 import { allOff, allOn } from './domain.test-support';
 import { ALERT_TEMPLATE_SW, DEMO_PREFIX_SW } from './copy/alerts.sw';
 import { account, emulatorDeps, refusedWith, resetEmulators } from './emulator.test-support';
-import { seedWorld, type World } from './case.test-support';
+import { caseDoc, fillDraft, receivedCase, seedWorld, signaturePng, type World } from './case.test-support';
+import { signReportHandler, startReportHandler } from './reports';
 import { countyById } from './reference-data';
 
 const NOW_ISO = '2026-10-27T09:00:00.000Z';
@@ -2354,6 +2355,167 @@ describe('alerts', () => {
       assert.equal(row?.priority, 'High');
       const again = await runAlertSweep(depsOf(db, { topics: fakeTopics(), config: allOff }), NOW);
       assert.equal(again.held, 0);
+    });
+  });
+
+  describe('loop', () => {
+    it('a signed Ebola NAAT finding reaches the county as a demo notice', async () => {
+      const caseUid = await receivedCase(w, { labTestIds: [EBOLA_TEST] });
+      const received = await caseDoc(w, caseUid);
+      assert.equal(received.requiresSlides, false);
+      assert.equal(received.currentStage, 'SampleReceived');
+      assert.equal(received.currentStep, 'WriteReport');
+      assert.equal(received.prereadRunUid, '');
+
+      await startReportHandler(w.deps, w.pathologist, { caseUid, kind: 'Initial' });
+      const stamp = await fillDraft(w, caseUid, {
+        notifiableFindings: [{ diseaseId: 'ebola_virus_disease', alertRequested: false }],
+      });
+      const signed = await signReportHandler({ ...w.deps, synthetic: true }, w.pathologist, {
+        caseUid,
+        draftLastUpdatedAt: stamp,
+        signaturePng: signaturePng(),
+      });
+      assert.ok(signed.reportUid);
+
+      const link = (
+        await db.collection('notifiableEventLinks').doc(linkUidFor(caseUid, 'ebola_virus_disease')).get()
+      ).data();
+      const eventUid = link?.eventUid as string;
+      const event = (await db.collection('notifiableEvents').doc(eventUid).get()).data() ?? {};
+      assert.deepEqual(Object.keys(event).sort(), [
+        'ageBand',
+        'alertRequested',
+        'category',
+        'countyId',
+        'createdAt',
+        'date',
+        'diseaseId',
+        'epiWeek',
+        'lastUpdatedAt',
+        'status',
+        'synthetic',
+        'uid',
+      ]);
+      assert.equal(event.diseaseId, 'ebola_virus_disease');
+      assert.equal(event.countyId, NAIROBI);
+      assert.equal(event.category, 'Immediate');
+      assert.equal(event.alertRequested, false);
+      assert.equal(event.synthetic, true);
+      assert.equal(event.status, 'Active');
+      const eventText = JSON.stringify(event);
+      for (const name of ['Amina', 'Otieno', 'Wanjiru', 'Kamau', 'Test Hospital', caseUid]) {
+        assert.equal(eventText.includes(name), false, name);
+      }
+
+      await db.collection('demoAccounts').doc('demo-nairobi').set({ county: NAIROBI_NAME, language: 'sw' });
+      await db.collection('demoAccounts').doc('demo-mombasa').set({ county: MOMBASA_NAME, language: 'en' });
+      await seedPractitioner(db, 'doc-nairobi', NAIROBI_NAME, 'en');
+      const approverCaller = await approver(w, 'approver@example.com');
+      await db.collection('doctors').doc(approverCaller.uid).set({ firstName: 'Alex', lastName: 'Approver' });
+      const raiser = { ...w.pathologist, isAdmin: true };
+      await db.collection('alertApprovers').doc(raiser.uid).set({
+        uid: raiser.uid,
+        grantedByUid: approverCaller.uid,
+        grantedAt: NOW_ISO,
+        fcmTokens: [],
+        language: 'en',
+        lastUpdatedAt: NOW_ISO,
+      });
+
+      const detected = await onNotifiableEventWrittenHandler(depsOf(db), eventUid, {
+        before: undefined,
+        after: event,
+      });
+      assert.equal(detected, 'created');
+      const signalUid = signalUidFor('ebola_virus_disease', NAIROBI, WEEK);
+      const raised = (await db.collection('alertSignals').doc(signalUid).get()).data();
+      assert.equal(raised?.rule, 'Immediate');
+      assert.equal(raised?.evidence.confirmedCount, 1);
+      const drafting = (await db.collection('alerts').doc(signalUid).get()).data();
+      assert.equal(drafting?.status, 'Drafting');
+
+      const seen: { calls: number } = { calls: 0 };
+      const draftedOutcome = await onAlertWrittenHandler(
+        depsOf(db, {
+          ai: {
+            assessCase: async () => {
+              throw new Error('unused');
+            },
+            generateAlertDraft: async () => {
+              seen.calls += 1;
+              throw new Error('the template path must not call the model');
+            },
+          },
+        }),
+        signalUid,
+        { before: undefined, after: drafting },
+      );
+      assert.equal(draftedOutcome, 'template');
+      assert.equal(seen.calls, 0);
+      const drafted = (await db.collection('alerts').doc(signalUid).get()).data();
+      assert.equal(drafted?.status, 'Draft');
+      assert.equal(drafted?.draftSource, 'Template');
+      assert.ok((drafted?.machineText.patient_en.headline as string).startsWith('Demo: '));
+      assert.ok((drafted?.machineText.patient_sw.headline as string).startsWith(DEMO_PREFIX_SW));
+      const paged = (
+        await db.collection('notifications').doc(`alertDrafted:${signalUid}-r0:${approverCaller.uid}`).get()
+      ).data();
+      assert.equal(paged?.templateKey, 'alertDrafted');
+
+      const decision = {
+        alertUid: signalUid,
+        decision: 'Approve',
+        draftRevision: drafted?.draftRevision,
+        evidenceRevision: drafted?.evidenceRevision,
+      };
+      await refusedWith(approveAlertHandler(depsOf(db), raiser, decision), 'selfApproval');
+
+      const topics = fakeTopics();
+      const approvedResult = await approveAlertHandler(depsOf(db, { topics }), approverCaller, decision);
+      assert.deepEqual(approvedResult, { status: 'ok', alertUid: signalUid, decision: 'Approve' });
+      const approved = (await db.collection('alerts').doc(signalUid).get()).data();
+      const delivered = await onAlertWrittenHandler(depsOf(db, { topics }), signalUid, {
+        before: { ...approved, status: 'Draft' },
+        after: approved,
+      });
+      assert.equal(delivered, 'delivered');
+
+      const demoRow = (
+        await db.collection('notifications').doc(`alertDeliveredClinicianDemo:${signalUid}:demo-nairobi`).get()
+      ).data();
+      assert.equal(demoRow?.templateKey, 'alertDeliveredClinicianDemo');
+      assert.deepEqual(demoRow?.templateArgs, { diseaseId: 'ebola_virus_disease', countyId: String(NAIROBI) });
+      const elsewhere = await db
+        .collection('notifications')
+        .doc(`alertDeliveredClinicianDemo:${signalUid}:demo-mombasa`)
+        .get();
+      assert.equal(elsewhere.exists, false);
+      const liveRow = await db
+        .collection('notifications')
+        .doc(`alertDeliveredClinician:${signalUid}:doc-nairobi`)
+        .get();
+      assert.equal(liveRow.exists, false);
+      assert.deepEqual(
+        topics.sends.map((s) => s.topic).sort(),
+        [`alerts_patient_demo_${NAIROBI}_en`, `alerts_patient_demo_${NAIROBI}_sw`],
+      );
+
+      const released = (await db.collection('publicAlerts').doc(signalUid).get()).data() ?? {};
+      assert.equal(released.patientsReleased, true);
+      assert.equal(released.synthetic, true);
+      const sent = JSON.stringify({
+        topics: topics.sends,
+        patientText: released.patientText,
+        args: demoRow?.templateArgs,
+      });
+      for (const name of ['Amina', 'Otieno', 'Wanjiru', 'Kamau', 'Alex', 'Approver', 'Test Hospital', caseUid]) {
+        assert.equal(sent.includes(name), false, name);
+      }
+      for (const send of topics.sends) {
+        assert.equal(/\d/.test(send.notification.body), false);
+        assert.deepEqual(Object.keys(send.data).sort(), ['alertUid', 'channel', 'deepLink']);
+      }
     });
   });
 });

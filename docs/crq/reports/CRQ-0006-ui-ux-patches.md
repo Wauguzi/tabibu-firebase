@@ -223,6 +223,13 @@ branch as it is found, certified on the phone, then recorded here.
     phrases match at the start of a word while the Kiswahili ones still match anywhere in a word;
     and a refusal logs which listed phrase matched, never the text. The check is otherwise
     unchanged. Approved by Theo, 18 Nov; deployed with the functions.
+32. **A demo account never saw its county's alert.** The outbreak loop was traced against the
+    code, from ordering NAATs for Ebola to delivery, and holds; an emulator test now drives it
+    through the real callables (order, accept, sample, sign a confirmed finding, Rule A, the
+    template draft, the pathologist refused as approver, approval, delivery to the county's demo
+    accounts and topics, with no name, facility, case id or number in the patient's text). The
+    one gap was the app's: every alert list asked for real notices only, so a delivered demo
+    notice never appeared. A demo account now asks for demo notices, anyone else for real ones.
 
 ## 2. Business justification
 

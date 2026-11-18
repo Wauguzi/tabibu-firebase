@@ -102,6 +102,7 @@ void main() {
       when(
         () => remote.fetchPatientPublicAlerts(
           countyId: 47,
+          demo: any(named: 'demo'),
           cursor: any(named: 'cursor'),
         ),
       ).thenAnswer((_) async => [_alert('a1', stamp: _t3)]);
@@ -122,6 +123,7 @@ void main() {
       when(
         () => remote.fetchPatientPublicAlerts(
           countyId: 47,
+          demo: any(named: 'demo'),
           cursor: any(named: 'cursor'),
         ),
       ).thenAnswer((_) async => [_alert('a1', stamp: _t3)]);
@@ -141,6 +143,7 @@ void main() {
       when(
         () => remote.fetchPatientPublicAlerts(
           countyId: 47,
+          demo: any(named: 'demo'),
           cursor: any(named: 'cursor'),
         ),
       ).thenAnswer((_) async => [_alert('a1')]);
@@ -167,6 +170,7 @@ void main() {
       when(
         () => remote.fetchPatientPublicAlerts(
           countyId: 47,
+          demo: any(named: 'demo'),
           cursor: any(named: 'cursor'),
         ),
       ).thenThrow(AppError.noInternet);
@@ -180,6 +184,27 @@ void main() {
       );
     });
 
+    test('a demo read asks for synthetic notices', () async {
+      when(
+        () => remote.fetchPatientPublicAlerts(
+          countyId: 47,
+          demo: true,
+          cursor: any(named: 'cursor'),
+        ),
+      ).thenAnswer((_) async => [_alert('notice', synthetic: true)]);
+
+      final rows = await helper.publicAlertsForCounty(countyId: 47, demo: true);
+
+      expect(rows.map((a) => a.uid), ['notice']);
+      verify(
+        () => remote.fetchPatientPublicAlerts(
+          countyId: 47,
+          demo: true,
+          cursor: any(named: 'cursor'),
+        ),
+      ).called(1);
+    });
+
     test('a demo account also sees synthetic alerts', () async {
       await helper.cachePublicAlerts(
         [_alert('mine'), _alert('demo', synthetic: true)],
@@ -189,6 +214,7 @@ void main() {
       when(
         () => remote.fetchPatientPublicAlerts(
           countyId: 47,
+          demo: any(named: 'demo'),
           cursor: any(named: 'cursor'),
         ),
       ).thenThrow(AppError.noInternet);
@@ -206,6 +232,7 @@ void main() {
       when(
         () => remote.fetchPatientPublicAlerts(
           countyId: 47,
+          demo: any(named: 'demo'),
           cursor: any(named: 'cursor'),
         ),
       ).thenAnswer(
@@ -233,6 +260,7 @@ void main() {
       verifyNever(
         () => remote.fetchPatientPublicAlerts(
           countyId: any(named: 'countyId'),
+          demo: any(named: 'demo'),
           cursor: any(named: 'cursor'),
         ),
       );
@@ -255,6 +283,7 @@ void main() {
       when(
         () => remote.fetchClinicianPublicAlerts(
           countyId: 47,
+          demo: any(named: 'demo'),
           cursor: any(named: 'cursor'),
         ),
       ).thenThrow(AppError.noInternet);
@@ -274,12 +303,14 @@ void main() {
       when(
         () => remote.fetchPatientPublicAlerts(
           countyId: 47,
+          demo: any(named: 'demo'),
           cursor: any(named: 'cursor'),
         ),
       ).thenThrow(AppError.serviceUnavailable);
       when(
         () => remote.fetchClinicianPublicAlerts(
           countyId: 47,
+          demo: any(named: 'demo'),
           cursor: any(named: 'cursor'),
         ),
       ).thenThrow(AppError.noInternet);
@@ -303,6 +334,7 @@ void main() {
       when(
         () => remote.fetchPatientPublicAlerts(
           countyId: 47,
+          demo: any(named: 'demo'),
           cursor: any(named: 'cursor'),
         ),
       ).thenThrow(AppError.permissionDenied);
@@ -315,7 +347,11 @@ void main() {
 
     test('an explicit since overrides the cursor', () async {
       when(
-        () => remote.fetchClinicianPublicAlerts(countyId: 47, cursor: 'custom'),
+        () => remote.fetchClinicianPublicAlerts(
+          countyId: 47,
+          demo: any(named: 'demo'),
+          cursor: 'custom',
+        ),
       ).thenAnswer((_) async => <PublicAlertModel>[]);
 
       await helper.publicAlertsForClinician(
@@ -325,7 +361,11 @@ void main() {
       );
 
       verify(
-        () => remote.fetchClinicianPublicAlerts(countyId: 47, cursor: 'custom'),
+        () => remote.fetchClinicianPublicAlerts(
+          countyId: 47,
+          demo: any(named: 'demo'),
+          cursor: 'custom',
+        ),
       ).called(1);
     });
   });

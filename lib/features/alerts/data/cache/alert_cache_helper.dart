@@ -57,6 +57,7 @@ class AlertCacheHelper {
     try {
       final remote = await _remote.fetchPatientPublicAlerts(
         countyId: countyId,
+        demo: demo,
         cursor: since ?? await patientAlertsCursor(countyId),
       );
       await cachePublicAlerts(remote, fromCloud: true, demo: demo);
@@ -81,6 +82,7 @@ class AlertCacheHelper {
     try {
       final remote = await _remote.fetchClinicianPublicAlerts(
         countyId: countyId,
+        demo: demo,
         cursor: since ?? await clinicianAlertsCursor(countyId),
       );
       await cachePublicAlerts(remote, fromCloud: true, demo: demo);

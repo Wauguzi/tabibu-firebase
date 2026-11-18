@@ -105,8 +105,41 @@ void main() {
         'diseaseId': 'cholera',
       });
 
-      final rows = await remote.fetchPatientPublicAlerts(countyId: 47);
+      final rows = await remote.fetchPatientPublicAlerts(
+        countyId: 47,
+        demo: false,
+      );
       expect(rows.map((r) => r.uid), ['a1']);
+    });
+
+    test('a demo patient reads the released synthetic notice', () async {
+      await firestore.collection('publicAlerts').doc('live').set({
+        'countyId': 47,
+        'patientsReleased': true,
+        'synthetic': false,
+        'lastUpdatedAt': '2026-11-01T12:00:00.000Z',
+        'diseaseId': 'cholera',
+      });
+      await firestore.collection('publicAlerts').doc('held').set({
+        'countyId': 47,
+        'patientsReleased': false,
+        'synthetic': true,
+        'lastUpdatedAt': '2026-11-01T12:00:00.000Z',
+        'diseaseId': 'ebola_virus_disease',
+      });
+      await firestore.collection('publicAlerts').doc('notice').set({
+        'countyId': 47,
+        'patientsReleased': true,
+        'synthetic': true,
+        'lastUpdatedAt': '2026-11-01T13:00:00.000Z',
+        'diseaseId': 'ebola_virus_disease',
+      });
+
+      final rows = await remote.fetchPatientPublicAlerts(
+        countyId: 47,
+        demo: true,
+      );
+      expect(rows.map((r) => r.uid), ['notice']);
     });
 
     test('clinician public alerts use clinicianCountyIds', () async {
@@ -126,8 +159,30 @@ void main() {
         'lastUpdatedAt': '2026-11-01T12:00:00.000Z',
       });
 
-      final rows = await remote.fetchClinicianPublicAlerts(countyId: 47);
+      final rows = await remote.fetchClinicianPublicAlerts(
+        countyId: 47,
+        demo: false,
+      );
       expect(rows.map((r) => r.uid), ['a1']);
+    });
+
+    test('a demo clinician reads the synthetic notice', () async {
+      await firestore.collection('publicAlerts').doc('live').set({
+        'clinicianCountyIds': [47],
+        'synthetic': false,
+        'lastUpdatedAt': '2026-11-01T12:00:00.000Z',
+      });
+      await firestore.collection('publicAlerts').doc('notice').set({
+        'clinicianCountyIds': [47],
+        'synthetic': true,
+        'lastUpdatedAt': '2026-11-01T13:00:00.000Z',
+      });
+
+      final rows = await remote.fetchClinicianPublicAlerts(
+        countyId: 47,
+        demo: true,
+      );
+      expect(rows.map((r) => r.uid), ['notice']);
     });
 
     test('clinician brief is read under doctor/brief', () async {
