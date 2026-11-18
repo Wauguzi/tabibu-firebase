@@ -131,7 +131,13 @@ working record that only their approver reads. Approval creates a separate
 reader-facing record holding the approved text alone, so readers never
 receive unapproved model text. A text with a number that is not in the
 signed report fails as `NumberCheck`, and an approval whose edit changes a
-number is refused.
+number is refused. A text that instructs the reader or names medicine,
+treatment, a cure, a prognosis or reassurance, or uses pre-read vocabulary
+(tile, heatmap, pre-read, AI draft), fails as `AdvicePhrase`: the English
+phrases match at the start of a word, the Kiswahili ones anywhere in a word.
+The prompt names every refused word and leaves the tile counts out, and the
+failure log records which listed phrase matched, never the text. The
+approver can ask for a refused text again (`requestReportText`).
 
 ## 5. Firestore contract
 
@@ -238,5 +244,6 @@ per-user quota. No prompt is written in the app.
 | Date | Change | Author |
 |---|---|---|
 | 2026-11-15 | Crafted for this repository. | Theo |
+| 2026-11-18 | §4: the advice check, how it matches, and what the prompt and log carry. | Theo |
 | 2026-11-18 | The in-app calls are live; each explanation language stands on its own and can be asked for again; the server's model named; the speech WAV is named for the player. | Theo |
 | 2026-11-16 | §9 added: symptom transcription, the region read and the narrated explanation through AI Logic. | Theo |

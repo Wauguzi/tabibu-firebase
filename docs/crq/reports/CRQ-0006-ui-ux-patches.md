@@ -215,6 +215,14 @@ branch as it is found, certified on the phone, then recorded here.
     new Deploying it section lists everything set up outside the code (the functions flags, the
     share-code secret, the model's IAM role, the two Remote Config templates, the prompt
     templates) and the deploy order.
+31. **Explanations were refused for advice three times in four.** The safety check was right
+    to refuse advice, but the prompt never named the words it refuses ("you should"; Kiswahili
+    "dawa", "matibabu"), the model was handed raw tile counts while the check bars "tile", and
+    "cure" matched inside "secure". The prompt now names every refused word and the pre-read
+    vocabulary, built from the check's own lists; tile counts stay out of the prompt; the English
+    phrases match at the start of a word while the Kiswahili ones still match anywhere in a word;
+    and a refusal logs which listed phrase matched, never the text. The check is otherwise
+    unchanged. Approved by Theo, 18 Nov; deployed with the functions.
 
 ## 2. Business justification
 
@@ -240,7 +248,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Data model (Firestore, Hive) | None | |
 | Roles & case scoping | Reviewed | The chat rule is unchanged; patch 14 lets the case's own pathologist read a not-yet-written score or provenance as missing, no one else |
 | Clinical safety | Changed | Patches 19 and 20: where Ask AI's answer appears (screen state only, never saved), and the report pre-filled from the AI draft after the score, signed before it reaches anyone. Patch 24: a refused explanation language can be asked for again; the new draft is still approved by the doctor before the patient sees it |
-| AI service (prompts, models, thresholds) | None | |
+| AI service (prompts, models, thresholds) | Changed | Patch 31: the explanation and translation prompt names the refused words and leaves tile counts out; English refusals match at a word start |
 | Security (rules, App Check, RASP, secrets) | Changed | Patch 4 brings stored photo URLs in line with the existing profile rules, which are unchanged. Patch 6 changes the app lock: one method at a time, fingerprint/face no longer behind a PIN, the phone's passcode its fallback (threat model T-11) |
 | Data protection (PHI, de-identification, model endpoints) | None | |
 | Design system / UI consistency | Extended | `GroupedRow` gains a caption and a disabled state: muted text, the neutral icon tone, no chevron, announced as a disabled button with its reason. `TabibuButton.primary` keeps its colour while loading (patch 24); `SummaryCardRow` keeps a gap before its value (patch 26) |
@@ -266,7 +274,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 |---|---|
 | `make analyze` / `make bloc-lint` | Pass — no issues |
 | `make test` (`TZ=UTC`) | Pass — 3,806 after patch 26 |
-| `make functions-test` | Pass — 664, with the photo URL check and the Storage copy (patch 4) |
+| `make functions-test` | Pass — 671, with the photo URL check and the Storage copy (patch 4), the alert loop dry run and the advice check (patch 31) |
 | `make rules-test` | Pass — 249, with RT-203 (patch 14) |
 | `make spell` | Pass — 0 issues |
 | Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed. Patch 23: the refresh on open and the busy field and button. Patch 24: the kept failed language, the `requestReportText` call, the refused retry, the failed line and the loading colour. Patch 25: the WAV name and type, each debug log, the WAV check and the `sw` code. Patch 26: the names and the gap |
