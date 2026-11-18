@@ -41,6 +41,7 @@ class ShareCodeField extends StatefulWidget {
     required this.label,
     this.onChanged,
     this.hasError = false,
+    this.enabled = true,
     super.key,
   });
 
@@ -48,6 +49,9 @@ class ShareCodeField extends StatefulWidget {
   final String label;
   final ValueChanged<String>? onChanged;
   final bool hasError;
+
+  /// Off while the screen loads what the code opens.
+  final bool enabled;
 
   @override
   State<ShareCodeField> createState() => _ShareCodeFieldState();
@@ -94,6 +98,7 @@ class _ShareCodeFieldState extends State<ShareCodeField> {
                 child: TextField(
                   controller: widget.controller,
                   focusNode: _focus,
+                  enabled: widget.enabled,
                   onChanged: widget.onChanged,
                   onTapOutside: (_) =>
                       FocusManager.instance.primaryFocus?.unfocus(),

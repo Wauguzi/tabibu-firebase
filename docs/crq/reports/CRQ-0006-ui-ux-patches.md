@@ -162,6 +162,11 @@ branch as it is found, certified on the phone, then recorded here.
     barrier. It now sits on the root overlay with no barrier: the screen keeps working, a pop
     can no longer close a notice in place of a screen (the cause of two earlier patches), and
     screen readers hear it as a live region. Certified on the iPhone, 18 Nov.
+23. **A shared case opened from the inbox was "not found".** The code screen never loaded the
+    doctor's cases, so a case shared before the Cases tab had synced could be neither named nor
+    opened. The screen now refreshes the cases on open; until they arrive, the code field is off,
+    Open report waits with its loading dots, and a full code does not submit itself. Certified
+    on the iPhone, 18 Nov.
 
 ## 2. Business justification
 

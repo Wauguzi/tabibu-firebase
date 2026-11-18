@@ -9,6 +9,8 @@ import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
 import 'package:tabibu/features/cases/blocs/cases_bloc/cases_bloc.dart';
+import 'package:tabibu/features/cases/blocs/cases_bloc/cases_event.dart';
+import 'package:tabibu/features/cases/blocs/cases_bloc/cases_state.dart';
 import 'package:tabibu/features/cases/blocs/share_bloc/share_bloc.dart';
 import 'package:tabibu/features/cases/blocs/share_bloc/share_event.dart';
 import 'package:tabibu/features/cases/blocs/share_bloc/share_state.dart';
@@ -62,6 +64,9 @@ class _EnterShareCodeScreenState extends State<EnterShareCodeScreen> {
       ),
     );
     context.read<DirectoryBloc>().add(const DirectoryRequested());
+    // Opened from the inbox, the shared case may not be on this phone yet:
+    // without it the code can neither open the case nor say which one it is.
+    context.read<CasesBloc>().add(CasesRefreshed(uid: _uid, role: widget.role));
   }
 
   @override
@@ -78,7 +83,8 @@ class _EnterShareCodeScreenState extends State<EnterShareCodeScreen> {
       });
     }
     if (value.length == shareCodeLength &&
-        context.read<ShareBloc>().state is! ShareWriteInProgress) {
+        context.read<ShareBloc>().state is! ShareWriteInProgress &&
+        context.read<CasesBloc>().state is! CasesLoadInProgress) {
       FocusManager.instance.primaryFocus?.unfocus();
       _open();
     }
@@ -124,10 +130,12 @@ class _EnterShareCodeScreenState extends State<EnterShareCodeScreen> {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final state = context.watch<ShareBloc>().state;
-    final cases = context.watch<CasesBloc>().state.cases;
+    final casesState = context.watch<CasesBloc>().state;
+    final cases = casesState.cases;
     final directory = context.watch<DirectoryBloc>().state.all;
     final language = Localizations.localeOf(context).languageCode;
     final writing = state is ShareWriteInProgress;
+    final busy = writing || casesState is CasesLoadInProgress;
 
     final share = state.shares.firstWhereOrNull(
       (s) => s.uid == widget.shareUid,
@@ -189,6 +197,7 @@ class _EnterShareCodeScreenState extends State<EnterShareCodeScreen> {
                   controller: _code,
                   label: l10n.shareEnterCodeTitle,
                   hasError: message != null,
+                  enabled: !busy,
                   onChanged: _onChanged,
                 ),
                 if (message != null) ...[
@@ -223,8 +232,8 @@ class _EnterShareCodeScreenState extends State<EnterShareCodeScreen> {
           BottomActionBar(
             primary: TabibuButton.primary(
               label: l10n.shareOpenReport,
-              isLoading: writing,
-              onTap: _open,
+              isLoading: busy,
+              onTap: busy ? null : _open,
             ),
           ),
         ],
