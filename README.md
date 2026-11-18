@@ -270,6 +270,33 @@ goes up, including spelling.
 Every user-visible string lives in both `lib/l10n/arb/app_en.arb` and `app_sw.arb`; `make l10n`
 regenerates the localizations.
 
+## Deploying it
+
+The backend deploys to the Firebase project `tabibu-86ea2` with the Firebase CLI. Five things are
+set up outside the code, and none of them is a key in the repository:
+
+| What | Where | Notes |
+|---|---|---|
+| Functions flags | `functions/.env`, copied from [`functions/.env.example`](functions/.env.example) | `ALERTS_SYNTHETIC=true` keeps every outbreak alert a demo alert, for demo accounts and the demo topics only; `ALERT_PATIENT_DELAY_MIN` is the gap between clinicians and patients. Flags only, git-ignored |
+| The one server secret | Secret Manager, `SHARE_CODE_KEY` | The share-code HMAC key, set with `firebase functions:secrets:set SHARE_CODE_KEY` |
+| Model access | IAM | The functions' service account holds Vertex AI User; Gemini is called with its own credentials, so there is no model key |
+| Switches and model ids | Remote Config, two templates | The **server** template gates the AI jobs and alert delivery (defaults in `functions/src/config.ts`, failing closed); the **client** template decides what the app shows (defaults in `lib/core/constants/remote_config_defaults.dart`). A kill switch is flipped in both, server first |
+| Prompt templates | Firebase AI Logic, in the console | One per file in [`prompts/`](prompts/), saved under the file's name and locked; a new version is a new id |
+
+Then deploy in this order (the [architecture](docs/architecture/reports/mobile_architecture.md)'s
+§16 says why):
+
+```sh
+make deploy-indexes          # wait until every index is READY
+make smoke-indexes           # one query per registered index
+make deploy-functions        # reads functions/.env
+make deploy-rules            # Firestore rules
+make deploy-storage          # Storage rules
+```
+
+The availability backfill (`backfillAvailability`, admin only) runs once after the first functions
+deploy, and the server Remote Config template is published before the app goes out.
+
 ## How it is built
 
 | Read | For |

@@ -206,6 +206,15 @@ branch as it is found, certified on the phone, then recorded here.
     Remote Config had both on. Both now default on, as the listen switch already did. The
     server's `voice_input_enabled` keeps failing closed when its template cannot load, so a
     transcript is still refused there.
+30. **Alerts in this demo project were real, and the setup was undocumented.** The live
+    functions had no `ALERTS_SYNTHETIC`, so a signed Ebola finding would have gone to the real
+    Nairobi topics, which any account a judge creates would receive, while the demo patient
+    listens on the demo topic. `functions/.env` (git-ignored) now sets it, from a tracked
+    `functions/.env.example` that says why. The server template also lacked
+    `alerts_delivery_enabled`, which reads as off; Theo added it (true), 18 Nov. The README's
+    new Deploying it section lists everything set up outside the code (the functions flags, the
+    share-code secret, the model's IAM role, the two Remote Config templates, the prompt
+    templates) and the deploy order.
 
 ## 2. Business justification
 
