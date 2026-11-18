@@ -4,8 +4,16 @@ import 'dart:typed_data';
 
 import 'package:firebase_ai/firebase_ai.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logger/logger.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:tabibu/core/constants/enums.dart';
 import 'package:tabibu/core/services/ai_logic_service.dart';
+
+class _MockLogger extends Mock implements Logger {}
+
+// RIFF-headed bytes, like a TTS response.
+Uint8List _wav(List<int> body) =>
+    Uint8List.fromList([0x52, 0x49, 0x46, 0x46, ...body]);
 
 class _Config implements AiLogicConfig {
   _Config([this.values = const {}]);
@@ -304,7 +312,7 @@ void main() {
       config: _Config(),
       speakCall: (request) async {
         sent = request;
-        return Uint8List.fromList([7, 7]);
+        return _wav([7, 7]);
       },
     );
 
@@ -315,7 +323,7 @@ void main() {
       model: 'gemini-3.8-flash-tts',
     );
 
-    expect(bytes, [7, 7]);
+    expect(bytes, _wav([7, 7]));
     expect(sent!.text, '  Your test found no cancer.  ');
     expect(sent!.languageCode, 'en-US');
     expect(sent!.voice, 'Achernar');
@@ -324,10 +332,35 @@ void main() {
     expect(sent!.limitedUseTokens, isFalse);
   });
 
+  test('a Swahili narration sends sw verbatim with voice and model', () async {
+    SpeakRequest? sent;
+    final service = FirebaseAiLogicService(
+      config: _Config(),
+      speakCall: (request) async {
+        sent = request;
+        return _wav([9]);
+      },
+    );
+
+    final bytes = await service.speakExplanation(
+      text: 'Habari.',
+      languageCode: 'sw',
+      voice: 'Achernar',
+      model: 'gemini-3.8-flash-tts',
+    );
+
+    expect(bytes, _wav([9]));
+    expect(sent!.text, 'Habari.');
+    expect(sent!.languageCode, 'sw');
+    expect(sent!.voice, 'Achernar');
+    expect(sent!.model, 'gemini-3.8-flash-tts');
+  });
+
   test('blank narration inputs and empty audio fail closed', () async {
     final service = FirebaseAiLogicService(
       config: _Config(),
       speakCall: (_) async => Uint8List(0),
+      logger: _MockLogger(),
     );
 
     await expectLater(
@@ -350,11 +383,47 @@ void main() {
     );
   });
 
+  test('a non-WAV response fails closed', () async {
+    final logger = _MockLogger();
+    final service = FirebaseAiLogicService(
+      config: _Config(),
+      speakCall: (_) async => Uint8List.fromList([1, 2, 3, 4]),
+      logger: logger,
+    );
+
+    await expectLater(
+      service.speakExplanation(
+        text: 'Hi',
+        languageCode: 'en-US',
+        voice: 'Achernar',
+        model: 'gemini-3.8-flash-tts',
+      ),
+      throwsA(AppError.unknown),
+    );
+
+    final messages = verify(() => logger.e(captureAny<String>())).captured;
+    final logged = messages.join(' ');
+    expect(logged, contains('non-WAV'));
+  });
+
+  group('isWavAudio', () {
+    test('accepts RIFF bytes', () {
+      expect(isWavAudio(_wav([1])), isTrue);
+    });
+
+    test('rejects short and non-RIFF bytes', () {
+      expect(isWavAudio(Uint8List(0)), isFalse);
+      expect(isWavAudio(Uint8List.fromList([1, 2, 3])), isFalse);
+      expect(isWavAudio(Uint8List.fromList([1, 2, 3, 4])), isFalse);
+    });
+  });
+
   test('a narration failure carries no text', () async {
     final service = FirebaseAiLogicService(
       config: _Config(),
       speakCall: (_) async =>
           throw FirebaseAIException('blocked: no cancer here'),
+      logger: _MockLogger(),
     );
 
     final error = await service
@@ -368,6 +437,33 @@ void main() {
 
     expect(error, AppError.serviceUnavailable);
     expect('$error'.contains('cancer'), isFalse);
+  });
+
+  test('a narration failure is logged without text or audio', () async {
+    final logger = _MockLogger();
+    final service = FirebaseAiLogicService(
+      config: _Config(),
+      speakCall: (_) async =>
+          throw FirebaseAIException('blocked: no cancer here'),
+      logger: logger,
+    );
+
+    await expectLater(
+      service.speakExplanation(
+        text: 'Your test found no cancer.',
+        languageCode: 'sw',
+        voice: 'Achernar',
+        model: 'gemini-3.8-flash-tts',
+      ),
+      throwsA(AppError.serviceUnavailable),
+    );
+
+    final messages = verify(() => logger.e(captureAny<String>())).captured;
+    final logged = messages.join(' ');
+    expect(logged, contains('FirebaseAIException'));
+    expect(logged, contains('sw'));
+    expect(logged, isNot(contains('cancer')));
+    expect(logged, isNot(contains('Your test')));
   });
 
   test('the fake logs region and speech calls without content', () async {

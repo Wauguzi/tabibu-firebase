@@ -1,12 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:firebase_ai/firebase_ai.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_remote_config/firebase_remote_config.dart';
+import 'package:flutter/foundation.dart';
 import 'package:injectable/injectable.dart';
+import 'package:logger/logger.dart';
 import 'package:tabibu/core/constants/enums.dart';
 
 /// Model calls a bloc can use: server template calls plus narration.
@@ -139,15 +140,18 @@ class FirebaseAiLogicService implements AiLogicService {
     @ignoreParam TemplateCaller? transcribe,
     @ignoreParam TemplateCaller? readRegionCall,
     @ignoreParam SpeakCaller? speakCall,
+    @ignoreParam Logger? logger,
   }) : _config = config ?? RemoteConfigAiLogicConfig(),
        _transcribe = transcribe ?? callTemplate,
        _readRegionCall = readRegionCall ?? callTemplate,
-       _speakCall = speakCall ?? callSpeak;
+       _speakCall = speakCall ?? callSpeak,
+       _logger = logger ?? Logger();
 
   final AiLogicConfig _config;
   final TemplateCaller _transcribe;
   final TemplateCaller _readRegionCall;
   final SpeakCaller _speakCall;
+  final Logger _logger;
 
   @override
   Future<SymptomTranscript> transcribeSymptoms(
@@ -243,8 +247,24 @@ class FirebaseAiLogicService implements AiLogicService {
       // The request dies with this call: nothing here keeps the text.
       final bytes = await _speakCall(request);
       if (bytes == null || bytes.isEmpty) throw AppError.unknown;
+      // The player is told WAV: anything else fails here, named, instead
+      // of failing silently downstream.
+      if (!isWavAudio(bytes)) {
+        if (kDebugMode) {
+          _logger.e(
+            'Listen speak failed: non-WAV response (${bytes.length} bytes)',
+          );
+        }
+        throw AppError.unknown;
+      }
       return bytes;
     } on Object catch (error) {
+      if (kDebugMode) {
+        _logger.e(
+          'Listen speak failed: ${error.runtimeType} (language $languageCode, '
+          'voice $voice, model $model, text ${text.length} chars)',
+        );
+      }
       throw error is AppError ? error : aiLogicFailure(error);
     }
   }
@@ -273,6 +293,15 @@ Future<String?> callTemplate(TemplateRequest request) async {
   );
   return response.text;
 }
+
+/// True when [bytes] open with the RIFF magic: the container every TTS
+/// response arrives in, and the only one the player names correctly.
+bool isWavAudio(Uint8List bytes) =>
+    bytes.length >= 4 &&
+    bytes[0] == 0x52 && // R
+    bytes[1] == 0x49 && // I
+    bytes[2] == 0x46 && // F
+    bytes[3] == 0x46; // F
 
 /// The SDK boundary. Not called from tests. A plain audio call: no system
 /// instruction, no temperature, so the model only reads the text aloud.

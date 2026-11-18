@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:logger/logger.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/helpers/get_it_helper.dart';
@@ -25,6 +27,7 @@ class ExplanationListenCard extends StatefulWidget {
     this.player,
     this.analytics,
     this.settings,
+    this.logger,
     super.key,
   });
 
@@ -41,12 +44,16 @@ class ExplanationListenCard extends StatefulWidget {
   /// Resolved from Remote Config on first play when absent.
   final SpeechSettings? settings;
 
+  /// Debug failure log; a default logger when absent.
+  final Logger? logger;
+
   @override
   State<ExplanationListenCard> createState() => _ExplanationListenCardState();
 }
 
 class _ExplanationListenCardState extends State<ExplanationListenCard> {
   late final AudioPlayerService _player;
+  late final Logger _logger;
   AnalyticsService? _analyticsOrNull;
   StreamSubscription<AudioPlayback>? _sub;
   final _cache = ExplanationAudioCache();
@@ -68,6 +75,7 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
   void initState() {
     super.initState();
     _player = widget.player ?? getIt<AudioPlayerService>();
+    _logger = widget.logger ?? Logger();
     _analyticsOrNull = widget.analytics;
     _sub = _player.playback.listen(_onPlayback);
   }
@@ -210,12 +218,38 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
       _error = false;
     });
     try {
-      final bytes = _cache.get(key) ?? await widget.speech.speak(request);
+      final cached = _cache.get(key);
+      final Uint8List bytes;
+      if (cached != null) {
+        bytes = cached;
+      } else {
+        try {
+          bytes = await widget.speech.speak(request);
+        } on Object catch (error) {
+          if (kDebugMode) {
+            _logger.e(
+              'Listen speak failed: ${error.runtimeType} '
+              '(language ${request.language}, voice ${request.voice}, '
+              'model ${request.model}, text ${request.text.length} chars)',
+            );
+          }
+          rethrow;
+        }
+      }
       // A stale start drops unplayed: new words, dispose or covering.
       if (!mounted || key != _cacheKey || generation != _generation) return;
       _cache.put(key, bytes);
       _playId = key;
-      await _player.playBytes(bytes, id: key);
+      try {
+        await _player.playBytes(bytes, id: key);
+      } on Object catch (error) {
+        if (kDebugMode) {
+          _logger.e(
+            'Listen play failed: ${error.runtimeType} (${bytes.length} bytes)',
+          );
+        }
+        rethrow;
+      }
       if (generation != _generation) {
         // Started late: stop it, unless a newer start took the player.
         if (_playId == key) unawaited(_player.stop());

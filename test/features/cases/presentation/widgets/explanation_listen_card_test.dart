@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logger/logger.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:tabibu/core/services/analytics_service.dart';
@@ -17,6 +18,8 @@ import 'package:tabibu/l10n/l10n.dart';
 import '../../../../helpers/helpers.dart';
 
 class _MockAnalytics extends Mock implements AnalyticsService {}
+
+class _MockLogger extends Mock implements Logger {}
 
 /// Holds speak open until the gated answer completes.
 class _GatedSpeechClient implements SpeechClient {
@@ -43,6 +46,36 @@ class _GatedPlayer implements AudioPlayerService {
     await _gate;
     await _player.playBytes(bytes, id: id);
   }
+
+  @override
+  Future<void> playUrl(Uri url, {required String id}) =>
+      _player.playUrl(url, id: id);
+
+  @override
+  Future<bool> resume(String id) => _player.resume(id);
+
+  @override
+  Future<void> pause() => _player.pause();
+
+  @override
+  Future<void> stop() => _player.stop();
+
+  @override
+  Future<void> dispose() => _player.dispose();
+}
+
+/// Throws from playBytes, delegating the rest to the fake.
+class _ThrowingPlayer implements AudioPlayerService {
+  _ThrowingPlayer(this._player);
+
+  final FakeAudioPlayerService _player;
+
+  @override
+  Stream<AudioPlayback> get playback => _player.playback;
+
+  @override
+  Future<void> playBytes(Uint8List bytes, {required String id}) =>
+      Future.error(StateError('unplayable'));
 
   @override
   Future<void> playUrl(Uri url, {required String id}) =>
@@ -100,6 +133,7 @@ void main() {
     bool online = true,
     SpeechClient? speechClient,
     AudioPlayerService? audioPlayer,
+    Logger? logger,
   }) {
     return ExplanationListenCard(
       text: text,
@@ -109,6 +143,7 @@ void main() {
       player: audioPlayer ?? player,
       analytics: analytics,
       settings: settings,
+      logger: logger,
     );
   }
 
@@ -352,6 +387,56 @@ void main() {
 
       expect(find.text(l10n.resultDetailListenFailed), findsNothing);
       expect(player.playBytesCalls, hasLength(1));
+    });
+
+    testWidgets('a speak failure is logged without text or audio', (
+      tester,
+    ) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final logger = _MockLogger();
+      await tester.pumpApp(
+        card(
+          speechClient: FakeSpeechClient(error: Exception('down')),
+          logger: logger,
+        ),
+      );
+      await tapPlay(tester, l10n);
+
+      expect(find.text(l10n.resultDetailListenFailed), findsOneWidget);
+      final messages = verify(() => logger.e(captureAny<String>())).captured;
+      final logged = messages.join(' ');
+      expect(logged, contains('speak failed'));
+      expect(logged, contains('TestVoice'));
+      expect(logged, isNot(contains('Your test found no cancer.')));
+    });
+
+    testWidgets('a play failure is logged without text or audio', (
+      tester,
+    ) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final logger = _MockLogger();
+      await tester.pumpApp(
+        card(audioPlayer: _ThrowingPlayer(player), logger: logger),
+      );
+      await tapPlay(tester, l10n);
+
+      expect(find.text(l10n.resultDetailListenFailed), findsOneWidget);
+      final messages = verify(() => logger.e(captureAny<String>())).captured;
+      final logged = messages.join(' ');
+      expect(logged, contains('play failed'));
+      expect(logged, contains('3 bytes'));
+      expect(logged, isNot(contains('Your test found no cancer.')));
+    });
+
+    testWidgets('a valid response plays through the player', (tester) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final wav = Uint8List.fromList([0x52, 0x49, 0x46, 0x46, 9, 9]);
+      await tester.pumpApp(card(speechClient: FakeSpeechClient(audio: wav)));
+      await tapPlay(tester, l10n);
+
+      expect(player.playBytesCalls, hasLength(1));
+      expect(player.playBytesCalls.single, wav);
+      expect(find.text(l10n.resultDetailListenFailed), findsNothing);
     });
 
     testWidgets('offline without cache shows the offline line', (tester) async {

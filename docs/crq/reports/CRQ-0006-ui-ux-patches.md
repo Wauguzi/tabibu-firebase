@@ -177,6 +177,14 @@ branch as it is found, certified on the phone, then recorded here.
     dots while it runs; a loading primary button no longer turns grey anywhere in the app.
     Certified on the iPhone, 18 Nov: both drafts were refused after Mark as discussed, Try again
     brought both back, and both were approved as is.
+25. **Listen to this summary never played.** The player saved every clip as `.m4a`, and iOS
+    picks the decoder from the file name, so the speech audio (WAV) failed to load in either
+    language; the recording cues, also WAV, were silent the same way. A clip that opens with a
+    WAV header is now saved as `.wav` (`audio/wav` on the web), and voice notes keep `.m4a`. The
+    listen path logs each failure in debug builds with its type and lengths only, never the text
+    or the audio, and the speech service refuses a reply that is not WAV by name. Certified on
+    the iPhone, 18 Nov: the patient hears the explanation in the app's language, English or
+    Kiswahili.
 
 ## 2. Business justification
 

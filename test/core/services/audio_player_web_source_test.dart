@@ -12,4 +12,41 @@ void main() {
     expect(uri.toString(), isNot(contains('/tmp/')));
     expect(uri.toString(), isNot(contains(r'\')));
   });
+
+  group('byteFormatOf', () {
+    Uint8List wav() => Uint8List.fromList([
+      ...'RIFF'.codeUnits,
+      36,
+      0,
+      0,
+      0,
+      ...'WAVE'.codeUnits,
+      ...'fmt '.codeUnits,
+    ]);
+
+    test('speech audio (RIFF WAVE) is named and typed as WAV', () {
+      final format = JustAudioPlayerPlatform.byteFormatOf(wav());
+      expect(format.extension, 'wav');
+      expect(format.mimeType, 'audio/wav');
+      expect(
+        JustAudioPlayerPlatform.webByteUri(
+          wav(),
+          mimeType: format.mimeType,
+        ).toString(),
+        contains('audio/wav'),
+      );
+    });
+
+    test('anything else keeps the recorder format', () {
+      for (final bytes in [
+        Uint8List.fromList([0, 0, 0, 24, ...'ftypM4A '.codeUnits]),
+        Uint8List.fromList([...'RIFF'.codeUnits, 0, 0, 0, 0]),
+        Uint8List(0),
+      ]) {
+        final format = JustAudioPlayerPlatform.byteFormatOf(bytes);
+        expect(format.extension, 'm4a');
+        expect(format.mimeType, 'audio/mp4');
+      }
+    });
+  });
 }
