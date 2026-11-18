@@ -75,67 +75,80 @@ Each role, in a line:
 - **Doctors** see their day, order tests, and join multidisciplinary (MDT) consults.
 - **Pathologists** work a desk of cases the AI read first, and sign every report themselves.
 
-The app is built with Flutter for iOS, Android and the web, talks only to Firebase, and holds no
-model key. The AI jobs run inside Cloud Functions, on Gemini through the Agent Platform,
-authenticated by the functions' own service account. The app also calls Firebase AI Logic
-directly: through hybrid inference, a patient can tidy their typed symptoms, on the phone's own
-model where it has one and in the cloud otherwise, and a doctor can summarise their notes on the
-phone only; through server prompt templates, a patient's spoken symptoms become text and a
-pathologist can ask about one region of a slide; and a patient can listen to the explanation their
-doctor approved.
+I submit Tabibu on iOS, with an Android APK for testing. It is built with Flutter, talks only to
+Firebase, and holds no model key. The AI runs in three places:
+
+| Where | What runs there | Model |
+|---|---|---|
+| **On the phone**, through Firebase AI Logic hybrid inference | A patient tidies their typed symptoms before booking; a doctor summarises their own notes while ordering | Apple Foundation Models on iOS, Gemini Nano on Android. Without a local model, the tidy falls back to `gemini-3.5-flash-lite` in the cloud; the notes summary never leaves the phone, so it is offered only where the phone has one |
+| **In the app, in the cloud**, through Firebase AI Logic | Spoken symptoms become text, and a pathologist asks about one region of a slide, both through server prompt templates; a patient listens to the explanation their doctor approved | `gemini-3.8-flash` for the two templates; `gemini-3.8-flash-tts`, voice Achernar, for speech |
+| **In Cloud Functions**, on Gemini through the Agent Platform and the functions' own service account | The symptom summary, the risk check, the pathology pre-read, the report translation, the explanation drafts and the outbreak alert draft | `gemini-3.8-flash` |
 
 > [!NOTE]
-> The server's models run in Cloud Functions, each behind its own Remote Config switch: the risk
-> check, the symptom summary, the pathology pre-read, the report translation, the explanation drafts
-> and the alert draft (which falls back to a fixed template whenever a check fails). The in-app calls
-> have switches too; speaking a symptom and the region read ship switched off, and voice notes in
-> the chats record and play but are not transcribed. Every AI
-> output is a draft: a pathologist signs the report, the doctor approves the patient's
-> explanation, and an approver releases an alert. The
-> [AI service](docs/architecture/reports/ai_preread_service.md) says what each job sees and does.
+> Every AI job has its own Remote Config switch, on the server and in the app, so any one can be
+> turned off without a release; the alert draft falls back to a fixed template whenever a check
+> fails. Voice notes in the chats are recorded and played, not transcribed. Every AI output is a
+> draft: a pathologist signs the report, the doctor approves the patient's explanation, and an
+> approver releases an alert. The [AI service](docs/architecture/reports/ai_preread_service.md)
+> says what each job sees and does.
 
 ## How it works
 
 Each step is a Firestore write that a Cloud Function checks, and each step notifies the next
 person. The order **is** the case, so one record carries a patient from booking to result.
 
-| Step | What happens | AI |
+In the AI column, **Phone** is the on-device model, **App** is a Firebase AI Logic call from the
+app to the cloud, and **Server** is a Cloud Function calling Gemini.
+
+| Step | What happens | AI: where, and which model |
 |---|---|---|
-| 1. Book | A patient books a doctor and types their symptoms. A symptom summary in English and Kiswahili for the doctor. Before sending, the patient may tidy their own text, on the phone where it can; it changes only on "Use this" |
+| 1. Book | A patient books a doctor and types or speaks their symptoms. | **App**, `gemini-3.8-flash` (template): speech becomes text for the patient to check. **Phone**, falling back to `gemini-3.5-flash-lite`: the patient may tidy their own text, which changes only on "Use this". **Server**, `gemini-3.8-flash`: a symptom summary in English and Kiswahili for the doctor |
 | 2. Accept | The doctor accepts, and the slot shows as busy on their public profile. | None |
-| 3. Order | The doctor orders tests. The order gets an `ODR-…` number, and the payment method (cash, or an insurer and policy number) is recorded. Tabibu takes no money. | A risk check suggests tests and, from a fixed template, a protocol advisory. The doctor's notes are translated for the pathologist. The doctor may summarise their notes on the phone only, never stored |
+| 3. Order | The doctor orders tests. The order gets an `ODR-…` number, and the payment method (cash, or an insurer and policy number) is recorded. Tabibu takes no money. | **Server**, `gemini-3.8-flash`: a risk check suggests tests and, from a fixed template, a protocol advisory; it advises and never clears. The doctor's notes are translated for the pathologist. **Phone only**: the doctor may summarise their notes, never stored or sent |
 | 4. Assign | The doctor requests a pathologist, who has 24 hours to accept. | None |
-| 5. Pre-read | For an image-bearing test, slides go up; the pathologist's desk ranks every case. | The pre-read: a label per tile, a heatmap and measurements built in code, and a draft report, readable **only by the case's pathologist** (S-1) |
-| 6. Score and sign | The pathologist scores the pre-read, then edits and signs the report. The doctor opens it with a code from their inbox, behind the device's biometrics. | The pathologist approves the report's translation in one tap |
-| 7. Release | The patient books a discussion. Only when the doctor marks it discussed does the patient see the result (S-3). | A plain-language explanation, which the doctor approves in one tap before the patient sees it |
+| 5. Pre-read | For an image-bearing test, slides go up; the pathologist's desk ranks every case. | **Server**, `gemini-3.8-flash`: the pre-read, a label per tile, a heatmap and measurements built in code, and a draft report, readable **only by the case's pathologist** (S-1). **App**, `gemini-3.8-flash` (template): Ask AI answers a question about one region of a slide, labelled as an AI draft, not a result |
+| 6. Score and sign | The pathologist scores the pre-read, then edits the report and signs it. The doctor opens it with a code from their inbox, behind the device's biometrics. | The pre-read's draft fills the report's diagnosis and comments, marked as AI until the pathologist edits them. **Server**, `gemini-3.8-flash`: the report's translation, which the pathologist approves in one tap |
+| 7. Release | The patient books a discussion. Only when the doctor marks it discussed does the patient see the result (S-3). | **Server**, `gemini-3.8-flash`: a plain-language explanation in English and in Kiswahili, each approved by the doctor before the patient sees it. **App**, `gemini-3.8-flash-tts`: the patient can listen to the approved text, read verbatim in a voice labelled as computer-generated |
 | 8. Talk | Direct threads and MDT discussions carry text, images and voice notes. | None: voice notes are recorded and played, not transcribed |
-| 9. Alert | A pathologist's confirmed notifiable finding becomes an anonymous count. When a county's count calls for it, an alert is drafted. | An English and Kiswahili draft, grounded in bundled Ministry of Health and WHO guidance. It reaches clinicians, then patients in that county, **only after an authorised clinician approves it** |
+| 9. Alert | A pathologist's confirmed notifiable finding becomes an anonymous count. When a county's count calls for it, an alert is drafted. | **Server**, `gemini-3.8-flash`: an English and Kiswahili draft, grounded in bundled Ministry of Health and WHO guidance. It reaches clinicians, then patients in that county, **only after an authorised clinician approves it** |
 
 ```mermaid
 sequenceDiagram
     actor P as Patient
     actor D as Doctor
     actor X as Pathologist
-    participant F as Firebase (rules and functions)
-    participant AI as Gemini (in Cloud Functions)
+    participant L as On-device model
+    participant A as AI Logic, in the cloud
+    participant F as Firebase, rules and functions
+    participant G as Gemini, in Cloud Functions
 
-    P->>F: Book, with symptoms typed
-    F->>AI: Summarise the symptoms (English, Kiswahili)
-    AI-->>F: Summary for the doctor
+    P->>A: Speak the symptoms (template)
+    A-->>P: Text to check
+    P->>L: Tidy my notes (cloud if no local model)
+    L-->>P: Tidied text, kept only on "Use this"
+    P->>F: Book
+    F->>G: Summarise the symptoms
+    G-->>D: Summary in English and Kiswahili
+    D->>L: Summarise my notes (phone only)
     D->>F: Accept, then order tests
-    F->>AI: Risk check on the new order
-    AI-->>F: Advice, never a diagnosis
+    F->>G: Risk check on the new order
+    G-->>D: Advice, never a diagnosis
     D->>F: Request a pathologist
     X->>F: Accept within 24 hours
-    F->>AI: Pre-read of the slides
-    AI-->>X: Draft, readable only by this pathologist
-    X->>F: Score the pre-read, edit, sign
+    F->>G: Pre-read of the slides
+    G-->>X: Draft, readable only by this pathologist
+    X->>A: Ask AI about one region (template)
+    A-->>X: Answer, labelled as an AI draft
+    X->>F: Score the pre-read, edit the AI-filled report, sign
     F-->>D: Signed report
     D->>F: Mark as discussed
-    F->>AI: Draft a plain-language explanation
-    AI-->>D: Draft in each language
-    D->>F: Approve the explanation
+    F->>G: Draft the explanation
+    G-->>D: A draft in English and in Kiswahili
+    D->>F: Approve each
     F-->>P: Result and approved explanation
+    P->>A: Listen (speech, read verbatim)
+    A-->>P: Audio
+    Note over F,G: A confirmed notifiable finding becomes an anonymous count, then an alert draft that only an approver releases
 ```
 
 > [!IMPORTANT]
@@ -158,9 +171,9 @@ emulators.
 |---|---|
 | 1. `flutter pub get` | Fetches the packages |
 | 2. `make gen` | Generates the models, routes, injectables and assets |
-| 3. `make run-dev` | Runs the development flavor (also: `make run-web`) |
+| 3. `make run-dev` | Runs the development flavor |
 
-You are done when the app launches on a simulator, device or Chrome without a build error.
+You are done when the app launches on a simulator or device without a build error.
 
 **If it goes sideways:**
 
@@ -183,23 +196,17 @@ password:
 | Doctor | `tabibu.demo+doctor@gmail.com` | Dr. Achieng Odhiambo, Mbagathi District Hospital; also the alert approver |
 | Pathologist | `tabibu.demo+pathologist@gmail.com` | Dr. Wanjiru Kamau, Kenyatta National Hospital |
 
-> [!WARNING]
-> The [demo accounts](https://drive.google.com/drive/folders/1vupFwEUAz7L0DJBePR35bNW94c-0E4XV?usp=sharing) work on both the mobile app and the web release. It is
-> shared with the judges alongside the submission, never in this repository. No credential
-> belongs in code, assets, fixtures or docs.
-
-The web release is live at
-[tabibu-86ea2.web.app](https://tabibu-86ea2.web.app); the demo accounts above
-sign in there too. The Android APK is in
-[this Drive folder](https://drive.google.com/drive/folders/1vupFwEUAz7L0DJBePR35bNW94c-0E4XV?usp=sharing).
+> [!NOTE]
+> The demo accounts work on the iOS app and the Android APK. The
+> [Drive folder](https://drive.google.com/drive/folders/1vupFwEUAz7L0DJBePR35bNW94c-0E4XV?usp=sharing)
+> has the APK and how to set up and sign in to each account.
 
 The accounts come from `make seed-live`, which also adds two clinic patients and an admin account for
 the Firebase console.
 
-**Voice.** The chats have a microphone in the composer, and the first recording asks for the
-microphone permission. A voice note is recorded and played back and is not transcribed. Speaking a
-symptom at booking is switched off (`voice_input_enabled`). The web build has no recording and says
-so on screen.
+**Voice.** At booking, a patient can speak their symptoms; the recording becomes text for them to
+check before sending. The chats have a microphone in the composer too, where a voice note is
+recorded and played back, not transcribed. The first recording asks for the microphone permission.
 
 So that a patient's search and a doctor's pathologist picker have people to show, `make
 seed-directory` adds 16 doctors and 6 pathologists from

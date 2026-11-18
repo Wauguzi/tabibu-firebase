@@ -191,6 +191,11 @@ branch as it is found, certified on the phone, then recorded here.
     counts whole), shared by the doctor's report, the full report, the PDF and the pathologist's
     pre-read card. A unit the report states still wins, an unknown key reads as words, and the
     label column keeps a gap before its value. Certified on the iPhone, 18 Nov.
+27. **The README.** It no longer mentions the web build: the entry is on iOS, with the Android
+    APK and the account setup in the Drive folder. A table and the How it works column say where
+    each AI job runs (on the phone, from the app to the cloud, or in Cloud Functions) and on
+    which model, and the diagram shows each AI call. The lines saying speech and the region read
+    ship switched off are gone.
 
 ## 2. Business justification
 
