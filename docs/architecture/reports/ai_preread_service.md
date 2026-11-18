@@ -9,9 +9,9 @@
 | Field | Value |
 |---|---|
 | Owner | Theo — CTO, Mobile Engineer |
-| Status | Server jobs built on Gemini; two in-app tasks on the device's own model, one with a cloud fallback (§8); three in-app cloud calls through AI Logic, two of them switched off (§9) |
-| Last reviewed | 2026-11-16 |
-| Runs on | Cloud Functions (`functions/src`), calling Gemini on the Agent Platform through `@google/genai` (`ai-gemini.ts`) |
+| Status | Server jobs built on Gemini; two in-app tasks on the device's own model, one with a cloud fallback (§8); three in-app cloud calls through AI Logic, all on in the live project (§9) |
+| Last reviewed | 2026-11-18 |
+| Runs on | Cloud Functions (`functions/src`), calling Gemini on the Agent Platform through `@google/genai` (`ai-gemini.ts`); every server job uses `gemini-3.8-flash` (`ai_text_model`) |
 | Credentials | None stored. The Functions runtime service account holds Vertex AI User (`roles/aiplatform.user`) and the SDK uses Application Default Credentials |
 | Writes to | Firestore `cases/{caseUid}/preread/{runUid}` and the job records in §1; Storage `preread/{caseUid}/{runUid}/` |
 
@@ -23,10 +23,10 @@
 | **Order risk check and notes translation** | A doctor submits an order, or edits its notes while they are editable | The de-identified notes and the order | Suggested tests, a protocol advisory from a fixed template, and the notes in the other language, from **one call** | The ordering doctor; the translation also the pathologist, beside the original |
 | **Symptom summary** | A patient books with typed symptoms | The de-identified symptom text | A structured summary in English and Swahili from one call | The doctor who takes the appointment |
 | **Report translation** | A version is signed | The signed, de-identified text | The report in the other language | The signer, who approves it before any reader sees it |
-| **Patient explanation** | The doctor marks a result discussed | The signed, de-identified text | A plain-language explanation in English and Swahili | The ordering doctor, who approves it before the patient sees it |
+| **Patient explanation** | The doctor marks a result discussed | The signed, de-identified text | A plain-language explanation in English and Swahili, each written and checked on its own | The ordering doctor, who approves each before the patient sees it, and can ask again for a language the check refused (`requestReportText`) |
 | **Alert drafting** | The detector raises a signal | Disease, county, rule and the bundled guidance; no case data and no numbers | Doctor guidance and a patient notice in en and sw, with placeholders | The alert approver. If the model fails, a fixed template draft is used |
 
-**Speech.** Voice input for symptoms is off (`voice_input_enabled`). The
+**Speech.** Voice input for symptoms is on in the live project; the app's own default is off until Remote Config loads (`voice_input_enabled`). The
 server accepts no audio: the app sends the recording to an AI Logic template
 (§9) and `recordSymptomTranscript` stores the machine transcript, readable by
 no client, after checking the caller, the switch, a daily cap and its shape.
@@ -221,9 +221,9 @@ per-user quota. No prompt is written in the app.
 
 | Call | Who | How | Output | Switch |
 |---|---|---|---|---|
-| **Symptom transcription** | The patient, booking | Server prompt template `symptom-transcribe-v1-0-0`, the WAV held in memory for the one call | JSON `transcript` and `language`; an unclear recording fails closed. The patient checks the text before booking | `voice_input_enabled`, off |
-| **Region read** | The case's pathologist, in the viewer | Server prompt template `slide-region-read-v1-0-0`, the crop the pathologist framed (at most 1024 px) and an optional question, no case field | Impression, features, uncertainty in words and a caveat, in the AI frame; never saved, no copy action | `region_read_enabled`, off |
-| **Listen to this summary** | The patient, on their result | `gemini-3.8-flash-tts` (`ai_tts_model`), voice `Achernar` (`ai_tts_voice`), the approved explanation verbatim, no system instruction or temperature | A WAV played in the app, labelled as a computer-generated voice, cached in memory for the screen | `explanation_listen_enabled`, on; shown only for an approved explanation |
+| **Symptom transcription** | The patient, booking | Server prompt template `symptom-transcribe-v1-0-0`, the WAV held in memory for the one call | JSON `transcript` and `language`; an unclear recording fails closed. The patient checks the text before booking | `voice_input_enabled`, on in the live project; the app's own default is off until Remote Config loads |
+| **Region read** | The case's pathologist, in the viewer | Server prompt template `slide-region-read-v1-0-0`, the crop the pathologist framed (at most 1024 px) and an optional question, no case field | Impression, features, uncertainty in words and a caveat, in the Ask AI panel under the slide, in the AI frame; held in the screen's state only, never saved, no copy action | `region_read_enabled`, on in the live project; the app's own default is off until Remote Config loads |
+| **Listen to this summary** | The patient, on their result | `gemini-3.8-flash-tts` (`ai_tts_model`), voice `Achernar` (`ai_tts_voice`), the approved explanation verbatim, no system instruction or temperature | A WAV, saved for the player as `.wav` so iOS decodes it, played in the app, labelled as a computer-generated voice, cached in memory for the screen | `explanation_listen_enabled`, on; shown only for an approved explanation |
 
 - **Templates live in the console**, locked, under the id of their file in
   `prompts/`; Remote Config names the id (`ai_template_symptom_transcribe`,
@@ -238,4 +238,5 @@ per-user quota. No prompt is written in the app.
 | Date | Change | Author |
 |---|---|---|
 | 2026-11-15 | Crafted for this repository. | Theo |
+| 2026-11-18 | The in-app calls are live; each explanation language stands on its own and can be asked for again; the server's model named; the speech WAV is named for the player. | Theo |
 | 2026-11-16 | §9 added: symptom transcription, the region read and the narrated explanation through AI Logic. | Theo |

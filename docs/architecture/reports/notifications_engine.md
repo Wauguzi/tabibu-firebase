@@ -27,7 +27,7 @@ there when it happened, so it must be a Firestore document.
 `Local` rows are born `synced: true` and cost one Hive write and no
 Firestore reads. Marking a `Cloud` row read **does** sync (three fields:
 `status`, `readAt`, `lastUpdatedAt`), because the same person may open the
-web demo next and should not see it as unread again.
+app on another device next and should not see it as unread again.
 
 ## 2. Event catalogue
 
@@ -201,8 +201,8 @@ Required indexes: `(recipientUid, creationDate desc)` for the inbox,
 
 ## 6. Localisation
 
-`title` and `message` always hold resolved text, so a push payload or the
-web demo can render without the ARB bundle. Rows also carry `templateKey` and
+`title` and `message` always hold resolved text, so a push payload can
+render without the ARB bundle. Rows also carry `templateKey` and
 `templateArgs`, and the inbox re-renders from the ARB bundle in the person's
 **current** language, so switching to Swahili does not leave an English
 inbox behind. `NotificationTemplate` is an enum and the copy function's

@@ -1,14 +1,14 @@
 # Tabibu — Design System
 
 > **The single source of truth for Tabibu's UI language**, across the
-> patient, doctor and pathologist workspaces and the web demo. Every token
+> patient, doctor and pathologist workspaces. Every token
 > cites the file it lives in, so when this document and the code disagree,
 > the code wins and this file is due an update. While the Lead Designer
 > seat is open, I own both the visual language and its implementation.
 
 | Field | Value |
 |---|---|
-| Platform | Flutter: web demo, Android, iOS |
+| Platform | Flutter: iOS and Android (the code also builds for the web) |
 | Owner | Theo — CTO, Mobile Engineer (covering Lead Designer) |
 | Status | Draft — foundations and color values defined |
 | Last reviewed | 2026-11-15 |
@@ -289,8 +289,8 @@ enforces it, so no screen implements it on its own.
 
 - **Locales**: `en` and `sw`, at parity. A string added in one ARB file only
   is incomplete.
-- **Text scale**: natural on phones; capped at 1.15x on tablets and desktop
-  web. Screens are tested at 1.0x and 2.0x; an overflow at 2.0x is a defect.
+- **Text scale**: natural on phones; capped at 1.15x on tablets and large
+  screens. Screens are tested at 1.0x and 2.0x; an overflow at 2.0x is a defect.
 - **Contrast**: WCAG AA for text on every surface, checked when the palette
   lands (§2.1).
 - **Color is never the only signal** (§2.1, §4.2): the overlay legend,
@@ -304,8 +304,8 @@ enforces it, so no screen implements it on its own.
   the distinction.
 - **Screen readers**: overlays and badges have semantic labels; the viewer
   announces the selected finding.
-- **Large viewports**: the pathologist workspace is designed for a desktop
-  browser first, since that is where a pathologist reads. Reading content in
+- **Large viewports**: the pathologist workspace is designed for a large
+  screen first, since that is where a pathologist reads. Reading content in
   sheets is capped at 640 logical pixels wide.
 
 ## 7. Content & copy conventions

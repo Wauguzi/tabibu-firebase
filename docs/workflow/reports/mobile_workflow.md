@@ -11,7 +11,7 @@
 
 | Field | Value |
 |---|---|
-| Sub-department | Engineering (mobile, web demo, AI service) |
+| Sub-department | Engineering (mobile, AI service) |
 | Parent department | Technology |
 | Owner | Theo — CTO, Mobile Engineer |
 | Status | Living |
@@ -22,7 +22,8 @@
 Engineering owns Tabibu end to end:
 
 - **The Flutter app** — patient, doctor and pathologist workspaces from one
-  codebase, shipped for iOS and Android; it also builds for the web.
+  codebase, submitted on iOS, with an Android APK for testing; it also builds for the
+  web, which is not shipped.
 - **Firebase** — Auth, Firestore, Storage, Cloud Functions, FCM, App Check,
   Remote Config, and the security rules that are the real data boundary.
 - **The AI service** — the Cloud Functions jobs that call Gemini: the
@@ -115,7 +116,7 @@ The loop from idea to live demo:
    are clean. AI service changes also re-run the evaluation on the fixed
    held-out sample and file a new evaluation report if the numbers move.
 6. **Certification.** Code is not committed until I have run it and
-   certified it on a device, the simulator, or the web demo. Documentation-only
+   certified it on a device or the simulator. Documentation-only
    changes are exempt. This is a hard gate.
 7. **Commit and review.** Foundation work lands directly on `main`. Feature
    work happens on a branch, with a CRQ for each change it carries (a long
@@ -147,9 +148,9 @@ The loop from idea to live demo:
    [`mobile_architecture.md` §13](../../architecture/reports/mobile_architecture.md#13-cicd)).
 9. **Release.** Merging to `main` drafts a release tagged with the branch's
    `pubspec.yaml` version, which is why every branch bumps it. Publishing
-   with `make release-publish` marks it Latest. The web demo is deployed
-   with one seeded account per role. Android and iOS builds are produced for
-   the video and for judges who want to install the app.
+   with `make release-publish` marks it Latest. The entry runs on iOS, with
+   one seeded account per role; the Android APK, in the Drive folder shared
+   with the submission, is for judges who want to install the app.
 10. **If something breaks**, see §7 and the
     [Incident Report](../../incidents/templates/IRP_TEMPLATE.md). A recurring
     or systemic cause is promoted to a

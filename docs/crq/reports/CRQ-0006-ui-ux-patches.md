@@ -196,6 +196,12 @@ branch as it is found, certified on the phone, then recorded here.
     each AI job runs (on the phone, from the app to the cloud, or in Cloud Functions) and on
     which model, and the diagram shows each AI call. The lines saying speech and the region read
     ship switched off are gone.
+28. **The docs matched the old plan.** The architecture, AI service, design system, workflow,
+    notifications and threat model documents presented a web demo as shipped and said voice
+    input and the region read were off. They now say the entry is iOS with an Android APK (the
+    code still builds for the web), that the in-app AI calls are on in the live project with
+    the app's own defaults off until Remote Config loads, that every server job runs on
+    `gemini-3.8-flash`, and that each explanation language can be asked for again.
 
 ## 2. Business justification
 
