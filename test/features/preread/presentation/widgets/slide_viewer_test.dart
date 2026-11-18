@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
+import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -96,6 +98,7 @@ void main() {
     VoidCallback? onAskRegion,
     ImageProvider? image,
     ImageProvider? heatmap,
+    RegionCaptureController? regionCaptureController,
   }) {
     return SizedBox(
       width: 390,
@@ -109,6 +112,7 @@ void main() {
         onTiles: onTiles,
         askRegionLabel: 'Ask AI about this region',
         onAskRegion: onAskRegion,
+        regionCaptureController: regionCaptureController,
         scaleLabel: 'x20 · 1 mm',
         legendLow: 'Normal',
         legendHigh: 'Likely tumour',
@@ -177,19 +181,57 @@ void main() {
       expect(find.text('Heat map'), findsOneWidget);
     });
 
-    testWidgets('the zoom pill sits at the right edge, with its own icons', (
+    testWidgets('zoom is two round buttons at the right edge, with a gap', (
       tester,
     ) async {
       await tester.pumpApp(viewer(heatmapOn: true, onHeatmapChanged: (_) {}));
       await tester.pump();
 
-      final pill = tester.getRect(
+      final zoomIn = tester.getRect(find.bySemanticsLabel('Zoom in'));
+      final zoomOut = tester.getRect(find.bySemanticsLabel('Zoom out'));
+      final image = tester.getRect(
         find
-            .ancestor(
-              of: find.bySemanticsLabel('Zoom in'),
-              matching: find.byType(DecoratedBox),
+            .descendant(
+              of: find.byType(SlideViewer),
+              matching: find.byType(ClipRRect),
             )
             .first,
+      );
+      // Each its own circle, 48 dp to tap, with air between them.
+      expect(find.byType(CircleIconButton), findsNWidgets(2));
+      expect(zoomIn.width, 48);
+      expect(zoomOut.top - zoomIn.bottom, AppSpacing.xs);
+      expect(find.byType(Divider), findsNothing);
+      expect(image.right - zoomIn.right, AppSpacing.xs);
+    });
+
+    testWidgets('Ask AI sits at the slide bottom right, after the AI star', (
+      tester,
+    ) async {
+      await tester.pumpApp(
+        SizedBox(
+          width: 390,
+          child: SlideViewer(
+            image: okImage,
+            heatmapOn: true,
+            onHeatmapChanged: (_) {},
+            heatmapLabel: 'Heat map',
+            tilesLabel: 'Tiles',
+            askRegionLabel: 'Ask AI',
+            askRegionSemanticLabel: 'Ask AI about this region',
+            onAskRegion: () {},
+            scaleLabel: 'x20 · 1 mm',
+            legendLow: 'Normal',
+            legendHigh: 'Likely tumour',
+            zoomInLabel: 'Zoom in',
+            zoomOutLabel: 'Zoom out',
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final ask = tester.getRect(
+        find.bySemanticsLabel('Ask AI about this region'),
       );
       final image = tester.getRect(
         find
@@ -199,39 +241,22 @@ void main() {
             )
             .first,
       );
-      // The pill ends at the image's corner, not part-way along the row.
-      expect(image.right - pill.right, AppSpacing.xs);
-
-      expect(find.byType(CircleIconButton), findsNothing);
-      final zoomIcons = tester
-          .widgetList<AssetIcon>(
-            find.descendant(
-              of: find.byType(SlideViewer),
-              matching: find.byType(AssetIcon),
-            ),
-          )
-          .where(
-            (i) =>
-                i.asset == Assets.icons.zoomInIcon ||
-                i.asset == Assets.icons.zoomOutIcon,
-          )
-          .toList();
-      expect(zoomIcons, hasLength(2));
-      expect(zoomIcons.every((i) => i.size == 20 && !i.scaleUp), isTrue);
-    });
-
-    testWidgets('a hairline between the two stops short of the pill edges', (
-      tester,
-    ) async {
-      await tester.pumpApp(viewer(heatmapOn: true, onHeatmapChanged: (_) {}));
-      await tester.pump();
-
-      final divider = tester.getRect(find.byType(Divider));
-      final zoomIn = tester.getRect(find.bySemanticsLabel('Zoom in'));
-      // Inside the button column on both sides: it touches neither edge.
-      expect(divider.left, greaterThan(zoomIn.left));
-      expect(divider.right, lessThan(zoomIn.right));
-      expect(divider.height, 1);
+      expect(image.right - ask.right, AppSpacing.xs);
+      expect(image.bottom - ask.bottom, AppSpacing.xs);
+      // Not in the top row with the heat map toggle.
+      expect(
+        ask.top,
+        greaterThan(tester.getRect(find.text('Heat map')).bottom),
+      );
+      final star = tester.getRect(
+        find.byWidgetPredicate(
+          (w) => w is AssetIcon && w.asset == Assets.icons.sparkleIcon,
+        ),
+      );
+      expect(
+        star.right,
+        lessThanOrEqualTo(tester.getRect(find.text('Ask AI')).left),
+      );
     });
 
     testWidgets('zoom buttons change scale and stop at the bounds', (
@@ -303,6 +328,107 @@ void main() {
         ),
       );
       expect(tester.takeException(), isNull);
+    });
+
+    TransformationController transformOf(WidgetTester tester) {
+      return tester
+          .widget<InteractiveViewer>(find.byType(InteractiveViewer))
+          .transformationController!;
+    }
+
+    Future<void> doubleTapAt(WidgetTester tester, Offset global) async {
+      await tester.tapAt(global);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(global);
+      await tester.pump();
+      await tester.pump(SlideViewer.zoomDuration);
+    }
+
+    testWidgets('zoom buttons keep the viewport centre fixed', (tester) async {
+      await tester.pumpApp(viewer(heatmapOn: false, onHeatmapChanged: (_) {}));
+      await tester.pumpAndSettle();
+
+      final controller = transformOf(tester);
+      final size = tester.getSize(find.byType(InteractiveViewer));
+      final centre = Offset(size.width / 2, size.height / 2);
+      final before = controller.toScene(centre);
+
+      await tester.tap(find.bySemanticsLabel('Zoom in'));
+      await tester.pump();
+      final zoomed = controller.toScene(centre);
+      expect(zoomed.dx, closeTo(before.dx, 0.01));
+      expect(zoomed.dy, closeTo(before.dy, 0.01));
+      expect(controller.value.getMaxScaleOnAxis(), greaterThan(1));
+
+      await tester.tap(find.bySemanticsLabel('Zoom out'));
+      await tester.pump();
+      final restored = controller.toScene(centre);
+      expect(restored.dx, closeTo(before.dx, 0.01));
+      expect(restored.dy, closeTo(before.dy, 0.01));
+      expect(controller.value.getMaxScaleOnAxis(), 1);
+    });
+
+    testWidgets('a double tap zooms about the point, and the next returns '
+        'to 1x', (tester) async {
+      await tester.pumpApp(viewer(heatmapOn: false, onHeatmapChanged: (_) {}));
+      await tester.pumpAndSettle();
+
+      final box = tester.renderObject<RenderBox>(
+        find.byType(InteractiveViewer),
+      );
+      const local = Offset(70, 120);
+      final controller = transformOf(tester);
+      final before = controller.toScene(local);
+
+      await doubleTapAt(tester, box.localToGlobal(local));
+      expect(
+        controller.value.getMaxScaleOnAxis(),
+        closeTo(SlideViewer.doubleTapScale, 0.01),
+      );
+      final zoomed = controller.toScene(local);
+      expect(zoomed.dx, closeTo(before.dx, 0.01));
+      expect(zoomed.dy, closeTo(before.dy, 0.01));
+
+      await doubleTapAt(tester, box.localToGlobal(local));
+      expect(controller.value.getMaxScaleOnAxis(), closeTo(1, 0.01));
+      expect(controller.value.getTranslation().x, closeTo(0, 0.01));
+      expect(controller.value.getTranslation().y, closeTo(0, 0.01));
+    });
+
+    testWidgets('the crop after a double tap is the visible region', (
+      tester,
+    ) async {
+      final controller = RegionCaptureController();
+      await tester.pumpApp(
+        viewer(
+          heatmapOn: false,
+          onHeatmapChanged: (_) {},
+          regionCaptureController: controller,
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final box = tester.renderObject<RenderBox>(
+        find.byType(InteractiveViewer),
+      );
+      await doubleTapAt(tester, box.localToGlobal(const Offset(80, 140)));
+
+      final matrix = transformOf(tester).value;
+      final size = tester.getSize(find.byType(InteractiveViewer));
+      final visible = visibleRegionRect(transform: matrix, viewportSize: size);
+      expect(visible.width, lessThan(size.width - 1));
+
+      final png = await tester.runAsync(controller.captureRegion);
+      expect(png, isNotNull);
+      final image = await tester.runAsync(() {
+        final done = Completer<ui.Image>();
+        ui.decodeImageFromList(png!, done.complete);
+        return done.future;
+      });
+      addTearDown(image!.dispose);
+      final ratio = regionCapturePixelRatio(max(visible.width, visible.height));
+      expect(image.width, closeTo(visible.width * ratio, 2));
+      expect(image.height, closeTo(visible.height * ratio, 2));
     });
   });
 }

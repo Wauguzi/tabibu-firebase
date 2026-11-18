@@ -5,7 +5,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/core/services/analytics_service.dart';
-import 'package:tabibu/core/widgets/ai_draft_frame.dart';
 import 'package:tabibu/core/widgets/tabibu_bottom_sheet.dart';
 import 'package:tabibu/core/widgets/tabibu_button.dart';
 import 'package:tabibu/core/widgets/tabibu_text_field.dart';
@@ -15,18 +14,21 @@ import 'package:tabibu/features/preread/data/region_read_client.dart';
 import 'package:tabibu/features/preread/presentation/widgets/region_capture.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
-/// Opens the region read sheet: an optional question, then the AI read in a
-/// draft frame. The read is never saved and never copied anywhere; closing
-/// the sheet discards it.
-Future<void> showRegionReadSheet({
+/// What a successful ask hands back: the read plus the question asked.
+typedef RegionReadAnswer = ({RegionReadResult result, String question});
+
+/// Opens the region read sheet: an optional question, then Ask. Success
+/// closes the sheet and returns the answer; a dismiss returns null.
+Future<RegionReadAnswer?> showRegionReadSheet({
   required BuildContext context,
   required RegionReadClient client,
   required RegionCaptureController captureController,
   String stain = '',
   AnalyticsService? analytics,
+  Future<Uint8List?> Function()? capture,
 }) {
   final l10n = context.l10n;
-  return TabibuBottomSheet.show<void>(
+  return TabibuBottomSheet.show<RegionReadAnswer>(
     context,
     title: l10n.regionAskAction,
     builder: (_) => RegionReadSheetBody(
@@ -34,6 +36,7 @@ Future<void> showRegionReadSheet({
       captureController: captureController,
       stain: stain,
       analytics: analytics,
+      capture: capture,
     ),
   );
 }
@@ -62,12 +65,11 @@ class RegionReadSheetBody extends StatefulWidget {
   State<RegionReadSheetBody> createState() => _RegionReadSheetBodyState();
 }
 
-enum _Phase { question, asking, result, error }
+enum _Phase { question, asking, error }
 
 class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
   final _question = TextEditingController();
   _Phase _phase = .question;
-  RegionReadResult? _result;
 
   AnalyticsService? _analyticsOrNull;
 
@@ -98,7 +100,7 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
     setState(() => _phase = .asking);
     final analytics = _analytics;
     try {
-      // Drawing or encoding can throw. Outside this try the spinner stays.
+      // Drawing or encoding can throw. Outside this try the button spins.
       final capture = widget.capture;
       final bytes = await (capture != null
           ? capture()
@@ -108,19 +110,18 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
         unawaited(_failed(analytics));
         return;
       }
+      final question = RegionReadRequest.cleanQuestion(_question.text);
       final result = await widget.client.readRegion(
         RegionReadRequest(
           imageBytes: bytes,
-          question: RegionReadRequest.cleanQuestion(_question.text),
+          question: question,
           stain: widget.stain,
         ),
       );
       if (!mounted) return;
-      setState(() {
-        _result = result;
-        _phase = .result;
-      });
       await analytics?.logRegionRead(outcome: 'shown');
+      if (!mounted) return;
+      Navigator.of(context).pop((result: result, question: question));
     } on Object catch (_) {
       if (!mounted) return;
       unawaited(_failed(analytics));
@@ -137,7 +138,8 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
     final l10n = context.l10n;
     final textTheme = Theme.of(context).textTheme;
     switch (_phase) {
-      case .question:
+      case .question || .asking:
+        final asking = _phase == .asking;
         return Column(
           mainAxisSize: .min,
           crossAxisAlignment: .stretch,
@@ -145,50 +147,23 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
             TabibuTextField(
               // A white field on the white sheet: the hairline makes it seen.
               bordered: true,
-              label: l10n.regionQuestionHint,
+              label: l10n.regionQuestionLabel,
+              hint: l10n.regionQuestionHint,
               controller: _question,
               maxLines: 3,
               maxLength: RegionReadRequest.maxQuestionLength,
               sanitizePaste: true,
+              readOnly: asking,
               textInputAction: .go,
               onSubmitted: (_) => _ask(),
             ),
             const SizedBox(height: AppSpacing.sm),
-            TabibuButton.primary(label: l10n.regionAskSubmit, onTap: _ask),
+            TabibuButton.primary(
+              label: l10n.regionAskSubmit,
+              onTap: _ask,
+              isLoading: asking,
+            ),
           ],
-        );
-      case .asking:
-        return const SizedBox(
-          height: 160,
-          child: Center(child: CircularProgressIndicator()),
-        );
-      case .result:
-        final result = _result;
-        if (result == null) return const SizedBox.shrink();
-        return AiDraftFrame(
-          label: l10n.workspaceAiDraft,
-          child: Column(
-            mainAxisSize: .min,
-            crossAxisAlignment: .stretch,
-            children: [
-              Text(result.impression, style: textTheme.bodyLarge),
-              const SizedBox(height: AppSpacing.sm),
-              Text(l10n.regionFeatures, style: textTheme.titleSmall),
-              const SizedBox(height: AppSpacing.xxs),
-              for (final feature in result.features)
-                Text('• $feature', style: textTheme.bodyMedium),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                '${l10n.regionUncertainty}: '
-                '${_uncertainty(l10n, result.uncertainty)}',
-                style: textTheme.bodyMedium,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(l10n.regionCaveat, style: textTheme.titleSmall),
-              const SizedBox(height: AppSpacing.xxs),
-              Text(result.caveat, style: textTheme.bodyMedium),
-            ],
-          ),
         );
       case .error:
         return Column(
@@ -201,13 +176,5 @@ class _RegionReadSheetBodyState extends State<RegionReadSheetBody> {
           ],
         );
     }
-  }
-
-  String _uncertainty(AppLocalizations l10n, RegionUncertainty value) {
-    return switch (value) {
-      .low => l10n.regionUncertaintyLow,
-      .medium => l10n.regionUncertaintyMedium,
-      .high => l10n.regionUncertaintyHigh,
-    };
   }
 }

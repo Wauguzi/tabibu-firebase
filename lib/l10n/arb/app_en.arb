@@ -4609,6 +4609,26 @@
     "@signedTabEmptyBody": {
         "description": "Signed tab: empty state body"
     },
+    "signedTabSignedNotifiable": "Signed with a notifiable finding",
+    "@signedTabSignedNotifiable": {
+        "description": "Signed tab: count card title under the Notifiable filter, counting every such report"
+    },
+    "signedTabEmptyToday": "Nothing signed today",
+    "@signedTabEmptyToday": {
+        "description": "Signed tab: empty state under the Today filter"
+    },
+    "signedTabEmptyWeek": "Nothing signed this week",
+    "@signedTabEmptyWeek": {
+        "description": "Signed tab: empty state under the This week filter"
+    },
+    "signedTabEmptyNotifiable": "No notifiable findings",
+    "@signedTabEmptyNotifiable": {
+        "description": "Signed tab: empty state under the Notifiable filter"
+    },
+    "signedTabEmptyNotifiableBody": "Reports where you mark a notifiable disease positive show here.",
+    "@signedTabEmptyNotifiableBody": {
+        "description": "Signed tab: empty state body under the Notifiable filter"
+    },
     "doctorReportSubtitle": "{patient} · {caseNumber}",
     "@doctorReportSubtitle": {
         "description": "Doctor report: subtitle with patient name and case number",
@@ -5154,14 +5174,6 @@
     "@workspaceYourEdit": {
         "description": "Label on a section the pathologist edited; the screen appends the time"
     },
-    "workspaceStartFromAiDraft": "Start from the AI draft",
-    "@workspaceStartFromAiDraft": {
-        "description": "Workspace button: copy the AI text into the report fields"
-    },
-    "workspaceWriteOwn": "Write my own",
-    "@workspaceWriteOwn": {
-        "description": "Workspace button: start the report fields empty"
-    },
     "workspaceCriticalFinding": "Critical finding",
     "@workspaceCriticalFinding": {
         "description": "Workspace marker for a critical result"
@@ -5191,7 +5203,7 @@
             }
         }
     },
-    "workspaceNotifiableExplainer": "Ticking adds this case to the area alert engine when you sign.",
+    "workspaceNotifiableExplainer": "Switching on adds this case to the area alert engine when you sign.",
     "@workspaceNotifiableExplainer": {
         "description": "Explainer under the notifiable checkboxes"
     },
@@ -5283,6 +5295,43 @@
     "scoreSave": "Save score",
     "@scoreSave": {
         "description": "Score card button"
+    },
+    "scoreAnswerEveryQuestion": "Answer every * question to save",
+    "@scoreAnswerEveryQuestion": {
+        "description": "Under Save score while a required verdict is unanswered"
+    },
+    "workspaceAiFilledHint": "The AI's diagnosis and comments are filled in. Edit the remarks before you sign.",
+    "@workspaceAiFilledHint": {
+        "description": "Diagnosis step: over the fields the AI draft filled in, to be edited"
+    },
+    "scoreSavedSummary": "Done · overall {n} of 5",
+    "@scoreSavedSummary": {
+        "description": "The AI score step when collapsed after saving",
+        "placeholders": {
+            "n": {
+                "type": "int"
+            }
+        }
+    },
+    "workspaceStepAiScore": "AI score",
+    "@workspaceStepAiScore": {
+        "description": "Heading of the first reporting step"
+    },
+    "workspaceStepWaiting": "Waiting",
+    "@workspaceStepWaiting": {
+        "description": "Reporting step state while an earlier step is unfinished"
+    },
+    "workspaceStepToDo": "To do",
+    "@workspaceStepToDo": {
+        "description": "Reporting step state when it can be done now"
+    },
+    "workspaceStepDone": "Done",
+    "@workspaceStepDone": {
+        "description": "Reporting step state when the step is finished"
+    },
+    "workspaceDiagnosisWaiting": "Save the AI score to start the diagnosis.",
+    "@workspaceDiagnosisWaiting": {
+        "description": "Why the Diagnosis step stays closed until the score is saved"
     },
     "scoreLockLine": "Score the AI draft to start your report.",
     "@scoreLockLine": {
@@ -8354,9 +8403,9 @@
             }
         }
     },
-    "workspaceAiPrereadNotResult": "AI pre-read, not a result",
-    "@workspaceAiPrereadNotResult": {
-        "description": "Beside the heatmap legend: unsigned AI, not a signed finding"
+    "workspaceAiPrereadDisclaimer": "Disclaimer: AI pre-read, not a result",
+    "@workspaceAiPrereadDisclaimer": {
+        "description": "AI pre-read card: disclaimer that the pre-read is not a result"
     },
     "explanationFailedBody": "The AI could not write this explanation. Nothing was sent to the patient.",
     "@explanationFailedBody": {
@@ -8715,13 +8764,21 @@
     },
     "regionAskAction": "Ask AI about this region",
     "@regionAskAction": {
-        "description": "Slide viewer: ask for an AI read of the visible region"
+        "description": "Slide viewer: ask for an AI read of the visible region (the sheet's title, and what a screen reader says for the button)"
+    },
+    "regionAskButton": "Ask AI",
+    "@regionAskButton": {
+        "description": "Slide viewer: the short button, bottom right of the slide, for the region read"
     },
     "regionAskSubmit": "Ask",
     "@regionAskSubmit": {
         "description": "Region sheet: submit the read request"
     },
-    "regionQuestionHint": "Optional question about this region",
+    "regionQuestionLabel": "Question",
+    "@regionQuestionLabel": {
+        "description": "Region sheet: label for the optional question field"
+    },
+    "regionQuestionHint": "Any anomalies in this region?",
     "@regionQuestionHint": {
         "description": "Region sheet: hint for the optional question field"
     },
@@ -8752,5 +8809,17 @@
     "regionFailed": "Couldn't read that region just now.",
     "@regionFailed": {
         "description": "Region sheet: read failed, with retry"
+    },
+    "regionReadGuide": "Zoom into an area of the slide, then tap Ask AI for an AI read of just that region.",
+    "@regionReadGuide": {
+        "description": "Ask AI panel: guide shown before the first region read"
+    },
+    "regionReadDraftLabel": "Ask AI draft",
+    "@regionReadDraftLabel": {
+        "description": "Ask AI panel: frame label on the region read"
+    },
+    "regionReadDisclaimer": "Disclaimer: Ask AI draft, not a result",
+    "@regionReadDisclaimer": {
+        "description": "Ask AI panel: disclaimer under a region read, once an answer exists"
     }
 }

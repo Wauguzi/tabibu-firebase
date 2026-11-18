@@ -11,6 +11,7 @@ class VerdictSelector<T> extends StatelessWidget {
     required this.options,
     required this.selected,
     required this.onSelected,
+    this.required = false,
     super.key,
   });
 
@@ -19,26 +20,31 @@ class VerdictSelector<T> extends StatelessWidget {
   final T? selected;
   final ValueChanged<T> onSelected;
 
+  /// Required questions take the field asterisk. The comment does not.
+  final bool required;
+
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
     return Column(
       crossAxisAlignment: .stretch,
       children: [
-        Text(label, style: textTheme.titleSmall),
+        _QuestionLabel(label: label, required: required),
         const SizedBox(height: AppSpacing.xs),
-        Wrap(
-          spacing: AppSpacing.xs,
-          runSpacing: AppSpacing.xs,
-          children: [
-            for (final (value, text) in options)
-              TabibuFilterChip(
-                label: text,
-                selected: selected == value,
-                onTap: selected == value ? null : () => onSelected(value),
-              ),
-          ],
+        // A wrap puts Swahili and large text on a second line.
+        SingleChildScrollView(
+          scrollDirection: .horizontal,
+          child: Row(
+            children: [
+              for (final (index, (value, text)) in options.indexed) ...[
+                if (index > 0) const SizedBox(width: AppSpacing.sm),
+                TabibuFilterChip(
+                  label: text,
+                  selected: selected == value,
+                  onTap: selected == value ? null : () => onSelected(value),
+                ),
+              ],
+            ],
+          ),
         ),
       ],
     );
@@ -52,6 +58,7 @@ class OverallScore extends StatelessWidget {
     required this.onChanged,
     required this.label,
     required this.semanticLabelFor,
+    this.required = false,
     super.key,
   });
 
@@ -59,6 +66,9 @@ class OverallScore extends StatelessWidget {
   final ValueChanged<int> onChanged;
   final String label;
   final String Function(int) semanticLabelFor;
+
+  /// The field asterisk. Overall is required; the comment is not.
+  final bool required;
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +79,7 @@ class OverallScore extends StatelessWidget {
     return Column(
       crossAxisAlignment: .stretch,
       children: [
-        Text(label, style: textTheme.titleSmall),
+        _QuestionLabel(label: label, required: required),
         const SizedBox(height: AppSpacing.xs),
         Row(
           mainAxisAlignment: .spaceBetween,
@@ -121,6 +131,33 @@ class OverallScore extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// The question title. Required questions take the same red asterisk as a
+/// required field; the style is only the colour so it matches that mark.
+class _QuestionLabel extends StatelessWidget {
+  const _QuestionLabel({required this.label, required this.required});
+
+  final String label;
+  final bool required;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = Theme.of(context).textTheme.titleSmall;
+    if (!required) return Text(label, style: style);
+    return Text.rich(
+      TextSpan(
+        text: label,
+        style: style,
+        children: [
+          TextSpan(
+            text: ' *',
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ],
+      ),
     );
   }
 }

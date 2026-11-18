@@ -23,6 +23,7 @@ class WorkspaceScoreCard extends StatelessWidget {
     required this.onSave,
     this.enabled = true,
     this.saving = false,
+    this.missingAnswers,
     super.key,
   });
 
@@ -45,6 +46,11 @@ class WorkspaceScoreCard extends StatelessWidget {
   /// The score is on its way to the server: the button spins.
   final bool saving;
 
+  /// Shown under Save score while a required answer is still missing.
+  /// The caller passes the localized line. Without one, the button
+  /// stays quiet.
+  final String? missingAnswers;
+
   bool get _complete =>
       findings != null &&
       impression != null &&
@@ -56,6 +62,7 @@ class WorkspaceScoreCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
+    final missing = missingAnswers;
     final agree = [
       ('Agree', l10n.scoreAgree),
       ('PartlyAgree', l10n.scorePartlyAgree),
@@ -83,6 +90,7 @@ class WorkspaceScoreCard extends StatelessWidget {
           options: agree,
           selected: findings,
           onSelected: onFindings,
+          required: true,
         ),
         const SizedBox(height: AppSpacing.md),
         VerdictSelector<String>(
@@ -90,6 +98,7 @@ class WorkspaceScoreCard extends StatelessWidget {
           options: agree,
           selected: impression,
           onSelected: onImpression,
+          required: true,
         ),
         const SizedBox(height: AppSpacing.md),
         VerdictSelector<String>(
@@ -97,6 +106,7 @@ class WorkspaceScoreCard extends StatelessWidget {
           options: agree,
           selected: urgency,
           onSelected: onUrgency,
+          required: true,
         ),
         const SizedBox(height: AppSpacing.md),
         VerdictSelector<String>(
@@ -104,6 +114,7 @@ class WorkspaceScoreCard extends StatelessWidget {
           options: measure,
           selected: measurements,
           onSelected: onMeasurements,
+          required: true,
         ),
         const SizedBox(height: AppSpacing.md),
         VerdictSelector<String>(
@@ -111,6 +122,7 @@ class WorkspaceScoreCard extends StatelessWidget {
           options: tile,
           selected: tiles,
           onSelected: onTiles,
+          required: true,
         ),
         const SizedBox(height: AppSpacing.md),
         OverallScore(
@@ -118,6 +130,7 @@ class WorkspaceScoreCard extends StatelessWidget {
           onChanged: onOverall,
           label: l10n.scoreOverall,
           semanticLabelFor: l10n.scoreOutOfFive,
+          required: true,
         ),
         const SizedBox(height: AppSpacing.md),
         TabibuTextField(
@@ -131,6 +144,41 @@ class WorkspaceScoreCard extends StatelessWidget {
           label: l10n.scoreSave,
           isLoading: saving,
           onTap: enabled && !saving && _complete ? onSave : null,
+        ),
+        if (missing != null && enabled && !saving && !_complete) ...[
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            missing,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+/// The one line a saved score collapses to: a done mark and the summary.
+class WorkspaceScoreSummary extends StatelessWidget {
+  const WorkspaceScoreSummary({required this.label, super.key});
+
+  /// Already localized, for example "Saved · overall 4 of 5".
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        ExcludeSemantics(child: StatusMark.done(label: label, diameter: 24)),
+        const SizedBox(width: AppSpacing.sm),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(fontWeight: .w500),
+          ),
         ),
       ],
     );

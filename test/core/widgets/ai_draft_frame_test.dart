@@ -91,5 +91,60 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Model: pre-read v1'), findsOneWidget);
     });
+
+    testWidgets('starts open only when asked', (tester) async {
+      await tester.pumpApp(
+        const AiDraftFrame(
+          label: 'AI draft — not signed',
+          detail: 'Model: pre-read v1',
+          initiallyExpanded: true,
+          child: Text('Body'),
+        ),
+      );
+      expect(find.text('Model: pre-read v1'), findsOneWidget);
+    });
+
+    testWidgets('a remount under the same storage keeps the choice', (
+      tester,
+    ) async {
+      final bucket = PageStorageBucket();
+
+      Widget frame({required bool initiallyExpanded}) {
+        return PageStorage(
+          bucket: bucket,
+          child: AiDraftFrame(
+            key: const PageStorageKey('draft'),
+            label: 'AI draft — not signed',
+            detail: 'Model: pre-read v1',
+            initiallyExpanded: initiallyExpanded,
+            child: const Text('Body'),
+          ),
+        );
+      }
+
+      Future<void> remount({required bool initiallyExpanded}) async {
+        await tester.pumpApp(const SizedBox());
+        await tester.pumpApp(frame(initiallyExpanded: initiallyExpanded));
+        await tester.pumpAndSettle();
+      }
+
+      await tester.pumpApp(frame(initiallyExpanded: true));
+      await tester.pumpAndSettle();
+      expect(find.text('Model: pre-read v1'), findsOneWidget);
+
+      await tester.tap(find.text('AI draft — not signed'));
+      await tester.pumpAndSettle();
+      expect(find.text('Model: pre-read v1'), findsNothing);
+
+      await remount(initiallyExpanded: true);
+      expect(find.text('Model: pre-read v1'), findsNothing);
+
+      await tester.tap(find.text('AI draft — not signed'));
+      await tester.pumpAndSettle();
+      expect(find.text('Model: pre-read v1'), findsOneWidget);
+
+      await remount(initiallyExpanded: false);
+      expect(find.text('Model: pre-read v1'), findsOneWidget);
+    });
   });
 }
