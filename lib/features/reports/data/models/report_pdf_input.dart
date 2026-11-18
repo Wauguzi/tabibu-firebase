@@ -3,6 +3,7 @@ import 'package:tabibu/core/constants/enums.dart';
 import 'package:tabibu/features/reports/data/models/pathology_report_model.dart';
 import 'package:tabibu/features/reports/data/models/report_response_model.dart';
 import 'package:tabibu/features/reports/data/models/report_text_approved_model.dart';
+import 'package:tabibu/features/reports/data/services/report_labels.dart';
 
 part 'report_pdf_input.freezed.dart';
 part 'report_pdf_input.g.dart';
@@ -328,7 +329,17 @@ abstract class ReportPdfInput with _$ReportPdfInput {
       ),
       blocks: blocks,
       measurements: report.measurements
-          .map((m) => PdfMeasurement(key: m.key, value: m.formatted))
+          .map(
+            (m) => PdfMeasurement(
+              key: m.key,
+              value: reportMeasurementValue(
+                m.key,
+                m.value,
+                unit: m.unit,
+                precision: m.precision,
+              ),
+            ),
+          )
           .toList(),
       addenda: report.addenda
           .map((a) => PdfAddendum(text: a.text, signedAt: a.signedAt))

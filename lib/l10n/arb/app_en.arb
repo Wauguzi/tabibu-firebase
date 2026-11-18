@@ -2070,6 +2070,38 @@
     "@reportQuestionMethodNotes": {
         "description": "Report template question: how the test was run"
     },
+    "reportMeasurementTileCount": "Tiles read",
+    "@reportMeasurementTileCount": {
+        "description": "Report measurements: the row name for the `tileCount` measurement"
+    },
+    "reportMeasurementTumourTiles": "Tiles with tumour",
+    "@reportMeasurementTumourTiles": {
+        "description": "Report measurements: the row name for the `tumourTiles` measurement"
+    },
+    "reportMeasurementNormalTiles": "Normal tiles",
+    "@reportMeasurementNormalTiles": {
+        "description": "Report measurements: the row name for the `normalTiles` measurement"
+    },
+    "reportMeasurementUnknownTiles": "Unclear tiles",
+    "@reportMeasurementUnknownTiles": {
+        "description": "Report measurements: the row name for the `unknownTiles` measurement"
+    },
+    "reportMeasurementLargestFocusTiles": "Largest focus, in tiles",
+    "@reportMeasurementLargestFocusTiles": {
+        "description": "Report measurements: the row name for the `largestFocusTiles` measurement"
+    },
+    "reportMeasurementLargestFocusMm": "Largest focus",
+    "@reportMeasurementLargestFocusMm": {
+        "description": "Report measurements: the row name for the `largestFocusMm` measurement"
+    },
+    "reportMeasurementTumourAreaPercent": "Tumour area",
+    "@reportMeasurementTumourAreaPercent": {
+        "description": "Report measurements: the row name for the `tumourAreaPercent` measurement"
+    },
+    "reportMeasurementParasitaemiaPercent": "Parasitaemia",
+    "@reportMeasurementParasitaemiaPercent": {
+        "description": "Report measurements: the row name for the `parasitaemiaPercent` measurement"
+    },
     "notificationOrderCreatedBody": "Your doctor has ordered tests for you.",
     "@notificationOrderCreatedBody": {
         "description": "Inbox body for the `orderCreated` push"

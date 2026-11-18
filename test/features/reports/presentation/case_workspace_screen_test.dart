@@ -1066,7 +1066,7 @@ void main() {
           _aiNextStep,
           l10n.deskBandRow(l10n.deskBandHigh, '87%'),
           l10n.urgencyPriority,
-          'density · 2.5',
+          'Density · 2.50',
         ]) {
           expect(inFrame(find.text(value)), findsOneWidget, reason: value);
         }

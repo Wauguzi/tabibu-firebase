@@ -1134,7 +1134,10 @@ class _PrereadCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(l10n.reportPdfMeasurements, style: textTheme.titleSmall),
             for (final (key, value) in measurements)
-              Text('$key · $value', style: textTheme.bodyMedium),
+              Text(
+                '${reportMeasurementLabel(l10n, key)} · $value',
+                style: textTheme.bodyMedium,
+              ),
           ],
           if (draft.impression.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),

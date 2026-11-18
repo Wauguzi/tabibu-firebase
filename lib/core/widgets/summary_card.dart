@@ -116,6 +116,7 @@ class SummaryCardRow extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(width: AppSpacing.sm),
           Expanded(
             child: Text(value, style: valueStyle ?? textTheme.bodyMedium),
           ),

@@ -894,7 +894,7 @@ class _Page {
               pw.TableRow(
                 children: [
                   _measureCell(
-                    _orMissing(measurement.key),
+                    _orMissing(reportMeasurementLabel(l10n, measurement.key)),
                     font: fonts.regular,
                     align: .left,
                   ),

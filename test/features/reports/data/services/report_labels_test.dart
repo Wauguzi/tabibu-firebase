@@ -49,4 +49,47 @@ void main() {
       expect(reportDiagnosisTypeLabel(en, 'Draft'), 'Draft');
     });
   });
+
+  group('reportMeasurementLabel', () {
+    test('every measurement the server writes reads as words', () {
+      for (final key in const [
+        'tileCount',
+        'tumourTiles',
+        'normalTiles',
+        'unknownTiles',
+        'largestFocusTiles',
+        'largestFocusMm',
+        'tumourAreaPercent',
+        'parasitaemiaPercent',
+      ]) {
+        for (final l10n in [en, sw]) {
+          final label = reportMeasurementLabel(l10n, key);
+          expect(label, isNot(key));
+          expect(label, isNot(matches(RegExp('[a-z][A-Z]'))));
+        }
+      }
+      expect(reportMeasurementLabel(en, 'tumourAreaPercent'), 'Tumour area');
+    });
+
+    test('an unknown key reads as plain words, not as the key', () {
+      expect(reportMeasurementLabel(en, 'mitoticCount'), 'Mitotic count');
+      expect(reportMeasurementLabel(en, ''), '');
+    });
+  });
+
+  group('reportMeasurementValue', () {
+    test('a percent, a length and a count', () {
+      expect(reportMeasurementValue('tumourAreaPercent', 26.666), '26.67%');
+      expect(reportMeasurementValue('largestFocusMm', 1.2), '1.20 mm');
+      expect(reportMeasurementValue('tumourTiles', 12), '12');
+      expect(reportMeasurementValue('density', 2.5), '2.50');
+    });
+
+    test('a unit the report states wins, at its precision', () {
+      expect(
+        reportMeasurementValue('size', 3, unit: 'mm', precision: 0),
+        '3 mm',
+      );
+    });
+  });
 }

@@ -3,6 +3,7 @@ import 'package:tabibu/core/utils/nairobi_time.dart';
 import 'package:tabibu/features/alerts/data/models/notifiable_disease_model.dart';
 import 'package:tabibu/features/cases/data/models/case_model.dart';
 import 'package:tabibu/features/preread/data/models/preread_model.dart';
+import 'package:tabibu/features/reports/data/services/report_labels.dart';
 import 'package:tabibu/features/worklist/presentation/widgets/desk_facts.dart';
 
 /// The AI findings as one comments string (the server's signing compare).
@@ -32,15 +33,10 @@ String workspaceScaleLabel(double micronsPerPixel) {
 String workspaceDiseaseName(NotifiableDiseaseModel disease, String language) =>
     language == 'sw' ? disease.nameSw : disease.nameEn;
 
-/// Measurement rows from the pre-read map (key → value).
+/// Measurement rows from the pre-read map: the key and its value with unit.
 List<(String, String)> workspaceMeasurementRows(Map<String, double> values) => [
   for (final entry in values.entries)
-    (
-      entry.key,
-      entry.value == entry.value.roundToDouble()
-          ? entry.value.toStringAsFixed(0)
-          : entry.value.toString(),
-    ),
+    (entry.key, reportMeasurementValue(entry.key, entry.value)),
 ];
 
 /// A lab accession number made the way the order number is: `LAB-{AO}-

@@ -85,11 +85,19 @@ void main() {
   });
 
   group('workspaceMeasurementRows', () {
-    test('keeps whole numbers whole and other values as they are', () {
-      expect(workspaceMeasurementRows(const {'count': 12, 'density': 2.5}), [
-        ('count', '12'),
-        ('density', '2.5'),
-      ]);
+    test('counts stay whole; a percent and a length carry their unit', () {
+      expect(
+        workspaceMeasurementRows(const {
+          'tumourTiles': 12,
+          'tumourAreaPercent': 26.666,
+          'largestFocusMm': 1.2,
+        }),
+        [
+          ('tumourTiles', '12'),
+          ('tumourAreaPercent', '26.67%'),
+          ('largestFocusMm', '1.20 mm'),
+        ],
+      );
     });
 
     test('is empty without measurements', () {

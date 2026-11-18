@@ -185,6 +185,12 @@ branch as it is found, certified on the phone, then recorded here.
     or the audio, and the speech service refuses a reply that is not WAV by name. Certified on
     the iPhone, 18 Nov: the patient hears the explanation in the app's language, English or
     Kiswahili.
+26. **Report measurements read as database keys.** "tumourAreaPercent" ran into "26.67" in a
+    fixed 120 dp column, and tile counts showed as "12.00". Each measurement now has a name in
+    English and Kiswahili, with its unit ("Tumour area 26.67%", "Largest focus 1.20 mm", tile
+    counts whole), shared by the doctor's report, the full report, the PDF and the pathologist's
+    pre-read card. A unit the report states still wins, an unknown key reads as words, and the
+    label column keeps a gap before its value. Certified on the iPhone, 18 Nov.
 
 ## 2. Business justification
 
@@ -213,8 +219,8 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | AI service (prompts, models, thresholds) | None | |
 | Security (rules, App Check, RASP, secrets) | Changed | Patch 4 brings stored photo URLs in line with the existing profile rules, which are unchanged. Patch 6 changes the app lock: one method at a time, fingerprint/face no longer behind a PIN, the phone's passcode its fallback (threat model T-11) |
 | Data protection (PHI, de-identification, model endpoints) | None | |
-| Design system / UI consistency | Extended | `GroupedRow` gains a caption and a disabled state: muted text, the neutral icon tone, no chevron, announced as a disabled button with its reason. `TabibuButton.primary` keeps its colour while loading (patch 24) |
-| Localisation (en, sw) | Added, removed | Added `chatRowWaitingCaption`, `errorConversationUnavailable`, `resultsFilterWaiting`, `profileSavedToast`, `explanationLanguageFailed`; removed the six strings only "My profile" used |
+| Design system / UI consistency | Extended | `GroupedRow` gains a caption and a disabled state: muted text, the neutral icon tone, no chevron, announced as a disabled button with its reason. `TabibuButton.primary` keeps its colour while loading (patch 24); `SummaryCardRow` keeps a gap before its value (patch 26) |
+| Localisation (en, sw) | Added, removed | Added `chatRowWaitingCaption`, `errorConversationUnavailable`, `resultsFilterWaiting`, `profileSavedToast`, `explanationLanguageFailed`, the eight `reportMeasurement…` names; removed the six strings only "My profile" used |
 | Existing data | None | |
 
 ## 5. Risk & rollback plan
@@ -235,12 +241,12 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Check | Result |
 |---|---|
 | `make analyze` / `make bloc-lint` | Pass — no issues |
-| `make test` (`TZ=UTC`) | Pass — 3,776 after patch 22 |
+| `make test` (`TZ=UTC`) | Pass — 3,806 after patch 26 |
 | `make functions-test` | Pass — 664, with the photo URL check and the Storage copy (patch 4) |
 | `make rules-test` | Pass — 249, with RT-203 (patch 14) |
 | `make spell` | Pass — 0 issues |
-| Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed |
-| Manual run | Patches 1 to 22 certified on the iPhone 14, 17–18 Nov; the patient's and doctor's sides are done, the pathologist's under way |
+| Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed. Patch 23: the refresh on open and the busy field and button. Patch 24: the kept failed language, the `requestReportText` call, the refused retry, the failed line and the loading colour. Patch 25: the WAV name and type, each debug log, the WAV check and the `sw` code. Patch 26: the names and the gap |
+| Manual run | Patches 1 to 26 certified on the iPhone 14, 17–18 Nov; the patient's and doctor's sides are done, the pathologist's under way |
 | Certification | Pending the end of the run |
 
 ## 8. Approval
