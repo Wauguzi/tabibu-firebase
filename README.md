@@ -221,6 +221,20 @@ two alerts. Ids are keyed by `SEED_CASES_TAG` (empty by default). The slides are
 fetched at seed time). The pre-reads are stored examples, each marked as one in the app, not live
 model output.
 
+**Slides for each test.** Only the tests a pathologist reads under a microscope take slides and a
+pre-read; which ones is fixed in `functions/src/lab-tests.ts`.
+
+| Test | Slides and pre-read | Where the images are | Source and licence |
+|---|---|---|---|
+| Histopathology examination, immunohistochemistry (IHC), the IHC cancer panel | Yes, the cancer pre-read | [`functions/data/demo_slides/`](functions/data/demo_slides/): `histology_hero.jpg`, `histology_uncertain.jpg`, `histology_queued.jpg`; `slides.json` names the PatchCamelyon patch behind every tile and its label | [PatchCamelyon](https://doi.org/10.1007/978-3-030-00934-2_24), CC0 |
+| Blood smear for light microscopy for malaria | Yes, the malaria pre-read | Not committed: `make seed-cases` builds the field from the cells listed under `malaria` in `functions/data/demo_slides/slides.json` | The U.S. National Library of Medicine's [thin-smear cell images](https://lhncbc.nlm.nih.gov/LHC-research/LHC-projects/image-processing/malaria-datasheet.html); the page states no licence, so the cells are fetched, never stored |
+| NAATs (Ebola, Marburg, Lassa and the other viral haemorrhagic fevers) and every other test | No | None: a nucleic-acid test is read by a laboratory instrument, not a microscope, so the pathologist records the result and its notifiable finding | — |
+
+The model's own reference tiles are there too: four labelled few-shot examples in
+[`functions/data/pcam_fewshot/`](functions/data/pcam_fewshot/), and the tuning and held-out
+samples behind the [baseline evaluation](docs/testing/reports/EVAL-0001-cancer-preread-gemini-baseline.md)
+in `functions/data/tune_pcam/` and `functions/data/eval_pcam/`, all PatchCamelyon (CC0).
+
 | Key | Stage | What the demo uses it for |
 |---|---|---|
 | `requestWithSlide` | `PathologistRequested` | Pathologist: "New case waiting" (en: that title; sw: *Kesi mpya inasubiri*), one slide already registered — accept |

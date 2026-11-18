@@ -230,6 +230,13 @@ branch as it is found, certified on the phone, then recorded here.
     accounts and topics, with no name, facility, case id or number in the patient's text). The
     one gap was the app's: every alert list asked for real notices only, so a delivered demo
     notice never appeared. A demo account now asks for demo notices, anyone else for real ones.
+33. **Judges could not tell which tests take slides, or where each set lives.** The README now
+    has a table: the cancer tests use the committed PatchCamelyon mosaics in
+    `functions/data/demo_slides/`, the malaria smear is built at seed time from the NLM cells it
+    lists (fetched, never stored, as their page states no licence), and the NAATs, Ebola's
+    included, take no slides: a nucleic-acid test is read by an instrument, so no Ebola image set
+    is added (the alert engine's §10 already says so). It also points to the few-shot, tuning and
+    held-out PatchCamelyon sets.
 
 ## 2. Business justification
 
