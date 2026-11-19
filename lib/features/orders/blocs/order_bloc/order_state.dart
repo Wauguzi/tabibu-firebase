@@ -42,7 +42,9 @@ sealed class OrderState extends Equatable {
       draft.created &&
       riskCheckSettled &&
       draft.pathologistUid.isNotEmpty &&
-      (!flagged || draft.protocolConfirmed);
+      (!flagged || draft.protocolConfirmed) &&
+      !draft.patientPending &&
+      !draft.patientHeld;
 
   @override
   List<Object?> get props => [

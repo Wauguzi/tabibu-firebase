@@ -31,6 +31,7 @@ class PatientHive {
     required this.createdAt,
     required this.lastUpdatedAt,
     required this.synced,
+    this.held,
   });
 
   factory PatientHive.fromModel(PatientModel model) {
@@ -59,6 +60,7 @@ class PatientHive {
       createdAt: model.createdAt,
       lastUpdatedAt: model.lastUpdatedAt,
       synced: model.synced,
+      held: model.held,
     );
   }
 
@@ -88,6 +90,7 @@ class PatientHive {
       createdAt: createdAt,
       lastUpdatedAt: lastUpdatedAt,
       synced: synced,
+      held: held ?? false,
     );
   }
 
@@ -162,4 +165,8 @@ class PatientHive {
 
   @HiveField(23)
   final bool synced;
+
+  // Nullable so a record saved before this field reads as not held.
+  @HiveField(24)
+  final bool? held;
 }

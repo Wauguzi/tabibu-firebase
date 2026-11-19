@@ -312,7 +312,8 @@ class _AppointmentChatScreenState extends State<AppointmentChatScreen> {
         ),
         Expanded(
           child: LayoutBuilder(
-            builder: (context, constraints) => RefreshIndicator(
+            builder: (context, constraints) => RefreshIndicator.adaptive(
+              color: Theme.of(context).colorScheme.primary,
               onRefresh: () async => _refresh(conversation.uid),
               child: SingleChildScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),

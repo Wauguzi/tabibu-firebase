@@ -21,6 +21,8 @@ final class OrderStarted extends OrderEvent {
     this.testIds = const [],
     this.caseUid = '',
     this.declinedPathologistUids = const [],
+    this.patientPending = false,
+    this.patientHeld = false,
   });
 
   final String appointmentUid;
@@ -29,6 +31,12 @@ final class OrderStarted extends OrderEvent {
   final String doctorUid;
   final List<String> testIds;
   final String caseUid;
+
+  /// Saved on the phone and not yet on the record.
+  final bool patientPending;
+
+  /// Another clinic holds this patient.
+  final bool patientHeld;
 
   /// Pathologists who already refused this case, never offered again.
   final List<String> declinedPathologistUids;
@@ -42,6 +50,8 @@ final class OrderStarted extends OrderEvent {
     testIds,
     caseUid,
     declinedPathologistUids,
+    patientPending,
+    patientHeld,
   ];
 }
 

@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_bloc.dart';
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_event.dart';
 import 'package:tabibu/features/alerts/blocs/public_alerts_bloc/public_alerts_bloc.dart';
@@ -26,6 +27,8 @@ import 'package:tabibu/features/notifications/blocs/notifications_bloc/notificat
 import 'package:tabibu/features/onboarding/blocs/onboarding_bloc/onboarding_bloc.dart';
 import 'package:tabibu/features/orders/blocs/order_bloc/order_bloc.dart';
 import 'package:tabibu/features/orders/blocs/order_bloc/order_event.dart';
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_bloc.dart';
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_event.dart';
 import 'package:tabibu/features/practitioners/blocs/directory_bloc/directory_bloc.dart';
 import 'package:tabibu/features/practitioners/blocs/directory_bloc/directory_event.dart';
 import 'package:tabibu/features/reports/blocs/case_workspace_bloc/case_workspace_bloc.dart';
@@ -61,6 +64,7 @@ abstract final class BlocsHelper {
     BlocProvider<CaseWorkspaceBloc>(create: (_) => CaseWorkspaceBloc()),
     BlocProvider<ReportReaderBloc>(create: (_) => ReportReaderBloc()),
     BlocProvider<OrderBloc>(create: (_) => OrderBloc()),
+    BlocProvider<PatientsBloc>(create: (_) => getIt<PatientsBloc>()),
   ];
 
   /// Sign-out wipes the encrypted boxes, so every feature bloc holding user
@@ -83,5 +87,6 @@ abstract final class BlocsHelper {
     context.read<CaseWorkspaceBloc>().add(const CaseWorkspaceReset());
     context.read<ReportReaderBloc>().add(const ReportReaderReset());
     context.read<OrderBloc>().add(const OrderReset());
+    context.read<PatientsBloc>().add(const PatientsReset());
   }
 }

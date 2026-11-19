@@ -391,10 +391,38 @@ class _OrderDetailsStepState extends State<OrderDetailsStep> {
             AppSpacing.screenMargin,
             AppSpacing.md,
           ),
-          child: TabibuButton.primary(
-            label: l10n.orderCreate,
-            isLoading: busy,
-            onTap: busy ? null : _create,
+          child: Column(
+            crossAxisAlignment: .stretch,
+            children: [
+              if (state.draft.patientPending)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: Text(
+                    l10n.orderPatientNotSent,
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: .center,
+                  ),
+                ),
+              if (state.draft.patientHeld)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.xs),
+                  child: Text(
+                    l10n.errorPatientExists,
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: .center,
+                  ),
+                ),
+              TabibuButton.primary(
+                label: l10n.orderCreate,
+                isLoading: busy,
+                onTap:
+                    busy ||
+                        state.draft.patientPending ||
+                        state.draft.patientHeld
+                    ? null
+                    : _create,
+              ),
+            ],
           ),
         ),
       ],

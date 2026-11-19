@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:bloc_test/bloc_test.dart';
-
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -34,6 +33,7 @@ import 'package:tabibu/features/home/presentation/doctor_home_screen.dart';
 import 'package:tabibu/features/notifications/blocs/notifications_bloc/notifications_event.dart';
 import 'package:tabibu/features/notifications/blocs/notifications_bloc/notifications_state.dart';
 import 'package:tabibu/features/notifications/data/models/notification_model.dart';
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_event.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
 import '../../../helpers/helpers.dart';
@@ -277,6 +277,11 @@ void main() {
       verify(
         () => blocs.cases.add(
           const CasesRequested(uid: 'doctor-1', role: Role.doctor),
+        ),
+      ).called(1);
+      verify(
+        () => blocs.patients.add(
+          const PatientsSyncRequested(doctorUid: 'doctor-1'),
         ),
       ).called(1);
       verify(
@@ -817,6 +822,11 @@ void main() {
           const CasesRefreshed(uid: 'doctor-1', role: Role.doctor),
         ),
       ).called(1);
+      verify(
+        () => blocs.patients.add(
+          const PatientsSyncRequested(doctorUid: 'doctor-1'),
+        ),
+      ).called(2);
     });
 
     testWidgets('renders in light and dark with ink text on the hero pill', (

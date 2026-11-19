@@ -42,6 +42,8 @@ import 'package:tabibu/features/notifications/blocs/notifications_bloc/notificat
 import 'package:tabibu/features/notifications/blocs/notifications_bloc/notifications_event.dart';
 import 'package:tabibu/features/notifications/blocs/notifications_bloc/notifications_state.dart';
 import 'package:tabibu/features/notifications/data/models/notification_model.dart';
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_bloc.dart';
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_event.dart';
 import 'package:tabibu/features/profile/data/models/doctor_model.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
@@ -106,6 +108,9 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
     context.read<CasesBloc>().add(
       CasesRequested(uid: _doctor.uid, role: .doctor),
     );
+    context.read<PatientsBloc>().add(
+      PatientsSyncRequested(doctorUid: _doctor.uid),
+    );
     context.read<NotificationsBloc>().add(
       NotificationsRequested(uid: _doctor.uid),
     );
@@ -153,6 +158,9 @@ class _DoctorHomeScreenState extends State<DoctorHomeScreen> {
     );
     context.read<CasesBloc>().add(
       CasesRefreshed(uid: _doctor.uid, role: .doctor),
+    );
+    context.read<PatientsBloc>().add(
+      PatientsSyncRequested(doctorUid: _doctor.uid),
     );
     // The queue has no refresh event; the request reads it live again.
     if (_roles.canApproveAlerts) {

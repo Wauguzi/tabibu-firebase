@@ -73,6 +73,11 @@ import 'package:tabibu/features/notifications/data/cache/notification_cache_help
     as _i219;
 import 'package:tabibu/features/notifications/data/datasources/notification_firebase.dart'
     as _i1063;
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_bloc.dart'
+    as _i1058;
+import 'package:tabibu/features/patients/data/datasources/patient_firebase.dart'
+    as _i83;
+import 'package:tabibu/features/patients/data/patient_sync.dart' as _i594;
 import 'package:tabibu/features/practitioners/data/cache/practitioner_cache_helper.dart'
     as _i750;
 import 'package:tabibu/features/practitioners/data/datasources/practitioner_firebase.dart'
@@ -209,6 +214,9 @@ extension GetItInjectableX on _i174.GetIt {
       () =>
           _i1063.NotificationFirebase(firestore: gh<_i974.FirebaseFirestore>()),
     );
+    gh.lazySingleton<_i83.PatientFirebase>(
+      () => _i83.PatientFirebase(firestore: gh<_i974.FirebaseFirestore>()),
+    );
     gh.lazySingleton<_i821.PractitionerFirebase>(
       () =>
           _i821.PractitionerFirebase(firestore: gh<_i974.FirebaseFirestore>()),
@@ -254,6 +262,15 @@ extension GetItInjectableX on _i174.GetIt {
         storage: gh<_i457.FirebaseStorage>(),
       ),
     );
+    gh.lazySingleton<_i594.PatientSync>(
+      () => _i594.PatientSync.installed(
+        gh<_i809.FirebaseFunctions>(),
+        gh<_i598.FacilitiesHelper>(),
+        gh<_i418.HiveHelper>(),
+        gh<_i76.InternetService>(),
+        gh<_i83.PatientFirebase>(),
+      ),
+    );
     gh.lazySingleton<_i407.WorklistCacheHelper>(
       () => _i407.WorklistCacheHelper(
         db: gh<_i705.DBHelper>(),
@@ -277,6 +294,9 @@ extension GetItInjectableX on _i174.GetIt {
         notificationService: gh<_i1051.NotificationService>(),
         hiveHelper: gh<_i418.HiveHelper>(),
       ),
+    );
+    gh.factory<_i1058.PatientsBloc>(
+      () => _i1058.PatientsBloc(gh<_i594.PatientSync>()),
     );
     gh.lazySingleton<_i679.ConversationCacheHelper>(
       () => _i679.ConversationCacheHelper(

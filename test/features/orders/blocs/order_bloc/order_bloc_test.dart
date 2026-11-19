@@ -396,6 +396,55 @@ void main() {
       await bloc.close();
     });
 
+    test('a pending patient is not ordered', () async {
+      final bloc = build()
+        ..add(
+          const OrderStarted(
+            appointmentUid: '',
+            patientId: 'pat-pending',
+            patientName: 'Amina',
+            doctorUid: 'doc-1',
+            patientPending: true,
+          ),
+        )
+        ..add(const OrderTestToggled(labTestId: 't1'));
+      await bloc.stream.firstWhere(
+        (s) => s is OrderEditing && s.draft.testIds.contains('t1'),
+      );
+      bloc.add(const OrderCreateRequested());
+      final state = await bloc.stream.firstWhere((s) => s is OrderWriteFailure);
+
+      expect((state as OrderWriteFailure).error, AppError.noInternet);
+      expect(state.canSend, isFalse);
+      verifyNever(() => internet.check());
+      verifyNotCreated();
+      await bloc.close();
+    });
+
+    test('a held patient is not ordered', () async {
+      final bloc = build()
+        ..add(
+          const OrderStarted(
+            appointmentUid: '',
+            patientId: 'pat-held',
+            patientName: 'Amina',
+            doctorUid: 'doc-1',
+            patientHeld: true,
+          ),
+        )
+        ..add(const OrderTestToggled(labTestId: 't1'));
+      await bloc.stream.firstWhere(
+        (s) => s is OrderEditing && s.draft.testIds.contains('t1'),
+      );
+      bloc.add(const OrderCreateRequested());
+      final state = await bloc.stream.firstWhere((s) => s is OrderWriteFailure);
+
+      expect((state as OrderWriteFailure).error, AppError.patientExists);
+      expect(state.canSend, isFalse);
+      verifyNotCreated();
+      await bloc.close();
+    });
+
     test('an invalid draft never calls the server', () async {
       final bloc = build()..add(_started);
       await bloc.stream.firstWhere((s) => s is OrderEditing);

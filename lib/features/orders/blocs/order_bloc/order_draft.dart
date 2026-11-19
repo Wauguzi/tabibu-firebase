@@ -38,6 +38,8 @@ class OrderDraft extends Equatable {
     this.created = false,
     this.pathologistUid = '',
     this.protocolConfirmed = false,
+    this.patientPending = false,
+    this.patientHeld = false,
   });
 
   // The server's limits (functions/src/cases.ts).
@@ -70,6 +72,12 @@ class OrderDraft extends Equatable {
 
   /// The doctor ticked "The protocol is in place" for a flagged order.
   final bool protocolConfirmed;
+
+  /// Saved on this phone, not yet accepted by `addPatient`.
+  final bool patientPending;
+
+  /// Another clinic holds this patient, so the order cannot be sent (T-16).
+  final bool patientHeld;
 
   /// Everything that stops `createOrder`, judged against [now].
   List<OrderDraftIssue> issues(DateTime now) {
@@ -126,10 +134,15 @@ class OrderDraft extends Equatable {
     bool? created,
     String? pathologistUid,
     bool? protocolConfirmed,
+    String? appointmentUid,
+    String? patientId,
+    String? patientName,
+    bool? patientPending,
+    bool? patientHeld,
   }) => OrderDraft(
-    appointmentUid: appointmentUid,
-    patientId: patientId,
-    patientName: patientName,
+    appointmentUid: appointmentUid ?? this.appointmentUid,
+    patientId: patientId ?? this.patientId,
+    patientName: patientName ?? this.patientName,
     doctorUid: doctorUid,
     caseUid: caseUid,
     testIds: testIds ?? this.testIds,
@@ -144,6 +157,8 @@ class OrderDraft extends Equatable {
     created: created ?? this.created,
     pathologistUid: pathologistUid ?? this.pathologistUid,
     protocolConfirmed: protocolConfirmed ?? this.protocolConfirmed,
+    patientPending: patientPending ?? this.patientPending,
+    patientHeld: patientHeld ?? this.patientHeld,
   );
 
   @override
@@ -165,5 +180,7 @@ class OrderDraft extends Equatable {
     created,
     pathologistUid,
     protocolConfirmed,
+    patientPending,
+    patientHeld,
   ];
 }

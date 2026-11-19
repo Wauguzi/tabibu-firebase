@@ -698,6 +698,21 @@ describe('reports', () => {
   });
 
   describe('markDiscussed', () => {
+    it('a walk-in case is marked discussed with no appointment', async () => {
+      const signed = await signedCase(w, w.deps, {}, { appointmentUid: '' });
+      assert.equal((await caseDoc(w, signed.caseUid)).appointmentUid, '');
+      assert.equal((await caseDoc(w, signed.caseUid)).discussionAppointmentUid, '');
+      await unlockForDoctor(signed);
+      await markDiscussedHandler(w.deps, w.doctor, {
+        caseUid: signed.caseUid,
+        reportUid: signed.reportUid,
+      });
+      const doc = await caseDoc(w, signed.caseUid);
+      assert.equal(doc.currentStage, 'ResultReleased');
+      assert.equal(doc.releasedToPatient, true);
+      assert.equal(doc.discussionAppointmentUid, '');
+    });
+
     it('is refused until the doctor holds the report, then releases it and lets the patient read', async () => {
       const signed = await signedCase(w);
       const input = { caseUid: signed.caseUid, reportUid: signed.reportUid };

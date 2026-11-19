@@ -1864,5 +1864,11 @@
     "regionFailed": "Imeshindikana kusoma sehemu hii sasa.",
     "regionReadGuide": "Kuza sehemu ya slaidi, kisha gusa Uliza AI kwa usomaji wa AI wa sehemu hiyo tu.",
     "regionReadDraftLabel": "Rasimu ya Uliza AI",
-    "regionReadDisclaimer": "Kanusho: Rasimu ya Uliza AI, si matokeo"
+    "regionReadDisclaimer": "Kanusho: Rasimu ya Uliza AI, si matokeo",
+    "addPatientTitle": "Ongeza mgonjwa",
+    "addPatientSave": "Hifadhi mgonjwa",
+    "addPatientAreaLine": "Eneo: {place}, kutoka kituo chako",
+    "addPatientPending": "Imehifadhiwa kwenye simu hii, bado haijatumwa",
+    "orderPatientNotSent": "Mgonjwa huyu amehifadhiwa kwenye simu hii na bado hajatumwa. Kutuma kunasubiri rekodi iwe kwenye faili.",
+    "doctorReportDownload": "Pakua ripoti"
 }

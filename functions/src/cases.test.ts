@@ -56,6 +56,30 @@ describe('cases', () => {
       await refusedWith(createOrderHandler(w.deps, null, orderInput(w)), 'unauthenticated');
     });
 
+    it('orders a patient in care with no appointment', async () => {
+      const input = orderInput(w, { appointmentUid: '' });
+      assert.deepEqual(await createOrderHandler(w.deps, w.doctor, input), {
+        status: 'created',
+        caseUid: input.caseUid,
+      });
+      const doc = await caseDoc(w, input.caseUid as string);
+      assert.equal(doc.appointmentUid, '');
+      const appointment = await docData(w, `appointments/${w.appointmentUid}`);
+      const caseUids = (appointment?.caseUids as string[] | undefined) ?? [];
+      assert.equal(caseUids.includes(input.caseUid as string), false);
+    });
+
+    it('refuses an order with no appointment when the patient is not in care', async () => {
+      await refusedWith(
+        createOrderHandler(
+          w.deps,
+          w.doctor,
+          orderInput(w, { appointmentUid: '', patientId: 'not-in-care' }),
+        ),
+        'notInCare',
+      );
+    });
+
     it('prices from the server list, never the client', async () => {
       const test = labTestById(HISTOLOGY)!;
       const input = orderInput(w, { priceKes: 1, totalPriceKes: 1, tests: [{ labTestId: HISTOLOGY, priceKes: 1 }] });

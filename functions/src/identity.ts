@@ -6,7 +6,7 @@
 import { FieldPath, type DocumentData, type Firestore } from 'firebase-admin/firestore';
 
 import { syncCaseReaders } from './access';
-import { loadVersions, str } from './case-support';
+import { loadVersions, str, uuidOf } from './case-support';
 import {
   AuthLike,
   Caller,
@@ -247,16 +247,36 @@ export async function addPatientHandler(
   const raw = input(data);
   const bio = biodata(raw, now);
   const email = optionalEmail(raw.email);
+  // A client id is the document id, so a retry is the same patient.
+  // Without one, the server mints it.
+  const clientId =
+    typeof raw.patientId === 'string' && raw.patientId !== '' ? uuidOf(raw.patientId, 'invalidPatient') : '';
   const { db } = deps;
 
   return db.runTransaction(async (tx) => {
+    const existingRef = clientId === '' ? null : db.collection(PATIENTS).doc(clientId);
+    const existing = existingRef ? await tx.get(existingRef) : null;
+    if (existing?.exists) {
+      const sameDoctor =
+        existing.get('createdByUid') === c.uid &&
+        (existing.get('doctorUids') as string[]).includes(c.uid);
+      const samePerson =
+        existing.get('phoneNumber') === bio.phoneNumber &&
+        existing.get('dateOfBirth') === bio.dateOfBirth &&
+        existing.get('firstName') === bio.firstName &&
+        existing.get('lastName') === bio.lastName &&
+        existing.get('sex') === bio.sex;
+      if (sameDoctor && samePerson) return { status: 'created' as const, patientId: clientId };
+      throw refuse('already-exists', 'invalidPatient');
+    }
+
     const matches = await tx.get(duplicateQuery(db, bio.phoneNumber, bio.dateOfBirth));
     const mine = matches.docs.find((d) => (d.get('doctorUids') as string[]).includes(c.uid));
     if (mine) return { status: 'alreadyInCare' as const, patientId: mine.id };
     // Another doctor's patient: joining their care team is the patient's decision (T-16).
     if (!matches.empty) throw refuse('already-exists', 'patientExists');
 
-    const ref = db.collection(PATIENTS).doc();
+    const ref = existingRef ?? db.collection(PATIENTS).doc();
     tx.create(
       ref,
       patientRecord(

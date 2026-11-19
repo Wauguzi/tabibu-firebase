@@ -261,6 +261,26 @@ branch as it is found, certified on the phone, then recorded here.
     start while that open was in flight and its later result stopped the spinner; a release now
     keeps an in-flight open from replacing it. Certified on the iPhone, 19 Nov: the replay plays
     from the phone.
+37. **A doctor could not add or order for a walk-in patient, and their patient list was empty.**
+    - **Adding:** a floating button on the order's patient step opens a sheet with the sign-up
+      fields (first and last name, a required sex picker, date of birth, phone, optional email),
+      the area taken from the doctor's facility and the language from the doctor's profile. The
+      patient is cached at once as pending, with an id the app mints, and `addPatient` takes that
+      id idempotently: the same doctor and person returns the same patient, anything else is
+      refused, so a crafted id cannot overwrite a record. `alreadyInCare` swaps the id;
+      `patientExists` (another clinic's) stays marked and cannot be ordered for.
+    - **Syncing:** `PatientsBloc`, a session bloc, owns adding, syncing and loading, run from the
+      doctor's home load and refresh and the patient step, so an offline add reaches the server
+      after the order screen has gone.
+    - **The list:** the doctor's patients are fetched from Firestore (`doctorUids` contains the
+      doctor, from the server, no index change), so booking-linked patients and their photos
+      appear. Rows read by phone number, sort alphabetically (accents and case aside), and refresh
+      with the dashboard's indicator.
+    - **Ordering without a visit:** `createOrder` needs no appointment for a patient in the
+      doctor's care, and a walk-in case is marked discussed without a booked discussion.
+    - **Sheets:** every bottom sheet's scroll view now ends at the keyboard, so a focused field
+      scrolls itself into view.
+    Certified on the iPhone, 19 Nov.
 
 ## 2. Business justification
 

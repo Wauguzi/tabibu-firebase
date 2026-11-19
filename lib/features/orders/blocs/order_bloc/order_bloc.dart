@@ -80,8 +80,16 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
 
   Future<void> _onStarted(OrderStarted event, Emitter<OrderState> emit) async {
     final reopen = event.caseUid.isNotEmpty;
+    final sameVisit = event.appointmentUid.isEmpty
+        ? state.draft.appointmentUid.isEmpty &&
+              state.draft.patientId == event.patientId
+        : state.draft.appointmentUid == event.appointmentUid;
+    final sameFlags =
+        state.draft.patientPending == event.patientPending &&
+        state.draft.patientHeld == event.patientHeld;
     final resume =
-        state.draft.appointmentUid == event.appointmentUid &&
+        sameVisit &&
+        sameFlags &&
         (!reopen || state.draft.caseUid == event.caseUid) &&
         state is! OrderSendSuccess &&
         state is! OrderInitial;
@@ -96,6 +104,8 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
             testIds: event.testIds.take(OrderDraft.maxTests).toList(),
             collectedAt: _clock(),
             created: reopen,
+            patientPending: event.patientPending,
+            patientHeld: event.patientHeld,
           );
     if (!resume) _watch++;
     emit(
@@ -214,6 +224,14 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
     final draft = state.draft;
     if (draft.caseUid.isEmpty || draft.issues(_clock()).isNotEmpty) {
       emit(_failure(AppError.dataNotFound));
+      return;
+    }
+    if (draft.patientHeld) {
+      emit(_failure(AppError.patientExists));
+      return;
+    }
+    if (draft.patientPending) {
+      emit(_failure(AppError.noInternet));
       return;
     }
     if (!draft.created) {
