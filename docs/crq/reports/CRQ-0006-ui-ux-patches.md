@@ -319,14 +319,23 @@ branch as it is found, certified on the phone, then recorded here.
     within the worker's 240 s budget; `OffSchema` and `Stale` still fail at once. Each call logs
     once when it settles (attempt, elapsed time, outcome, the error's name, status and code,
     request size, image count, model, location, batch and calls in flight), never an image, a
-    label or an id. Deployed 19 Nov. **Open:** the tile calls still hang in the deployed worker
-    while the same request answers in 3 to 8 s from a workstation; the diagnostics are for the
-    next run. A failed pre-read still falls back to a manual read.
+    label or an id. Deployed 19 Nov. The diagnostics found the cause, fixed in patch 42. A failed
+    pre-read still falls back to a manual read.
 41. **Your desk's filters wrapped, and its case cards lost their side borders.** The four filters
     (All, Low confidence, Waiting 4h+, Notifiable) now sit on one horizontally scrolling line, as the
     results and find-a-doctor chips do, so Swahili and large text scroll sideways instead of wrapping.
     The list's side inset moved inside the list, so each card's left and right borders paint.
     Pending the device run.
+42. **One tile that never answered failed the whole pre-read.** Patch 40's diagnostics (19 Nov
+    12:45 UTC) showed eight tiles answering in 2 to 8 s and one hanging on every try, alone: the
+    model ran on instead of returning its small JSON, and the request set no output limit. Each
+    tile call now carries `maxOutputTokens` 1024, which on `gemini-3.8-flash` bounds the thinking and
+    the answer together (256 could be spent on thinking and return nothing; the answer is under 128
+    tokens). A tile that still fails every try is left Unclear (`Unknown`, counted as "Unclear tiles"),
+    never guessed and never cached, so a later run asks again; the run fails only when more than a
+    fifth of its tiles end Unclear, and `Stale` still fails it at once. Certified live, 19 Nov: the
+    histopathology pre-read came back Ready, the two tiles that had hung answering in 3.6 and 4.5 s,
+    no retries and no Unclear tile.
 
 ## 2. Business justification
 
@@ -352,7 +361,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Data model (Firestore, Hive) | Changed | Patch 36: the encrypted `explanationAudio` and `explanationAudioMeta` boxes (typeId 12), wiped at sign-out. Patch 37: a patient's `held` flag (Hive field 24, nullable so older records read as not held). Patch 39: the case's server-only `openMdtUid` (Hive field 51), backfilled once |
 | Roles & case scoping | Reviewed | The chat rule is unchanged; patch 14 lets the case's own pathologist read a not-yet-written score or provenance as missing, no one else |
 | Clinical safety | Changed | Patches 19 and 20: where Ask AI's answer appears (screen state only, never saved), and the report pre-filled from the AI draft after the score, signed before it reaches anyone. Patch 24: a refused explanation language can be asked for again; the new draft is still approved by the doctor before the patient sees it. Patch 35: a manual read cannot be signed without a diagnosis. Patch 38: the PDF draws the signature only when its hash matches the signed report |
-| AI service (prompts, models, thresholds) | Changed | Patch 31: the explanation and translation prompt names the refused words and leaves tile counts out; English refusals match at a word start. Patch 40: a pre-read tile call is cancelled at 25 s and tried up to three times within the 240 s budget, and logs its outcome without any image, label or id |
+| AI service (prompts, models, thresholds) | Changed | Patch 31: the explanation and translation prompt names the refused words and leaves tile counts out; English refusals match at a word start. Patch 40: a pre-read tile call is cancelled at 25 s and tried up to three times within the 240 s budget, and logs its outcome without any image, label or id. Patch 42: each tile call's output is capped at 1024 tokens; a tile that fails every try is Unclear, and the run fails past a fifth of them |
 | Security (rules, App Check, RASP, secrets) | Changed | Patch 4 brings stored photo URLs in line with the existing profile rules, which are unchanged. Patch 6 changes the app lock: one method at a time, fingerprint/face no longer behind a PIN, the phone's passcode its fallback (threat model T-11). Patch 37: `addPatient` takes an app-minted id only when the same doctor sends the same person; `createOrder` without a visit still needs the patient in the doctor's care. Patch 39: `openMdtUid` is outside the case's client-writable list (rules test); the invitation names the inviter from the server's copy of their profile |
 | Data protection (PHI, de-identification, model endpoints) | None | |
 | Design system / UI consistency | Extended | `GroupedRow` gains a caption and a disabled state: muted text, the neutral icon tone, no chevron, announced as a disabled button with its reason. `TabibuButton.primary` keeps its colour while loading (patch 24); `SummaryCardRow` keeps a gap before its value (patch 26). Patch 37: every bottom sheet's scroll view ends at the keyboard; Choose a patient uses the dashboard's adaptive refresh. Patch 39: `ListRowCard` gains an optional detail line; the members sheet's Admin chip uses the signed tone |
@@ -378,11 +387,11 @@ says why something is unavailable, and when it will be, replaces a generic failu
 |---|---|
 | `make analyze` / `make bloc-lint` | Pass — no issues |
 | `make test` (`TZ=UTC`) | Pass — 3,912 after patch 40 (the desk tests, 17, pass with patch 41) |
-| `make functions-test` | Pass — 671, with the photo URL check and the Storage copy (patch 4), the alert loop dry run and the advice check (patch 31), the walk-in order and patient id (patch 37), one open consult per case and the named invitation (patch 39), the tile abort, retries and call log (patch 40): 688 |
+| `make functions-test` | Pass — 671, with the photo URL check and the Storage copy (patch 4), the alert loop dry run and the advice check (patch 31), the walk-in order and patient id (patch 37), one open consult per case and the named invitation (patch 39), the tile abort, retries and call log (patch 40), the output cap and Unclear tiles (patch 42): 691 |
 | `make rules-test` | Pass — 250, with RT-203 (patch 14), RT-5's care-team query (patch 37) and the server-only `openMdtUid` (patch 39) |
 | `make spell` | Pass — 0 issues |
 | Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed. Patch 23: the refresh on open and the busy field and button. Patch 24: the kept failed language, the `requestReportText` call, the refused retry, the failed line and the loading colour. Patch 25: the WAV name and type, each debug log, the WAV check and the `sw` code. Patch 26: the names and the gap |
-| Manual run | Patches 1 to 40 certified on the iPhone 14, 17–19 Nov, but for the Mark as discussed loading (36) and the desk (41), pending. Patch 40's fix is deployed; the pre-read itself still times out live and is open |
+| Manual run | Patches 1 to 42 certified on the iPhone 14, 17–19 Nov, but for the Mark as discussed loading (36) and the desk (41), pending. 19 Nov: the histopathology pre-read Ready live (patch 42), and the outbreak alert loop end to end on the device: NAATs for Ebola ordered, a confirmed finding signed, the alert drafted, approved and delivered to the county's demo accounts (patches 30 and 32) |
 | Certification | Pending the end of the run |
 
 ## 8. Approval

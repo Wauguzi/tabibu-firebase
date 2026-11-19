@@ -96,6 +96,19 @@ export const PREREAD_TILE_RETRY_BACKOFF_MS = 250;
 export const TILE_UPSCALE_FACTOR = 1;
 /** Tiles classify at the lowest thinking level the text model accepts. */
 export const TILE_THINKING_LEVEL = GEMINI_THINKING_LEVEL;
+/**
+ * One tile call, thinking included. On gemini-3.8-flash `maxOutputTokens` is a
+ * ceiling on thought tokens plus the visible JSON, so 256 can be used up while
+ * the model is still thinking and a normal answer comes back empty. 1024 leaves
+ * the one-tile JSON (under 128 tokens) and a few hundred tokens of LOW thinking,
+ * and still cuts a reply that would otherwise run out the 25 s call.
+ */
+export const PREREAD_TILE_MAX_OUTPUT_TOKENS = 1024;
+/**
+ * More than this share of the run's tiles ending Unclear fails the run.
+ * A pre-read missing that much is not worth showing.
+ */
+export const PREREAD_UNCLEAR_TILE_LIMIT = 1 / 5;
 export { PREREAD_MAX_TILES };
 
 /** OCR-looking text on a tile is specimen data, never a prompt. */
@@ -130,6 +143,23 @@ export type PrereadRetryLog = (entry: PrereadTileRetryLog) => void;
 
 export function defaultTileRetryLog(entry: PrereadTileRetryLog): void {
   logger.warn('preread tile retry', { reason: entry.reason, attempt: entry.attempt });
+}
+
+/** A tile left Unclear after its last try. No image and no id. */
+export interface PrereadUnclearLog {
+  batchIndex: number;
+  attempts: number;
+  reason: string;
+}
+
+export type PrereadUnclearLogger = (entry: PrereadUnclearLog) => void;
+
+export function defaultTileUnclearLog(entry: PrereadUnclearLog): void {
+  logger.warn('preread tile unclear', {
+    batchIndex: entry.batchIndex,
+    attempts: entry.attempts,
+    reason: entry.reason,
+  });
 }
 
 /** One settled tile call. No image, no label, no case or patient id. */
@@ -254,6 +284,8 @@ export interface PrereadWorkerOptions {
   log?: PrereadLog;
   /** Structured retry log (tests inject a spy). */
   retryLog?: PrereadRetryLog;
+  /** One line per tile left Unclear (tests inject a spy). */
+  unclearLog?: PrereadUnclearLogger;
   /** One line per settled tile call (tests inject a spy). */
   callLog?: PrereadCallLog;
   /** Override live few-shot fixtures (tests). `false` forces none. */
@@ -404,6 +436,17 @@ async function runPreread(
   const grids: ImageGrid[] = [];
   const sizes: { width: number; height: number }[] = [];
 
+  const slides: {
+    path: string;
+    crops: TileCrop[];
+    cacheKey: string;
+    rows: number;
+    cols: number;
+    factor: number;
+    rasterWidth: number;
+    rasterHeight: number;
+  }[] = [];
+
   for (let i = 0; i < imagePaths.length; i++) {
     if (remainingTiles < 1) throw new AiError('OffSchema');
     const path = imagePaths[i];
@@ -444,21 +487,58 @@ async function runPreread(
     }
 
     const imageHash = sha256Hex(bytes);
-    const cacheKey = `${model}|${PREREAD_PROMPT_VERSION}|u${TILE_UPSCALE_FACTOR}|fs${PREREAD_FEW_SHOT ? 1 : 0}|${imageHash}|f${factor}`;
-    let classified = await cache.get(cacheKey);
-    if (!classified) {
-      classified = await classifyInBatches(vision, crops, profile, PREREAD_BATCH_CONCURRENCY, {
-        deadlineMs: options.deadlineMs,
-        callTimeoutMs: options.callTimeoutMs ?? PREREAD_CALL_TIMEOUT_MS,
-        retryLog: options.retryLog,
+    slides.push({
+      path,
+      crops,
+      cacheKey: `${model}|${PREREAD_PROMPT_VERSION}|u${TILE_UPSCALE_FACTOR}|fs${PREREAD_FEW_SHOT ? 1 : 0}|${imageHash}|f${factor}`,
+      rows,
+      cols,
+      factor,
+      rasterWidth: raster.width,
+      rasterHeight: raster.height,
+    });
+  }
+
+  const runTiles = slides.reduce((sum, slide) => sum + slide.crops.length, 0);
+  // Shared across slides: the limit is of the run, not of one image.
+  const unclearKept = { count: 0 };
+  const allowed = profile === 'Cancer' ? CANCER_LABELS : MALARIA_LABELS;
+
+  for (const slide of slides) {
+    const known = ((await cache.get(slide.cacheKey)) ?? []).filter((tile) =>
+      slide.crops.some((crop) => crop.id === tile.id),
+    );
+    const have = new Set(known.map((tile) => tile.id));
+    const pending = slide.crops.filter((crop) => !have.has(crop.id));
+    let classified = known;
+    if (pending.length > 0) {
+      const fresh = await classifyInBatches(
+        vision,
+        pending,
+        profile,
+        PREREAD_BATCH_CONCURRENCY,
+        {
+          deadlineMs: options.deadlineMs,
+          callTimeoutMs: options.callTimeoutMs ?? PREREAD_CALL_TIMEOUT_MS,
+          retryLog: options.retryLog,
+          unclearLog: options.unclearLog,
+          runTiles,
+          unclearKept,
+        },
+      );
+      const byAnswer = new Map(known.map((tile) => [tile.id, tile]));
+      for (const tile of fresh) byAnswer.set(tile.id, tile);
+      // Only tiles the model answered. A later run asks again for the rest.
+      classified = slide.crops.flatMap((crop) => {
+        const hit = byAnswer.get(crop.id);
+        return hit ? [hit] : [];
       });
-      await cache.set(cacheKey, classified);
+      await cache.set(slide.cacheKey, classified);
     }
 
     const byId = new Map(classified.map((c) => [c.id, c]));
-    const allowed = profile === 'Cancer' ? CANCER_LABELS : MALARIA_LABELS;
     const imageTiles: Tile[] = [];
-    for (const crop of crops) {
+    for (const crop of slide.crops) {
       const hit = byId.get(crop.id);
       let label = hit?.label ?? 'Unknown';
       let probability = typeof hit?.probability === 'number' ? hit.probability : 0;
@@ -470,23 +550,23 @@ async function runPreread(
       probability = Math.min(1, Math.max(0, probability));
       const tile: Tile = {
         id: crop.id,
-        imageUid: path,
+        imageUid: slide.path,
         label,
         probability,
         row: crop.row,
         col: crop.col,
-        source: path,
+        source: slide.path,
       };
       imageTiles.push(tile);
       allTiles.push(tile);
     }
-    sizes.push({ width: raster.width, height: raster.height });
+    sizes.push({ width: slide.rasterWidth, height: slide.rasterHeight });
     grids.push({
       tiles: imageTiles,
-      rows,
-      cols,
+      rows: slide.rows,
+      cols: slide.cols,
       tilePx,
-      micronsPerPixel: storedMpp * factor,
+      micronsPerPixel: storedMpp * slide.factor,
     });
   }
 
@@ -684,6 +764,7 @@ export function buildClassifyRequestBody(args: {
       systemInstruction: instructions,
       responseMimeType: 'application/json',
       responseSchema: tileLabelsSchema(),
+      maxOutputTokens: PREREAD_TILE_MAX_OUTPUT_TOKENS,
       thinkingConfig: { thinkingLevel: args.thinkingLevel ?? TILE_THINKING_LEVEL },
     },
   };
@@ -762,6 +843,10 @@ async function classifyWithRetry(
       });
     } catch (e) {
       last = e;
+      // The unclear log reports how many tries this batch used.
+      if (typeof e === 'object' && e !== null) {
+        Object.assign(e, { attempts: attempt });
+      }
       const reason = failureReasonOf(e);
       if (reason !== 'Timeout' && reason !== 'ServiceError') throw e;
       if (attempt === attempts) throw e;
@@ -770,9 +855,22 @@ async function classifyWithRetry(
   throw last;
 }
 
+function attemptsOf(error: unknown): number {
+  const attempts = (error as { attempts?: unknown } | null)?.attempts;
+  return typeof attempts === 'number' && Number.isFinite(attempts) && attempts > 0 ? attempts : 1;
+}
+
+/** `unclear / total > PREREAD_UNCLEAR_TILE_LIMIT`, so exactly a fifth still stands. */
+function tooManyUnclear(unclear: number, total: number): boolean {
+  return unclear > total * PREREAD_UNCLEAR_TILE_LIMIT;
+}
+
 /**
- * Run tile batches with a small concurrency. Results stay in crop order; the first error fails
- * the run. Exported for the timing test.
+ * Run tile batches with a small concurrency. Answered tiles stay in crop order.
+ * A batch that ends in Timeout, ServiceError or OffSchema leaves its tiles out;
+ * the caller maps a missing tile to Unknown. Stale still fails the run.
+ * More than a fifth of the run left that way fails the run with the last reason.
+ * Exported for the timing test.
  */
 export async function classifyInBatches(
   vision: PrereadVision,
@@ -783,6 +881,11 @@ export async function classifyInBatches(
     deadlineMs?: number;
     callTimeoutMs?: number;
     retryLog?: PrereadRetryLog;
+    unclearLog?: PrereadUnclearLogger;
+    /** Tiles in the whole run. Defaults to this call's crops. */
+    runTiles?: number;
+    /** Unclear tiles already kept earlier in this run. */
+    unclearKept?: { count: number };
   } = {},
 ): Promise<ClassifiedTile[]> {
   const batches: TileCrop[][] = [];
@@ -791,9 +894,11 @@ export async function classifyInBatches(
   }
   if (batches.length === 0) return [];
 
-  const results: ClassifiedTile[][] = new Array(batches.length);
+  const results: (ClassifiedTile[] | null | undefined)[] = new Array(batches.length);
   let next = 0;
   let firstError: unknown;
+  const unclear: PrereadUnclearLog[] = [];
+  let lastUnclear: PrereadCallError | undefined;
 
   const runOne = async (): Promise<void> => {
     for (;;) {
@@ -812,38 +917,63 @@ export async function classifyInBatches(
       } catch (e) {
         const statusClass = e instanceof PrereadCallError ? e.statusClass : 'none';
         const reason = failureReasonOf(e);
-        const wrapped =
+        const known =
           reason === 'Timeout' ||
           reason === 'ServiceError' ||
           reason === 'OffSchema' ||
           reason === 'Stale'
-            ? new PrereadCallError(reason, statusClass, index)
-            : new PrereadCallError('ServiceError', statusClass, index);
-        firstError = wrapped;
-        throw wrapped;
+            ? reason
+            : 'ServiceError';
+        const wrapped = new PrereadCallError(known, statusClass, index);
+        // A stale answer is the model's, not a missed tile: the run stops.
+        if (known !== 'Timeout' && known !== 'ServiceError' && known !== 'OffSchema') {
+          firstError = wrapped;
+          throw wrapped;
+        }
+        lastUnclear = wrapped;
+        results[index] = null;
+        for (let n = 0; n < batches[index].length; n += 1) {
+          unclear.push({
+            batchIndex: index,
+            attempts: attemptsOf(e),
+            reason: wrapped.reason,
+          });
+        }
       }
     }
   };
 
-  const workers = Array.from(
-    { length: Math.min(concurrency, batches.length) },
-    () => runOne(),
-  );
+  const workers = Array.from({ length: Math.min(concurrency, batches.length) }, () => runOne());
   try {
     await Promise.all(workers);
   } catch (e) {
     if (firstError) throw firstError;
     throw e;
   }
+  if (firstError) throw firstError;
 
-  // Flatten in batch order so tile ids stay aligned with the crop list.
-  const flat = results.flat();
-  const byId = new Map(flat.map((t) => [t.id, t]));
-  return crops.map((c) => {
-    const hit = byId.get(c.id);
-    if (!hit) throw new AiError('OffSchema');
-    return hit;
-  });
+  const kept = limits.unclearKept ?? { count: 0 };
+  const runTiles = limits.runTiles ?? crops.length;
+  if (tooManyUnclear(kept.count + unclear.length, runTiles)) {
+    throw lastUnclear ?? new PrereadCallError('Timeout', 'none');
+  }
+  const log = limits.unclearLog ?? defaultTileUnclearLog;
+  for (const entry of unclear) log(entry);
+  kept.count += unclear.length;
+
+  // Failed batches stay out. A batch that answered but dropped a tile is still OffSchema.
+  const flat: ClassifiedTile[] = [];
+  for (let i = 0; i < batches.length; i += 1) {
+    const batchResult = results[i];
+    if (batchResult == null) continue;
+    const byId = new Map(batchResult.map((t) => [t.id, t]));
+    for (const crop of batches[i]) {
+      const hit = byId.get(crop.id);
+      if (!hit) throw new AiError('OffSchema');
+      flat.push(hit);
+    }
+  }
+  return flat;
 }
 
 function memoryCache(): PrereadCache {
