@@ -237,6 +237,12 @@ branch as it is found, certified on the phone, then recorded here.
     included, take no slides: a nucleic-acid test is read by an instrument, so no Ebola image set
     is added (the alert engine's §10 already says so). It also points to the few-shot, tuning and
     held-out PatchCamelyon sets.
+34. **A report opened before its code stayed "Report in progress".** The reader is shared across
+    screens, and the report screen only asked it again for a different case. A doctor who opened
+    the pathology report before entering the code saw it empty (not yet a reader), and after the
+    code the same case kept that stale result. The patient's result screen had the same guard
+    before a release. Both now ask the reader again on every visit; the reader keeps what it holds
+    for the case while it syncs, so nothing flickers. Certified on the iPhone, 18 Nov.
 
 ## 2. Business justification
 
