@@ -776,6 +776,7 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
         final savingScore = state is CaseWorkspaceWriteInProgress;
         final isRevision =
             draft?.kindValue == .amendment || draft?.kindValue == .addendum;
+        final scoreStep = !isRevision && (locked || savedScore != null);
         // An open Amendment / Addendum can be left unsigned; an Initial
         // draft is the case's report, and a closed one is already gone.
         final canDiscard =
@@ -908,8 +909,7 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                                 orderNumber: state.caseModel!.orderNumber,
                               ),
                             ],
-                            if (!isRevision &&
-                                (locked || savedScore != null)) ...[
+                            if (scoreStep) ...[
                               const SizedBox(height: AppSpacing.md),
                               WorkspaceStepSection(
                                 number: 1,
@@ -978,7 +978,8 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                               const SizedBox(height: AppSpacing.md),
                               WorkspaceStepSection(
                                 key: _diagnosisSection,
-                                number: isRevision ? 1 : 2,
+                                // Step 1 only when there is a score to give.
+                                number: scoreStep ? 2 : 1,
                                 title: l10n.reportSectionDiagnosis,
                                 status: locked && !isRevision
                                     ? .waiting
@@ -1004,9 +1005,12 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                                   confirmable: _confirmable,
                                   sections: _sections,
                                   answers: _answers,
+                                  // The diagnosis counts too: on a manual
+                                  // read nothing fills it.
                                   missingRequired:
                                       !(draft.kindValue == .addendum) &&
-                                      _missingRequired(),
+                                      (_missingRequired() ||
+                                          _diagnosis.text.trim().isEmpty),
                                   onDiagnosisType: (t) =>
                                       _setDiagnosisType(draft, t),
                                   onCritical: (v) => _setCritical(draft, v),
@@ -1298,6 +1302,8 @@ class _ReportSection extends StatelessWidget {
           edited: diagnosisEdited,
           field: TabibuTextField(
             label: l10n.reportSectionDiagnosis,
+            // Sign needs it; an addendum carries the signed one.
+            required: !isAddendum,
             controller: diagnosis,
             maxLines: 4,
             maxLength: CaseWorkspaceScreen.fieldMax,

@@ -243,6 +243,13 @@ branch as it is found, certified on the phone, then recorded here.
     code the same case kept that stale result. The patient's result screen had the same guard
     before a release. Both now ask the reader again on every visit; the reader keeps what it holds
     for the case while it syncs, so nothing flickers. Certified on the iPhone, 18 Nov.
+35. **A manual read could not be signed, and was numbered "2".** Sign needs the diagnosis, but
+    the field carried no star, and the "Fill the starred fields to sign." line counted only the
+    starred template questions: once those were filled, Sign stayed grey with nothing saying why.
+    On a pre-read case the AI fills the diagnosis, so it never showed there. The diagnosis is now
+    starred on an initial report and an amendment (an addendum carries the signed one), and the
+    line waits for it too. Diagnosis is also step 1 when there is no score to give (a failed or
+    missing pre-read, a revision), not "2" with no step 1. Certified on the iPhone, 19 Nov.
 
 ## 2. Business justification
 

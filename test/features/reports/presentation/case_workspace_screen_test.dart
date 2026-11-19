@@ -51,6 +51,7 @@ import 'package:tabibu/features/reports/presentation/widgets/signature_pad.dart'
 import 'package:tabibu/features/reports/presentation/widgets/signed_case_view.dart';
 import 'package:tabibu/features/reports/presentation/widgets/verdict_selector.dart';
 import 'package:tabibu/features/reports/presentation/widgets/workspace_score_card.dart';
+import 'package:tabibu/features/reports/presentation/widgets/workspace_step_section.dart';
 import 'package:tabibu/features/worklist/presentation/widgets/ai_mark.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
@@ -1289,6 +1290,32 @@ void main() {
         expect(find.byType(AiDraftFrame), findsNothing);
         expect(find.byType(AiMark), findsNothing);
         expect(enabled(tester, l10n.workspaceSignReport), isTrue);
+        // No score to give, so Diagnosis is the first and only step.
+        final steps = tester
+            .widgetList<WorkspaceStepSection>(find.byType(WorkspaceStepSection))
+            .toList();
+        expect(steps.map((step) => step.number), [1]);
+      });
+
+      testWidgets('on a manual read the diagnosis is starred, and Sign waits '
+          'for it with the starred-fields line', (tester) async {
+        await pumpScreen(
+          tester,
+          _loaded(
+            draft: _draft(),
+            preread: _preread(status: 'Failed'),
+          ),
+        );
+
+        final diagnosisField = tester.widget<TabibuTextField>(
+          find.byWidgetPredicate(
+            (w) =>
+                w is TabibuTextField && w.label == l10n.reportSectionDiagnosis,
+          ),
+        );
+        expect(diagnosisField.required, isTrue);
+        expect(find.text(l10n.workspaceRequiredBeforeSign), findsOneWidget);
+        expect(enabled(tester, l10n.workspaceSignReport), isFalse);
       });
 
       testWidgets('nothing is preselected on the score card', (tester) async {
