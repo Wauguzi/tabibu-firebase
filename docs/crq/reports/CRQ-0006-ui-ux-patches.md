@@ -321,6 +321,11 @@ branch as it is found, certified on the phone, then recorded here.
     label or an id. Deployed 19 Nov. **Open:** the tile calls still hang in the deployed worker
     while the same request answers in 3 to 8 s from a workstation; the diagnostics are for the
     next run. A failed pre-read still falls back to a manual read.
+41. **Your desk's filters wrapped, and its case cards lost their side borders.** The four filters
+    (All, Low confidence, Waiting 4h+, Notifiable) now sit on one horizontally scrolling line, as the
+    results and find-a-doctor chips do, so Swahili and large text scroll sideways instead of wrapping.
+    The list's side inset moved inside the list, so each card's left and right borders paint.
+    Certified on the iPhone, 19 Nov.
 
 ## 2. Business justification
 

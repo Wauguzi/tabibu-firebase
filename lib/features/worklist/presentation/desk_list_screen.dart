@@ -108,14 +108,14 @@ class _DeskListScreenState extends State<DeskListScreen> {
 
     return Scaffold(
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: AppSpacing.screenMargin,
-          ),
-          child: Column(
-            children: [
-              const SizedBox(height: AppSpacing.md),
-              TopBar(
+        child: Column(
+          children: [
+            const SizedBox(height: AppSpacing.md),
+            Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.screenMargin,
+              ),
+              child: TopBar(
                 backLabel: l10n.commonBack,
                 onBack: context.pop,
                 title: l10n.deskAllCasesTitle,
@@ -129,47 +129,57 @@ class _DeskListScreenState extends State<DeskListScreen> {
                         oldest: oldestWait(entries, now),
                       ),
               ),
-              Expanded(
-                child: RefreshIndicator.adaptive(
-                  onRefresh: _refresh,
-                  child: ListView(
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    padding: const EdgeInsets.symmetric(
-                      vertical: AppSpacing.md,
+            ),
+            Expanded(
+              child: RefreshIndicator.adaptive(
+                onRefresh: _refresh,
+                child: ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  // Inside the list, not around it. A card flush with the
+                  // list's own edge has its side border clipped.
+                  padding: const EdgeInsets.fromLTRB(
+                    AppSpacing.screenMargin,
+                    AppSpacing.md,
+                    AppSpacing.screenMargin,
+                    AppSpacing.md,
+                  ),
+                  children: [
+                    DeskSearchEntry(
+                      hint: l10n.deskSearchHint,
+                      onTap: () => const DeskSearchRoute().push<void>(context),
                     ),
-                    children: [
-                      DeskSearchEntry(
-                        hint: l10n.deskSearchHint,
-                        onTap: () =>
-                            const DeskSearchRoute().push<void>(context),
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      if (loading)
-                        LoadingView(
-                          semanticLabel: MaterialLocalizations.of(
-                            context,
-                          ).refreshIndicatorSemanticLabel,
-                        )
-                      else ...[
-                        Wrap(
-                          spacing: AppSpacing.xs,
-                          runSpacing: AppSpacing.xs,
+                    const SizedBox(height: AppSpacing.md),
+                    if (loading)
+                      LoadingView(
+                        semanticLabel: MaterialLocalizations.of(
+                          context,
+                        ).refreshIndicatorSemanticLabel,
+                      )
+                    else ...[
+                      // One line. A wrap puts Swahili and large text
+                      // onto a second row.
+                      SingleChildScrollView(
+                        scrollDirection: .horizontal,
+                        child: Row(
                           children: [
                             TabibuFilterChip(
                               label: l10n.doctorCasesFilterAll(entries.length),
                               selected: filter == .all,
                               onTap: () => _select(.all),
                             ),
+                            const SizedBox(width: AppSpacing.sm),
                             TabibuFilterChip(
                               label: l10n.deskFilterLowConfidence(lowCount),
                               selected: filter == .lowConfidence,
                               onTap: () => _select(.lowConfidence),
                             ),
+                            const SizedBox(width: AppSpacing.sm),
                             TabibuFilterChip(
                               label: l10n.deskFilterWaiting(waitingCount),
                               selected: filter == .waitingOver4h,
                               onTap: () => _select(.waitingOver4h),
                             ),
+                            const SizedBox(width: AppSpacing.sm),
                             TabibuFilterChip(
                               label: l10n.deskFilterNotifiable(notifiableCount),
                               selected: filter == .notifiable,
@@ -177,28 +187,28 @@ class _DeskListScreenState extends State<DeskListScreen> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: AppSpacing.md),
-                        for (var i = 0; i < rows.length; i++) ...[
-                          DeskEntryRow(
-                            entry: rows[i],
-                            rank: i + 1,
-                            now: now,
-                            patient: patientOf(caseOf(cases, rows[i])),
-                            onTap: rows[i].caseUid.isEmpty
-                                ? null
-                                : () => CaseWorkspaceRoute(
-                                    caseUid: rows[i].caseUid,
-                                  ).push<void>(context),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                        ],
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      for (var i = 0; i < rows.length; i++) ...[
+                        DeskEntryRow(
+                          entry: rows[i],
+                          rank: i + 1,
+                          now: now,
+                          patient: patientOf(caseOf(cases, rows[i])),
+                          onTap: rows[i].caseUid.isEmpty
+                              ? null
+                              : () => CaseWorkspaceRoute(
+                                  caseUid: rows[i].caseUid,
+                                ).push<void>(context),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
                       ],
                     ],
-                  ),
+                  ],
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
