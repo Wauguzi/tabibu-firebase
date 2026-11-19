@@ -277,7 +277,8 @@ The registry below is the record. Add a row in the same commit as the model.
 | 9 | `ShareCodeHive` | `cases` | In use |
 | 10 | `RiskCheckHive` | `cases` | In use |
 | 11 | `NotesTranslationHive` | `cases` | In use |
-| 12-15 | none | `cases` | Reserved, unused |
+| 12 | `ExplanationAudioHive` | `cases` | In use |
+| 13-15 | none | `cases` | Reserved, unused |
 | 16 | `PathologyReportHive` | `reports` | In use |
 | 17 | `ReportResponseHive` | `reports` | In use |
 | 18 | `ReportAddendumHive` | `reports` | In use |
@@ -636,9 +637,11 @@ stays `profilePictureUrl`.
 | `conversations/{cid}/voice/{m}.m4a` | A participant, once, before the message exists | Participants, as bytes through the SDK into a private cache wiped at sign-out | 512 KB (about 2 minutes) |
 | `speechAudio/**` | Nobody: denied to every client; the server accepts no audio | Nobody | — |
 
-**Boxes.** The data layer adds 21 encrypted boxes, wiped at sign-out with the
+**Boxes.** The data layer adds 23 encrypted boxes, wiped at sign-out with the
 cached audio and image files: `cases`, `caseLogs`, `casePayments`,
-`shareCodes`, `riskChecks`, `notesTranslations`, `pathologyReports`,
+`shareCodes`, `riskChecks`, `notesTranslations`, `explanationAudio` and
+`explanationAudioMeta` (the played narrations, their running total and play
+order), `pathologyReports`,
 `reportDrafts`, `prereadScores`, `worklist`, `reportTexts` (approved texts
 only), `appointments`, `appointmentIntakes`, `conversations`,
 `conversationCursors`, `messages` (a `LazyBox` pruned to the newest 200 per

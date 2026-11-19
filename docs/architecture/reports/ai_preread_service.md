@@ -229,7 +229,7 @@ per-user quota. No prompt is written in the app.
 |---|---|---|---|---|
 | **Symptom transcription** | The patient, booking | Server prompt template `symptom-transcribe-v1-0-0`, the WAV held in memory for the one call | JSON `transcript` and `language`; an unclear recording fails closed. The patient checks the text before booking | `voice_input_enabled`, on |
 | **Region read** | The case's pathologist, in the viewer | Server prompt template `slide-region-read-v1-0-0`, the crop the pathologist framed (at most 1024 px) and an optional question, no case field | Impression, features, uncertainty in words and a caveat, in the Ask AI panel under the slide, in the AI frame; held in the screen's state only, never saved, no copy action | `region_read_enabled`, on |
-| **Listen to this summary** | The patient, on their result | `gemini-3.8-flash-tts` (`ai_tts_model`), voice `Achernar` (`ai_tts_voice`), the approved explanation verbatim, no system instruction or temperature | A WAV, saved for the player as `.wav` so iOS decodes it, played in the app, labelled as a computer-generated voice, cached in memory for the screen | `explanation_listen_enabled`, on; shown only for an approved explanation |
+| **Listen to this summary** | The patient, on their result | `gemini-3.8-flash-tts` (`ai_tts_model`), voice `Achernar` (`ai_tts_voice`), the approved explanation verbatim, no system instruction or temperature | A WAV, saved for the player as `.wav` so iOS decodes it, played in the app, labelled as a computer-generated voice, cached in memory for the screen and, once played, kept in the encrypted `explanationAudio` box until sign-out (20 MB, oldest-played evicted first) | `explanation_listen_enabled`, on; shown only for an approved explanation |
 
 - **Templates live in the console**, locked, under the id of their file in
   `prompts/`; Remote Config names the id (`ai_template_symptom_transcribe`,
@@ -244,6 +244,7 @@ per-user quota. No prompt is written in the app.
 | Date | Change | Author |
 |---|---|---|
 | 2026-11-15 | Crafted for this repository. | Theo |
+| 2026-11-18 | §9: a played narration is kept, encrypted, until sign-out. | Theo |
 | 2026-11-18 | §4: the advice check, how it matches, and what the prompt and log carry. | Theo |
 | 2026-11-18 | The in-app calls are live; each explanation language stands on its own and can be asked for again; the server's model named; the speech WAV is named for the player. | Theo |
 | 2026-11-16 | §9 added: symptom transcription, the region read and the narrated explanation through AI Logic. | Theo |

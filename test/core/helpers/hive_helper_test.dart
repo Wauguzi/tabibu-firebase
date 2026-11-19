@@ -15,6 +15,7 @@ import 'package:tabibu/features/appointments/data/models/appointment_intake_hive
 import 'package:tabibu/features/cases/data/models/case_hive.dart';
 import 'package:tabibu/features/cases/data/models/case_log_entry_hive.dart';
 import 'package:tabibu/features/cases/data/models/case_payment_hive.dart';
+import 'package:tabibu/features/cases/data/models/explanation_audio_hive.dart';
 import 'package:tabibu/features/cases/data/models/notes_translation_hive.dart';
 import 'package:tabibu/features/cases/data/models/risk_check_hive.dart';
 import 'package:tabibu/features/cases/data/models/share_code_hive.dart';
@@ -309,6 +310,8 @@ void main() {
       ShareCodeHive: HiveHelperImpl.shareCodesBox,
       RiskCheckHive: HiveHelperImpl.riskChecksBox,
       NotesTranslationHive: HiveHelperImpl.notesTranslationsBox,
+      ExplanationAudioHive: HiveHelperImpl.explanationAudioBox,
+      int: HiveHelperImpl.explanationAudioMetaBox,
       // Reports.
       PathologyReportHive: HiveHelperImpl.pathologyReportsBox,
       ReportDraftHive: HiveHelperImpl.reportDraftsBox,
@@ -330,7 +333,7 @@ void main() {
       AlertReceiptHive: HiveHelperImpl.alertReceiptsBox,
     };
 
-    test('opens all 20 record boxes eagerly, messages stays lazy', () async {
+    test('opens all 22 record boxes eagerly, messages stays lazy', () async {
       await helper().initBoxes();
       for (final name in eagerOpens.values) {
         expect(Hive.isBoxOpen(name), isTrue, reason: name);

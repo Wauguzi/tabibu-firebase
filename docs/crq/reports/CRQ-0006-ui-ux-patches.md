@@ -250,6 +250,17 @@ branch as it is found, certified on the phone, then recorded here.
     starred on an initial report and an amendment (an addendum carries the signed one), and the
     line waits for it too. Diagnosis is also step 1 when there is no score to give (a failed or
     missing pre-read, a revision), not "2" with no step 1. Certified on the iPhone, 19 Nov.
+36. **The explanation waited on the network, and its narration was fetched again on every play.**
+    The reader now shows the phone's saved report and approved texts at once, then refreshes; a
+    text gone or denied on the server is still removed. Listen keeps each played narration in a new
+    encrypted box (`explanationAudio`, typeId 12, with `explanationAudioMeta` for the running total
+    and play order) until sign-out: keyed by the SHA-256 of the text, language, voice and model, never
+    the text; a 20 MB budget evicting the oldest-played first, only as many as a new clip needs; a
+    replay refreshes a clip's age; patients only. This supersedes CRQ-0005's "cached in memory for
+    the screen". Because the saved copy can show before the sync returns, Mark as discussed could
+    start while that open was in flight and its later result stopped the spinner; a release now
+    keeps an in-flight open from replacing it. Certified on the iPhone, 19 Nov: the replay plays
+    from the phone.
 
 ## 2. Business justification
 

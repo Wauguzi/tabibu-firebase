@@ -12,6 +12,7 @@ import 'package:tabibu/features/auth/data/models/onboarding_hive.dart';
 import 'package:tabibu/features/cases/data/models/case_hive.dart';
 import 'package:tabibu/features/cases/data/models/case_log_entry_hive.dart';
 import 'package:tabibu/features/cases/data/models/case_payment_hive.dart';
+import 'package:tabibu/features/cases/data/models/explanation_audio_hive.dart';
 import 'package:tabibu/features/cases/data/models/notes_translation_hive.dart';
 import 'package:tabibu/features/cases/data/models/risk_check_hive.dart';
 import 'package:tabibu/features/cases/data/models/share_code_hive.dart';
@@ -120,6 +121,11 @@ class DBHelperImpl implements DBHelper {
         await _closeAndDelete<RiskCheckHive>(name);
       } else if (type == NotesTranslationHive) {
         await _closeAndDelete<NotesTranslationHive>(name);
+      } else if (type == ExplanationAudioHive) {
+        await _closeAndDelete<ExplanationAudioHive>(name);
+      } else if (type == int) {
+        // Explanation audio metadata (running total, play order).
+        await _closeAndDelete<int>(name);
         // Reports.
       } else if (type == PathologyReportHive) {
         await _closeAndDelete<PathologyReportHive>(name);

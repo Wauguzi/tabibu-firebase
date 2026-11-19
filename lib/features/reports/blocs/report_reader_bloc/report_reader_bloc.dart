@@ -51,6 +51,15 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
   final AnalyticsService _analytics;
   final Future<void> Function(Duration) _delay;
 
+  /// Bumped when a release starts. The cache shows the report before the
+  /// sync returns, so Mark as discussed can run while that open is still
+  /// in flight. Its later [ReportReaderLoadSuccess] would drop the spinner.
+  int _releaseGeneration = 0;
+  bool _releasing = false;
+
+  bool _releaseSupersedes(int generation) =>
+      _releasing || generation != _releaseGeneration;
+
   /// After Mark as discussed the explanation drafts are written by a worker a
   /// few seconds later; the screen looks for them this often, for this long.
   static const pollEvery = Duration(seconds: 3);
@@ -69,6 +78,9 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
     ReportReaderOpened event,
     Emitter<ReportReaderState> emit,
   ) async {
+    // A release already on screen keeps its spinner; this open can wait.
+    if (_releasing) return;
+    final generation = _releaseGeneration;
     // Never show another case's report while this one loads.
     final same = state.caseUid == event.caseUid;
     emit(
@@ -87,6 +99,8 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
       ),
     );
     try {
+      await _emitCached(event, emit, generation);
+      if (emit.isDone || _releaseSupersedes(generation)) return;
       var offline = false;
       List<PathologyReportModel> all;
       try {
@@ -142,6 +156,7 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
         }
       }
 
+      if (emit.isDone || _releaseSupersedes(generation)) return;
       emit(
         ReportReaderLoadSuccess(
           uid: event.uid,
@@ -157,7 +172,51 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
         ),
       );
     } on Object catch (e) {
+      if (emit.isDone || _releaseSupersedes(generation)) return;
       emit(_failure(e, load: true));
+    }
+  }
+
+  /// Shows what the phone has before the sync finishes: the cached report
+  /// with its cached approved texts, when there is one. Drafts stay
+  /// network-only; evictions and changes still emit from the sync, and an
+  /// unchanged refresh emits nothing new (Equatable state). Never throws:
+  /// an unreadable cache falls through to the sync.
+  Future<void> _emitCached(
+    ReportReaderOpened event,
+    Emitter<ReportReaderState> emit,
+    int generation,
+  ) async {
+    try {
+      final all = await _reports.getReports(event.uid, role: event.role);
+      final report = reportForCase(
+        reports: all,
+        caseUid: event.caseUid,
+        role: event.role,
+      );
+      if (report == null) return;
+      if (emit.isDone || _releaseSupersedes(generation)) return;
+      final approved = <String, ReportTextApprovedModel>{};
+      if (report.releasedToPatient) {
+        for (final language in _languages) {
+          final text = await _reports.getApprovedText(
+            event.caseUid,
+            reportTextId(report.uid, .explanation, language),
+          );
+          if (text != null) approved[language] = text;
+        }
+      }
+      emit(
+        ReportReaderLoadSuccess(
+          uid: event.uid,
+          role: event.role,
+          caseUid: event.caseUid,
+          report: report,
+          approved: approved,
+        ),
+      );
+    } on Object catch (_) {
+      // Unreadable cache: the sync below still opens the report.
     }
   }
 
@@ -166,32 +225,39 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
     Emitter<ReportReaderState> emit,
   ) async {
     final report = state.report;
+    _releaseGeneration += 1;
+    _releasing = true;
     // In progress first, so a repeated failure is a new state and shows.
     emit(_copy(ReportReaderWriteInProgress.new));
-    if (state.role != .doctor || report == null) {
-      emit(_failure(AppError.dataNotFound));
-      return;
-    }
-    if (!await _internet.check()) {
-      emit(_failure(AppError.noInternet));
-      return;
-    }
     try {
-      await _remote.markDiscussed(
-        caseUid: state.caseUid,
-        reportUid: report.uid,
-      );
-      unawaited(_analytics.logReportDiscussed());
-      emit(
-        _copy(
-          ReportDiscussedSuccess.new,
-          report: report.copyWith(releasedToPatient: true),
-        ),
-      );
-    } on Object catch (e) {
-      emit(_failure(e));
-      return;
+      if (state.role != .doctor || report == null) {
+        emit(_failure(AppError.dataNotFound));
+        return;
+      }
+      if (!await _internet.check()) {
+        emit(_failure(AppError.noInternet));
+        return;
+      }
+      try {
+        await _remote.markDiscussed(
+          caseUid: state.caseUid,
+          reportUid: report.uid,
+        );
+        unawaited(_analytics.logReportDiscussed());
+        emit(
+          _copy(
+            ReportDiscussedSuccess.new,
+            report: report.copyWith(releasedToPatient: true),
+          ),
+        );
+      } on Object catch (e) {
+        emit(_failure(e));
+        return;
+      }
+    } finally {
+      _releasing = false;
     }
+    if (state is! ReportDiscussedSuccess) return;
     await _awaitDrafts(emit, report.uid);
   }
 
