@@ -14,6 +14,10 @@ import 'package:tabibu/features/reports/data/services/report_labels.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
+/// Shown in the signature box when the stored image cannot be drawn.
+/// Not in the ARB yet: the reviewer adds it for English and Swahili.
+const String reportPdfSignatureUnavailable = 'Signature could not be shown';
+
 /// Builds the signed-report PDF (05-plan §8 step 1j) from [ReportPdfInput].
 /// Layout follows the approved mock-up; all sizes below are CSS px from it,
 /// converted at 1 px = 0.75 pt. Returns bytes only: nothing is logged or
@@ -1082,22 +1086,41 @@ class _Page {
   }
 
   pw.Widget _signatureBox() {
-    if (input.signature.png.isEmpty) {
-      return pw.Container(
+    final png = input.signature.png;
+    if (png.isNotEmpty) {
+      return pw.SizedBox(
         height: 54,
-        decoration: pw.BoxDecoration(
-          border: pw.Border.all(
-            color: ReportPdfBuilder._outlineVariant,
-            width: 0.75,
-            style: .dashed,
+        child: pw.Image(pw.MemoryImage(Uint8List.fromList(png))),
+      );
+    }
+    // A failed fetch or a hash that does not match must not look unsigned.
+    final note = input.signature.unavailable;
+    if (note.isNotEmpty) {
+      return pw.SizedBox(
+        height: 54,
+        child: pw.Align(
+          alignment: pw.Alignment.centerLeft,
+          child: pw.Text(
+            note,
+            style: pw.TextStyle(
+              font: fonts.regular,
+              fontSize: 9,
+              color: ReportPdfBuilder._onSurfaceVariant,
+            ),
           ),
-          borderRadius: pw.BorderRadius.circular(6),
         ),
       );
     }
-    return pw.SizedBox(
+    return pw.Container(
       height: 54,
-      child: pw.Image(pw.MemoryImage(Uint8List.fromList(input.signature.png))),
+      decoration: pw.BoxDecoration(
+        border: pw.Border.all(
+          color: ReportPdfBuilder._outlineVariant,
+          width: 0.75,
+          style: .dashed,
+        ),
+        borderRadius: pw.BorderRadius.circular(6),
+      ),
     );
   }
 

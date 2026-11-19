@@ -281,6 +281,16 @@ branch as it is found, certified on the phone, then recorded here.
     - **Sheets:** every bottom sheet's scroll view now ends at the keyboard, so a focused field
       scrolls itself into view.
     Certified on the iPhone, 19 Nov.
+38. **A doctor could not hand over a report, and the PDF was misnamed, unsigned and ageless.** A
+    patient with no account cannot sign in to read their result, so the doctor now downloads it:
+    **Download report** under Open pathology report and in the report's options, for every case the
+    doctor can open, through the patient's own path (`ReportDownload`, the temp file deleted after
+    the share sheet). The PDF is named by the order number (`ODR-….pdf`); it draws the
+    pathologist's signature, fetched from Storage and drawn only when its SHA-256 matches the
+    report's `signatureSha256`, else it says the signature could not be shown (the Storage rule
+    already limits that file to the report's readers, a patient after release); and it carries the
+    patient's age, from the case's recorded age or the date of birth. A walk-in case that was never
+    sent still links to the pathologist step. Certified on the iPhone, 19 Nov.
 
 ## 2. Business justification
 

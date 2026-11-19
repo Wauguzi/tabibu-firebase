@@ -1707,7 +1707,9 @@ as String,
 /// @nodoc
 mixin _$PdfSignature {
 
-@JsonKey(name: 'title') String get title;@JsonKey(name: 'name') String get name;@JsonKey(name: 'kmpdcNumber') String get kmpdcNumber;@JsonKey(name: 'signedAtLabel') String get signedAtLabel;@JsonKey(name: 'contentRef') String get contentRef;@JsonKey(name: 'png') List<int> get png;
+@JsonKey(name: 'title') String get title;@JsonKey(name: 'name') String get name;@JsonKey(name: 'kmpdcNumber') String get kmpdcNumber;@JsonKey(name: 'signedAtLabel') String get signedAtLabel;@JsonKey(name: 'contentRef') String get contentRef;@JsonKey(name: 'png') List<int> get png;/// Words in the signature box when the stored image cannot be drawn.
+/// Empty leaves the box blank. Not an ARB string yet.
+@JsonKey(name: 'unavailable') String get unavailable;
 /// Create a copy of PdfSignature
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1721,20 +1723,20 @@ $PdfSignatureCopyWith<PdfSignature> get copyWith => _$PdfSignatureCopyWithImpl<P
 @override
 bool operator ==(Object other) {
   final _this = this as PdfSignature;
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is PdfSignature&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.kmpdcNumber, _this.kmpdcNumber) || other.kmpdcNumber == _this.kmpdcNumber)&&(identical(other.signedAtLabel, _this.signedAtLabel) || other.signedAtLabel == _this.signedAtLabel)&&(identical(other.contentRef, _this.contentRef) || other.contentRef == _this.contentRef)&&const DeepCollectionEquality().equals(other.png, _this.png));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is PdfSignature&&(identical(other.title, _this.title) || other.title == _this.title)&&(identical(other.name, _this.name) || other.name == _this.name)&&(identical(other.kmpdcNumber, _this.kmpdcNumber) || other.kmpdcNumber == _this.kmpdcNumber)&&(identical(other.signedAtLabel, _this.signedAtLabel) || other.signedAtLabel == _this.signedAtLabel)&&(identical(other.contentRef, _this.contentRef) || other.contentRef == _this.contentRef)&&const DeepCollectionEquality().equals(other.png, _this.png)&&(identical(other.unavailable, _this.unavailable) || other.unavailable == _this.unavailable));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
   final _this = this as PdfSignature;
-  return Object.hash(runtimeType,_this.title,_this.name,_this.kmpdcNumber,_this.signedAtLabel,_this.contentRef,const DeepCollectionEquality().hash(_this.png));
+  return Object.hash(runtimeType,_this.title,_this.name,_this.kmpdcNumber,_this.signedAtLabel,_this.contentRef,const DeepCollectionEquality().hash(_this.png),_this.unavailable);
 }
 
 @override
 String toString() {
   final _this = this as PdfSignature;
-  return 'PdfSignature(title: ${_this.title}, name: ${_this.name}, kmpdcNumber: ${_this.kmpdcNumber}, signedAtLabel: ${_this.signedAtLabel}, contentRef: ${_this.contentRef}, png: ${_this.png})';
+  return 'PdfSignature(title: ${_this.title}, name: ${_this.name}, kmpdcNumber: ${_this.kmpdcNumber}, signedAtLabel: ${_this.signedAtLabel}, contentRef: ${_this.contentRef}, png: ${_this.png}, unavailable: ${_this.unavailable})';
 }
 
 
@@ -1745,7 +1747,7 @@ abstract mixin class $PdfSignatureCopyWith<$Res>  {
   factory $PdfSignatureCopyWith(PdfSignature value, $Res Function(PdfSignature) _then) = _$PdfSignatureCopyWithImpl;
 @useResult
 $Res call({
-@JsonKey(name: 'title') String title,@JsonKey(name: 'name') String name,@JsonKey(name: 'kmpdcNumber') String kmpdcNumber,@JsonKey(name: 'signedAtLabel') String signedAtLabel,@JsonKey(name: 'contentRef') String contentRef,@JsonKey(name: 'png') List<int> png
+@JsonKey(name: 'title') String title,@JsonKey(name: 'name') String name,@JsonKey(name: 'kmpdcNumber') String kmpdcNumber,@JsonKey(name: 'signedAtLabel') String signedAtLabel,@JsonKey(name: 'contentRef') String contentRef,@JsonKey(name: 'png') List<int> png,@JsonKey(name: 'unavailable') String unavailable
 });
 
 
@@ -1762,7 +1764,7 @@ class _$PdfSignatureCopyWithImpl<$Res>
 
 /// Create a copy of PdfSignature
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? title = null,Object? name = null,Object? kmpdcNumber = null,Object? signedAtLabel = null,Object? contentRef = null,Object? png = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? title = null,Object? name = null,Object? kmpdcNumber = null,Object? signedAtLabel = null,Object? contentRef = null,Object? png = null,Object? unavailable = null,}) {
   return _then(PdfSignature(
 title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -1770,7 +1772,8 @@ as String,kmpdcNumber: null == kmpdcNumber ? _self.kmpdcNumber : kmpdcNumber // 
 as String,signedAtLabel: null == signedAtLabel ? _self.signedAtLabel : signedAtLabel // ignore: cast_nullable_to_non_nullable
 as String,contentRef: null == contentRef ? _self.contentRef : contentRef // ignore: cast_nullable_to_non_nullable
 as String,png: null == png ? _self.png : png // ignore: cast_nullable_to_non_nullable
-as List<int>,
+as List<int>,unavailable: null == unavailable ? _self.unavailable : unavailable // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 
@@ -1855,10 +1858,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'title')  String title, @JsonKey(name: 'name')  String name, @JsonKey(name: 'kmpdcNumber')  String kmpdcNumber, @JsonKey(name: 'signedAtLabel')  String signedAtLabel, @JsonKey(name: 'contentRef')  String contentRef, @JsonKey(name: 'png')  List<int> png)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function(@JsonKey(name: 'title')  String title, @JsonKey(name: 'name')  String name, @JsonKey(name: 'kmpdcNumber')  String kmpdcNumber, @JsonKey(name: 'signedAtLabel')  String signedAtLabel, @JsonKey(name: 'contentRef')  String contentRef, @JsonKey(name: 'png')  List<int> png, @JsonKey(name: 'unavailable')  String unavailable)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _PdfSignature() when $default != null:
-return $default(_that.title,_that.name,_that.kmpdcNumber,_that.signedAtLabel,_that.contentRef,_that.png);case _:
+return $default(_that.title,_that.name,_that.kmpdcNumber,_that.signedAtLabel,_that.contentRef,_that.png,_that.unavailable);case _:
   return orElse();
 
 }
@@ -1876,10 +1879,10 @@ return $default(_that.title,_that.name,_that.kmpdcNumber,_that.signedAtLabel,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'title')  String title, @JsonKey(name: 'name')  String name, @JsonKey(name: 'kmpdcNumber')  String kmpdcNumber, @JsonKey(name: 'signedAtLabel')  String signedAtLabel, @JsonKey(name: 'contentRef')  String contentRef, @JsonKey(name: 'png')  List<int> png)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function(@JsonKey(name: 'title')  String title, @JsonKey(name: 'name')  String name, @JsonKey(name: 'kmpdcNumber')  String kmpdcNumber, @JsonKey(name: 'signedAtLabel')  String signedAtLabel, @JsonKey(name: 'contentRef')  String contentRef, @JsonKey(name: 'png')  List<int> png, @JsonKey(name: 'unavailable')  String unavailable)  $default,) {final _that = this;
 switch (_that) {
 case _PdfSignature():
-return $default(_that.title,_that.name,_that.kmpdcNumber,_that.signedAtLabel,_that.contentRef,_that.png);case _:
+return $default(_that.title,_that.name,_that.kmpdcNumber,_that.signedAtLabel,_that.contentRef,_that.png,_that.unavailable);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1896,10 +1899,10 @@ return $default(_that.title,_that.name,_that.kmpdcNumber,_that.signedAtLabel,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'title')  String title, @JsonKey(name: 'name')  String name, @JsonKey(name: 'kmpdcNumber')  String kmpdcNumber, @JsonKey(name: 'signedAtLabel')  String signedAtLabel, @JsonKey(name: 'contentRef')  String contentRef, @JsonKey(name: 'png')  List<int> png)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function(@JsonKey(name: 'title')  String title, @JsonKey(name: 'name')  String name, @JsonKey(name: 'kmpdcNumber')  String kmpdcNumber, @JsonKey(name: 'signedAtLabel')  String signedAtLabel, @JsonKey(name: 'contentRef')  String contentRef, @JsonKey(name: 'png')  List<int> png, @JsonKey(name: 'unavailable')  String unavailable)?  $default,) {final _that = this;
 switch (_that) {
 case _PdfSignature() when $default != null:
-return $default(_that.title,_that.name,_that.kmpdcNumber,_that.signedAtLabel,_that.contentRef,_that.png);case _:
+return $default(_that.title,_that.name,_that.kmpdcNumber,_that.signedAtLabel,_that.contentRef,_that.png,_that.unavailable);case _:
   return null;
 
 }
@@ -1911,7 +1914,7 @@ return $default(_that.title,_that.name,_that.kmpdcNumber,_that.signedAtLabel,_th
 @JsonSerializable()
 
 class _PdfSignature extends PdfSignature {
-  const _PdfSignature({@JsonKey(name: 'title') this.title = '', @JsonKey(name: 'name') this.name = '', @JsonKey(name: 'kmpdcNumber') this.kmpdcNumber = '', @JsonKey(name: 'signedAtLabel') this.signedAtLabel = '', @JsonKey(name: 'contentRef') this.contentRef = '', @JsonKey(name: 'png')  List<int> png = const <int>[]}): _png = png,super._();
+  const _PdfSignature({@JsonKey(name: 'title') this.title = '', @JsonKey(name: 'name') this.name = '', @JsonKey(name: 'kmpdcNumber') this.kmpdcNumber = '', @JsonKey(name: 'signedAtLabel') this.signedAtLabel = '', @JsonKey(name: 'contentRef') this.contentRef = '', @JsonKey(name: 'png')  List<int> png = const <int>[], @JsonKey(name: 'unavailable') this.unavailable = ''}): _png = png,super._();
   factory _PdfSignature.fromJson(Map<String, dynamic> json) => _$PdfSignatureFromJson(json);
 
 @override@JsonKey(name: 'title') final  String title;
@@ -1926,6 +1929,9 @@ class _PdfSignature extends PdfSignature {
   return EqualUnmodifiableListView(_png);
 }
 
+/// Words in the signature box when the stored image cannot be drawn.
+/// Empty leaves the box blank. Not an ARB string yet.
+@override@JsonKey(name: 'unavailable') final  String unavailable;
 
 /// Create a copy of PdfSignature
 /// with the given fields replaced by the non-null parameter values.
@@ -1940,18 +1946,18 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PdfSignature&&(identical(other.title, title) || other.title == title)&&(identical(other.name, name) || other.name == name)&&(identical(other.kmpdcNumber, kmpdcNumber) || other.kmpdcNumber == kmpdcNumber)&&(identical(other.signedAtLabel, signedAtLabel) || other.signedAtLabel == signedAtLabel)&&(identical(other.contentRef, contentRef) || other.contentRef == contentRef)&&const DeepCollectionEquality().equals(other.png, _png));
+    return identical(this, other) || (other.runtimeType == runtimeType&&other is _PdfSignature&&(identical(other.title, title) || other.title == title)&&(identical(other.name, name) || other.name == name)&&(identical(other.kmpdcNumber, kmpdcNumber) || other.kmpdcNumber == kmpdcNumber)&&(identical(other.signedAtLabel, signedAtLabel) || other.signedAtLabel == signedAtLabel)&&(identical(other.contentRef, contentRef) || other.contentRef == contentRef)&&const DeepCollectionEquality().equals(other.png, _png)&&(identical(other.unavailable, unavailable) || other.unavailable == unavailable));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
 int get hashCode {
-    return Object.hash(runtimeType,title,name,kmpdcNumber,signedAtLabel,contentRef,const DeepCollectionEquality().hash(_png));
+    return Object.hash(runtimeType,title,name,kmpdcNumber,signedAtLabel,contentRef,const DeepCollectionEquality().hash(_png),unavailable);
 }
 
 @override
 String toString() {
-    return 'PdfSignature(title: $title, name: $name, kmpdcNumber: $kmpdcNumber, signedAtLabel: $signedAtLabel, contentRef: $contentRef, png: $png)';
+    return 'PdfSignature(title: $title, name: $name, kmpdcNumber: $kmpdcNumber, signedAtLabel: $signedAtLabel, contentRef: $contentRef, png: $png, unavailable: $unavailable)';
 }
 
 
@@ -1962,7 +1968,7 @@ abstract mixin class _$PdfSignatureCopyWith<$Res> implements $PdfSignatureCopyWi
   factory _$PdfSignatureCopyWith(_PdfSignature value, $Res Function(_PdfSignature) _then) = __$PdfSignatureCopyWithImpl;
 @override @useResult
 $Res call({
-@JsonKey(name: 'title') String title,@JsonKey(name: 'name') String name,@JsonKey(name: 'kmpdcNumber') String kmpdcNumber,@JsonKey(name: 'signedAtLabel') String signedAtLabel,@JsonKey(name: 'contentRef') String contentRef,@JsonKey(name: 'png') List<int> png
+@JsonKey(name: 'title') String title,@JsonKey(name: 'name') String name,@JsonKey(name: 'kmpdcNumber') String kmpdcNumber,@JsonKey(name: 'signedAtLabel') String signedAtLabel,@JsonKey(name: 'contentRef') String contentRef,@JsonKey(name: 'png') List<int> png,@JsonKey(name: 'unavailable') String unavailable
 });
 
 
@@ -1979,7 +1985,7 @@ class __$PdfSignatureCopyWithImpl<$Res>
 
 /// Create a copy of PdfSignature
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? title = null,Object? name = null,Object? kmpdcNumber = null,Object? signedAtLabel = null,Object? contentRef = null,Object? png = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? title = null,Object? name = null,Object? kmpdcNumber = null,Object? signedAtLabel = null,Object? contentRef = null,Object? png = null,Object? unavailable = null,}) {
   return _then(_PdfSignature(
 title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -1987,7 +1993,8 @@ as String,kmpdcNumber: null == kmpdcNumber ? _self.kmpdcNumber : kmpdcNumber // 
 as String,signedAtLabel: null == signedAtLabel ? _self.signedAtLabel : signedAtLabel // ignore: cast_nullable_to_non_nullable
 as String,contentRef: null == contentRef ? _self.contentRef : contentRef // ignore: cast_nullable_to_non_nullable
 as String,png: null == png ? _self._png : png // ignore: cast_nullable_to_non_nullable
-as List<int>,
+as List<int>,unavailable: null == unavailable ? _self.unavailable : unavailable // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 

@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/constants/enums.dart';
+import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/core/routing/app_routes.dart';
 import 'package:tabibu/core/utils/nairobi_time.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
@@ -24,15 +25,26 @@ import 'package:tabibu/features/cases/presentation/widgets/case_history_row.dart
 import 'package:tabibu/features/cases/presentation/widgets/case_patient_card.dart';
 import 'package:tabibu/features/cases/presentation/widgets/case_timeline_card.dart';
 import 'package:tabibu/features/cases/presentation/widgets/slides_card.dart';
+import 'package:tabibu/features/reports/data/cache/report_cache_helper.dart';
+import 'package:tabibu/features/reports/data/models/pathology_report_model.dart';
+import 'package:tabibu/features/reports/presentation/doctor_report_download.dart';
+import 'package:tabibu/features/reports/presentation/report_download.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
 /// D-CASE. One case as its doctor reads it: the patient, where the case is,
 /// the order, and the report once it is signed.
 class DoctorCaseScreen extends StatefulWidget {
-  const DoctorCaseScreen({required this.caseUid, super.key});
+  const DoctorCaseScreen({
+    required this.caseUid,
+    this.download,
+    this.loadReport,
+    super.key,
+  });
 
   final String caseUid;
+  final ReportDownload? download;
+  final Future<PathologyReportModel?> Function(String caseUid)? loadReport;
 
   @override
   State<DoctorCaseScreen> createState() => _DoctorCaseScreenState();
@@ -115,6 +127,8 @@ class _DoctorCaseScreenState extends State<DoctorCaseScreen> {
                   caseModel: caseModel,
                   log: casesState.logs[widget.caseUid] ?? const [],
                   appointments: appointments,
+                  download: widget.download,
+                  loadReport: widget.loadReport,
                 ),
         ),
       ),
@@ -127,11 +141,15 @@ class _Body extends StatelessWidget {
     required this.caseModel,
     required this.log,
     required this.appointments,
+    this.download,
+    this.loadReport,
   });
 
   final CaseModel caseModel;
   final List<CaseLogEntryModel> log;
   final List<AppointmentModel> appointments;
+  final ReportDownload? download;
+  final Future<PathologyReportModel?> Function(String caseUid)? loadReport;
 
   String _stageWords(AppLocalizations l10n) {
     if (caseModel.needsDoctor) return l10n.doctorCaseStageDiscuss;
@@ -219,9 +237,7 @@ class _Body extends StatelessWidget {
     // Ordered but never sent, or refused and needing another
     // pathologist: the reading step links to the wizard's pathologist step.
     final rejected = caseModel.currentStageValue == .pathologistRejected;
-    final unsent =
-        (caseModel.currentStageValue == .orderCreated || rejected) &&
-        caseModel.appointmentUid.isNotEmpty;
+    final unsent = caseModel.currentStageValue == .orderCreated || rejected;
 
     // Done / Now / Next from the doctor step alone. The doctor collects the
     // sample at the visit, so an order with a test has its sample.
@@ -370,6 +386,33 @@ class _Body extends StatelessWidget {
             onTap: () => unawaited(
               DoctorReportRoute(caseUid: caseModel.uid).push<void>(context),
             ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          DoctorReportDownloadButton(
+            download: download,
+            caseModel: caseModel,
+            patient: patientForDoctorReport(caseModel),
+            viewerUid: switch (context.read<AuthBloc>().state.session) {
+              PractitionerSession(:final doctor) => doctor.uid,
+              _ => '',
+            },
+            report: () async {
+              final load = loadReport;
+              if (load != null) return await load(caseModel.uid);
+              if (!getIt.isRegistered<ReportCacheHelper>()) return null;
+              final session = context.read<AuthBloc>().state.session;
+              if (session is! PractitionerSession) return null;
+              final rows = await getIt<ReportCacheHelper>().getReports(
+                session.doctor.uid,
+                role: .doctor,
+              );
+              return rows.firstWhereOrNull(
+                (report) =>
+                    report.caseUid == caseModel.uid &&
+                    (caseModel.currentReportUid.isEmpty ||
+                        report.uid == caseModel.currentReportUid),
+              );
+            },
           ),
         ],
         const SizedBox(height: AppSpacing.md),

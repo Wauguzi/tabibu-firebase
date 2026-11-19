@@ -1173,6 +1173,7 @@ void main() {
 
         expect(find.text('Open pathology report'), findsOneWidget);
         expect(find.text('Full findings'), findsOneWidget);
+        expect(find.text('Download report'), findsOneWidget);
         expect(find.text('Start an MDT consult'), findsOneWidget);
         expect(find.text('Bring in other doctors'), findsOneWidget);
         expect(find.textContaining('Message'), findsNothing);

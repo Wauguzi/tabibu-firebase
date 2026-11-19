@@ -454,6 +454,28 @@ void main() {
       expect(find.text(l10n.doctorCasesWithPathologist), findsOneWidget);
     });
 
+    testWidgets('an unsent walk-in still links to a pathologist', (
+      tester,
+    ) async {
+      _useTallSurface(tester);
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      await pumpScreen(
+        tester,
+        cases: CasesLoadSuccess(
+          cases: [
+            _case(
+              currentStage: 'OrderCreated',
+              appointmentUid: '',
+              pathologistName: '',
+            ),
+          ],
+        ),
+        appointments: const [],
+      );
+
+      expect(find.text(l10n.doctorCaseAttachPathologist), findsOneWidget);
+    });
+
     testWidgets('shows the name alone when the age is missing', (tester) async {
       _useTallSurface(tester);
       await pumpScreen(
@@ -488,6 +510,7 @@ void main() {
       expect(find.text(_stamp('2026-10-27T07:42:00Z', 'en')), findsOneWidget);
       expect(find.text(l10n.chipDone), findsNWidgets(4));
       expect(find.text(l10n.doctorReportOpenFull), findsOneWidget);
+      expect(find.text('Download report'), findsOneWidget);
     });
 
     testWidgets('names the report in progress while reporting', (tester) async {

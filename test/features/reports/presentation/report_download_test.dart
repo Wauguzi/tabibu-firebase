@@ -1,6 +1,9 @@
 import 'dart:io';
 import 'dart:typed_data';
 
+// Transitive only; no new dependency. Resolved by pubspec.lock.
+// ignore: depend_on_referenced_packages
+import 'package:crypto/crypto.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:logger/logger.dart';
@@ -57,6 +60,8 @@ void main() {
   late Directory tempDir;
   late List<ShareParams> shared;
   late ReportDownload download;
+  late Future<List<int>> Function(String path)? readSignature;
+  late Future<List<PatientModel>> Function(String doctorUid)? carePatients;
 
   PathologyReportModel signed({bool released = true}) =>
       PathologyReportModel.fromJson(reportJson()).copyWith(
@@ -75,6 +80,8 @@ void main() {
     logOutput = _MemoryLog();
     tempDir = await Directory.systemTemp.createTemp('report_download_');
     shared = <ShareParams>[];
+    readSignature = null;
+    carePatients = null;
     when(
       () => pdf.build(any(), any()),
     ).thenAnswer((_) async => Uint8List.fromList([1, 2, 3]));
@@ -94,6 +101,16 @@ void main() {
       share: (params) async {
         shared.add(params);
         return const ShareResult('', ShareResultStatus.success);
+      },
+      carePatients: (doctorUid) {
+        final lookup = carePatients;
+        if (lookup == null) return Future.value(const <PatientModel>[]);
+        return lookup(doctorUid);
+      },
+      readSignature: (path) {
+        final read = readSignature;
+        if (read == null) throw StateError('signature read was not stubbed');
+        return read(path);
       },
       logger: Logger(
         level: Level.warning,
@@ -226,6 +243,200 @@ void main() {
         expect(joined.contains(comments), isFalse);
         expect(joined.contains('Amina'), isFalse);
         expect(joined.contains('Wanjiku'), isFalse);
+      },
+    );
+
+    String sharedName() => shared.single.files!.single.path.split('/').last;
+
+    ReportPdfInput builtInput() =>
+        verify(() => pdf.build(captureAny(), any())).captured.single
+            as ReportPdfInput;
+
+    test('names the file from the order number', () async {
+      await download.sharePatientReport(
+        report: signed(),
+        caseModel: caseModel,
+        patient: patient,
+        language: 'en',
+        l10n: l10n,
+        now: now,
+      );
+      expect(sharedName(), 'ODR-1.pdf');
+    });
+
+    test(
+      'an empty order number falls back to the test name, then report',
+      () async {
+        await download.sharePatientReport(
+          report: signed().copyWith(
+            orderNumber: '',
+            testName: 'Histopathology',
+          ),
+          caseModel: caseModel,
+          patient: patient,
+          language: 'en',
+          l10n: l10n,
+          now: now,
+        );
+        expect(sharedName(), 'Histopathology.pdf');
+
+        shared.clear();
+        clearInteractions(pdf);
+        await download.sharePatientReport(
+          report: signed().copyWith(orderNumber: '', testName: ''),
+          caseModel: caseModel,
+          patient: patient,
+          language: 'en',
+          l10n: l10n,
+          now: now,
+        );
+        expect(sharedName(), 'report.pdf');
+      },
+    );
+
+    test('a walk-in and a booked patient both carry their age', () async {
+      PatientModel row({
+        required String patientId,
+        required String uid,
+        required String dateOfBirth,
+      }) => PatientModel.empty().copyWith(
+        patientId: patientId,
+        uid: uid,
+        firstName: 'Amina',
+        dateOfBirth: dateOfBirth,
+      );
+
+      Future<void> share({
+        required String appointmentUid,
+        required PatientModel stored,
+      }) {
+        carePatients = (_) async => [stored];
+        final shell = PatientModel.empty().copyWith(
+          patientId: stored.patientId,
+          uid: stored.uid,
+          firstName: 'Amina',
+        );
+        return download.sharePatientReport(
+          report: signed(),
+          caseModel: CaseModel(
+            uid: 'case-1',
+            doctorUid: 'doc-1',
+            patientId: stored.patientId,
+            patientUid: stored.uid,
+            appointmentUid: appointmentUid,
+            patientAgeYears: 1,
+          ),
+          patient: shell,
+          language: 'en',
+          l10n: l10n,
+          now: now,
+          viewerRole: .doctor,
+          viewerUid: 'doc-1',
+        );
+      }
+
+      await share(
+        appointmentUid: '',
+        stored: row(
+          patientId: 'walk-1',
+          uid: 'uid-walk',
+          dateOfBirth: '1990-01-15T00:00:00.000Z',
+        ),
+      );
+      final walkIn = builtInput().subject;
+      expect(walkIn.ageYears, 36);
+      expect(walkIn.ageMonths, 9);
+
+      clearInteractions(pdf);
+      await share(
+        appointmentUid: 'appt-1',
+        stored: row(
+          patientId: 'book-1',
+          uid: 'uid-book',
+          dateOfBirth: '2000-06-01T00:00:00.000Z',
+        ),
+      );
+      final booked = builtInput().subject;
+      expect(booked.ageYears, 26);
+      expect(booked.ageMonths, 5);
+    });
+
+    test(
+      'the case age is used when the care row has no date of birth',
+      () async {
+        carePatients = (_) async => const <PatientModel>[];
+        await download.sharePatientReport(
+          report: signed(),
+          caseModel: const CaseModel(
+            uid: 'case-1',
+            doctorUid: 'doc-1',
+            patientAgeYears: 46,
+          ),
+          patient: PatientModel.empty().copyWith(patientId: 'missing'),
+          language: 'en',
+          l10n: l10n,
+          now: now,
+          viewerRole: .doctor,
+          viewerUid: 'doc-1',
+        );
+        final subject = builtInput().subject;
+        expect(subject.ageYears, 46);
+        expect(subject.ageMonths, 0);
+      },
+    );
+
+    test('a stored signature whose hash matches is drawn', () async {
+      final png = <int>[137, 80, 78, 71, 1, 2, 3];
+      final hash = sha256.convert(png).toString();
+      readSignature = (_) async => png;
+      await download.sharePatientReport(
+        report: signed().copyWith(
+          signatureSha256: hash,
+          signaturePath: 'reports/case-1/report-1/signature-$hash.png',
+        ),
+        caseModel: caseModel,
+        patient: patient,
+        language: 'en',
+        l10n: l10n,
+        now: now,
+      );
+      final signature = builtInput().signature;
+      expect(signature.png, png);
+      expect(signature.unavailable, isEmpty);
+    });
+
+    test(
+      'a mismatched or failed signature says it could not be shown',
+      () async {
+        final png = <int>[137, 80, 78, 71, 9, 9, 9];
+        final hash = sha256.convert(png).toString();
+        final path = 'reports/case-1/report-1/signature-$hash.png';
+        readSignature = (_) async => <int>[1, 2, 3, 4];
+        await download.sharePatientReport(
+          report: signed().copyWith(signatureSha256: hash, signaturePath: path),
+          caseModel: caseModel,
+          patient: patient,
+          language: 'en',
+          l10n: l10n,
+          now: now,
+        );
+        var signature = builtInput().signature;
+        expect(signature.png, isEmpty);
+        expect(signature.unavailable, reportPdfSignatureUnavailable);
+
+        clearInteractions(pdf);
+        readSignature = (_) => Future<List<int>>.error(Exception('denied'));
+        await download.sharePatientReport(
+          report: signed().copyWith(signatureSha256: hash, signaturePath: path),
+          caseModel: caseModel,
+          patient: patient,
+          language: 'en',
+          l10n: l10n,
+          now: now,
+        );
+        signature = builtInput().signature;
+        expect(signature.png, isEmpty);
+        expect(signature.unavailable, reportPdfSignatureUnavailable);
       },
     );
   });
