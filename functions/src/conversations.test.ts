@@ -314,7 +314,9 @@ describe('conversations', () => {
 
   describe('openMdt', () => {
     it('creates the group, invites the practitioners and notifies each once', async () => {
-      const { conversationUid, caseUid } = await openMdt([w.colleague.uid, w.otherPathologist.uid]);
+      const { conversationUid, caseUid } = await openMdt([w.colleague.uid, w.otherPathologist.uid], {
+        inviterName: 'Not From The Request',
+      });
       const c = await conv(conversationUid);
       const expires = new Date(Date.parse(NOW) + INVITE_TTL_MS).toISOString();
       assert.equal(c?.type, 'GroupConsult');
@@ -336,6 +338,8 @@ describe('conversations', () => {
       assert.equal((row?.metadata as { actionStatus: string }).actionStatus, 'Pending');
       assert.equal((row?.metadata as { expiresAt: string }).expiresAt, expires);
       assert.equal(row?.threadUid, conversationUid);
+      assert.equal((row?.templateArgs as { name: string }).name, 'Dr. Njeri Kamau');
+      assert.equal(row?.message, 'Dr. Njeri Kamau invited you to discuss a case.');
       assert.ok(await docData(w, noteId('mdtInvited', `${conversationUid}-r1`, w.otherPathologist.uid)));
       assert.equal((await docData(w, `rateCounters/mdts:${w.doctor.uid}:${DAY_KEY}`))?.count, 1);
     });
@@ -353,6 +357,45 @@ describe('conversations', () => {
       assert.equal(members(c)[w.pathologist.uid].actorRole, 'pathologist');
       assert.deepEqual(c?.participantUids, [w.pathologist.uid]);
       assert.equal(c?.nextInviteExpiresAt, '');
+    });
+
+    it('records one open consult on the case and refuses a second until it closes', async () => {
+      const caseUid = await acceptedCase(w);
+      const first = newId();
+      await openMdtHandler(deps, w.pathologist, {
+        conversationUid: first,
+        caseUid,
+        specialty: SPECIALTY,
+        description: 'From the pathologist.',
+      });
+      assert.equal((await docData(w, `cases/${caseUid}`))?.openMdtUid, first);
+      assert.deepEqual(
+        await openMdtHandler(deps, w.pathologist, {
+          conversationUid: first,
+          caseUid,
+          specialty: SPECIALTY,
+          description: 'Again.',
+        }),
+        { conversationUid: first },
+      );
+      const again = {
+        caseUid,
+        specialty: SPECIALTY,
+        description: 'Another.',
+      };
+      await refusedWith(
+        openMdtHandler(deps, w.doctor, { ...again, conversationUid: newId() }),
+        'mdtAlreadyOpen',
+      );
+      await refusedWith(
+        openMdtHandler(deps, w.pathologist, { ...again, conversationUid: newId() }),
+        'mdtAlreadyOpen',
+      );
+      await closeConversationHandler(deps, w.pathologist, { conversationUid: first });
+      assert.equal((await docData(w, `cases/${caseUid}`))?.openMdtUid, '');
+      const second = newId();
+      await openMdtHandler(deps, w.doctor, { ...again, conversationUid: second, description: 'After close.' });
+      assert.equal((await docData(w, `cases/${caseUid}`))?.openMdtUid, second);
     });
 
     it('is idempotent for the creator and refuses another primary’s reuse of the uid', async () => {
@@ -1390,16 +1433,19 @@ describe('conversations', () => {
     }
 
     it('closes a reassigned pathologist’s thread, the groups they own, and takes them out of the rest', async () => {
-      const caseUid = await acceptedCase(w);
-      const thread = await directOn(caseUid);
-      const owned = await mdtOn(caseUid, w.pathologist, [w.colleague.uid, w.otherPathologist.uid]);
+      // One open consult per case, so the owned group and the joined group are two cases.
+      const ownedCase = await acceptedCase(w);
+      const joinedCase = await acceptedCase(w);
+      const thread = await directOn(ownedCase);
+      const owned = await mdtOn(ownedCase, w.pathologist, [w.colleague.uid, w.otherPathologist.uid]);
       await respondToMdtInviteHandler(deps, w.colleague, { conversationUid: owned, accept: true });
-      const joined = await mdtOn(caseUid, w.doctor, [w.pathologist.uid, w.colleague.uid]);
+      const joined = await mdtOn(joinedCase, w.doctor, [w.pathologist.uid, w.colleague.uid]);
       await respondToMdtInviteHandler(deps, w.pathologist, { conversationUid: joined, accept: true });
       await respondToMdtInviteHandler(deps, w.colleague, { conversationUid: joined, accept: true });
       assert.ok(canPost(await conv(thread), w.pathologist.uid));
 
-      await reassignPathologistHandler(w.deps, w.doctor, { caseUid, pathologistUid: w.otherPathologist.uid });
+      await reassignPathologistHandler(w.deps, w.doctor, { caseUid: ownedCase, pathologistUid: w.otherPathologist.uid });
+      await reassignPathologistHandler(w.deps, w.doctor, { caseUid: joinedCase, pathologistUid: w.otherPathologist.uid });
 
       const direct = await conv(thread);
       assert.equal(direct?.status, 'Closed');
@@ -1485,14 +1531,18 @@ describe('conversations', () => {
     });
 
     it('removes a viewer from the groups on the case, and settles the invitation they had not answered', async () => {
-      const caseUid = await acceptedCase(w);
-      await w.deps.db.collection('cases').doc(caseUid).update({ viewerUids: [w.colleague.uid] });
-      const joined = await mdtOn(caseUid, w.doctor, [w.colleague.uid]);
+      // One open consult per case, so the accepted seat and the unanswered invite are two cases.
+      const joinedCase = await acceptedCase(w);
+      const waitingCase = await acceptedCase(w);
+      await w.deps.db.collection('cases').doc(joinedCase).update({ viewerUids: [w.colleague.uid] });
+      await w.deps.db.collection('cases').doc(waitingCase).update({ viewerUids: [w.colleague.uid] });
+      const joined = await mdtOn(joinedCase, w.doctor, [w.colleague.uid]);
       await respondToMdtInviteHandler(deps, w.colleague, { conversationUid: joined, accept: true });
-      const waiting = await mdtOn(caseUid, w.doctor, [w.colleague.uid], CLINICAL_SPECIALTIES[1]);
+      const waiting = await mdtOn(waitingCase, w.doctor, [w.colleague.uid]);
       assert.ok(canPost(await conv(joined), w.colleague.uid));
 
-      await removeCaseViewerHandler(w.deps, w.doctor, { caseUid, viewerUid: w.colleague.uid });
+      await removeCaseViewerHandler(w.deps, w.doctor, { caseUid: joinedCase, viewerUid: w.colleague.uid });
+      await removeCaseViewerHandler(w.deps, w.doctor, { caseUid: waitingCase, viewerUid: w.colleague.uid });
 
       const joinedNow = await conv(joined);
       assert.equal(joinedNow?.status, 'Open');
@@ -1521,22 +1571,21 @@ describe('conversations', () => {
     it('closes every thread on a cancelled case and settles every open invitation', async () => {
       const caseUid = await acceptedCase(w);
       const thread = await directOn(caseUid);
-      const group = await mdtOn(caseUid, w.pathologist, [w.colleague.uid, w.otherPathologist.uid]);
+      const group = await mdtOn(caseUid, w.doctor, [w.colleague.uid, w.otherPathologist.uid]);
       await respondToMdtInviteHandler(deps, w.colleague, { conversationUid: group, accept: true });
-      const other = await mdtOn(caseUid, w.doctor, [w.otherPathologist.uid], CLINICAL_SPECIALTIES[1]);
 
       await cancelOrderHandler(w.deps, w.doctor, { caseUid, reasonCode: 'OrderedInError' });
 
-      for (const id of [thread, group, other]) {
+      for (const id of [thread, group]) {
         const c = await conv(id);
         assert.equal(c?.status, 'Closed');
         for (const uid of [w.doctor.uid, w.pathologist.uid, w.colleague.uid]) assert.equal(canPost(c, uid), false);
       }
       assert.equal(actionStatus(await invite(w.otherPathologist.uid, group)), 'Cancelled');
-      assert.equal(actionStatus(await invite(w.otherPathologist.uid, other)), 'Cancelled');
-      assert.equal((await conv(other))?.nextInviteExpiresAt, '');
+      assert.equal((await conv(group))?.nextInviteExpiresAt, '');
+      assert.equal((await docData(w, `cases/${caseUid}`))?.openMdtUid, '');
       await refusedWith(
-        inviteToMdtHandler(deps, w.doctor, { conversationUid: other, inviteeUids: [w.colleague.uid] }),
+        inviteToMdtHandler(deps, w.doctor, { conversationUid: group, inviteeUids: [w.colleague.uid] }),
         'conversationClosed',
       );
       await refusedWith(
@@ -1615,6 +1664,7 @@ describe('conversations', () => {
       const second = await docData(w, noteId('mdtInvited', `${conversationUid}-r2`, w.colleague.uid));
       assert.equal((first?.metadata as { actionStatus: string }).actionStatus, 'Declined');
       assert.equal((second?.metadata as { actionStatus: string }).actionStatus, 'Pending');
+      assert.equal((second?.templateArgs as { name: string }).name, 'Dr. Njeri Kamau');
     });
   });
 

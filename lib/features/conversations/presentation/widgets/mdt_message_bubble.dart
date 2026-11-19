@@ -53,54 +53,76 @@ class MdtMessageBubble extends StatelessWidget {
         ? (isDark ? AppColors.inkLight : AppColors.white)
         : scheme.onSurface;
     final isVoice = message.kindValue == MessageKind.voice;
+    final senderLabel = mdtMemberSenderLabel(sender);
+    final clock = mdtClockLabel(message.sentAt, language);
+    // onSurfaceVariant: the design system gives primary to brand only, and
+    // names no sender colour, so the supporting text colour carries the line.
+    // Every colleague message shows it, including a run from the same person.
+    final senderStyle = textTheme.labelMedium?.copyWith(
+      color: scheme.onSurfaceVariant,
+      fontWeight: FontWeight.w600,
+    );
+    final body = Column(
+      mainAxisAlignment: .center,
+      crossAxisAlignment: .stretch,
+      children: [
+        if (!mine) Text(senderLabel, style: senderStyle),
+        if (isVoice && loadVoiceBytes != null)
+          VoiceNotePlayer(
+            message: message,
+            foreground: foreground,
+            loadBytes: loadVoiceBytes!,
+            player: player,
+            surface: voiceSurface,
+          )
+        else if (isVoice)
+          Text(
+            message.voiceDurationMs > 0
+                ? '${(message.voiceDurationMs / 1000).ceil()}s'
+                : '',
+            style: textTheme.bodyLarge?.copyWith(color: foreground),
+            textAlign: .start,
+          )
+        else
+          Text(
+            message.text,
+            style: textTheme.bodyLarge?.copyWith(color: foreground),
+            textAlign: .start,
+          ),
+        const SizedBox(height: AppSpacing.xxs),
+        Text(
+          clock,
+          style: textTheme.labelSmall?.copyWith(
+            color: foreground.withValues(alpha: 0.7),
+          ),
+          textAlign: .end,
+        ),
+      ],
+    );
+    final spoken = message.text.isEmpty
+        ? '$senderLabel, $clock'
+        : '$senderLabel: ${message.text}, $clock';
     final bubble = Container(
       constraints: BoxConstraints(
         maxWidth: MediaQuery.sizeOf(context).width * 0.72,
       ),
-      padding: const EdgeInsets.all(AppSpacing.sm),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppSpacing.sm,
+        vertical: AppSpacing.sm,
+      ),
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(AppRadii.card),
       ),
-      child: Column(
-        crossAxisAlignment: .stretch,
-        children: [
-          if (isVoice && loadVoiceBytes != null)
-            VoiceNotePlayer(
-              message: message,
-              foreground: foreground,
-              loadBytes: loadVoiceBytes!,
-              player: player,
-              surface: voiceSurface,
-            )
-          else if (isVoice)
-            Text(
-              message.voiceDurationMs > 0
-                  ? '${(message.voiceDurationMs / 1000).ceil()}s'
-                  : '',
-              style: textTheme.bodyLarge?.copyWith(color: foreground),
-            )
-          else
-            Text(
-              message.text,
-              style: textTheme.bodyLarge?.copyWith(color: foreground),
-            ),
-          const SizedBox(height: AppSpacing.xxs),
-          Text(
-            mdtClockLabel(message.sentAt, language),
-            style: textTheme.labelSmall?.copyWith(
-              color: foreground.withValues(alpha: 0.7),
-            ),
-            textAlign: .end,
-          ),
-        ],
-      ),
+      // One phrase for a colleague. A voice note keeps the player readable.
+      child: mine
+          ? body
+          : Semantics(label: spoken, excludeSemantics: !isVoice, child: body),
     );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AppSpacing.xxs),
       child: Row(
         mainAxisAlignment: mine ? .end : .start,
-        crossAxisAlignment: .end,
         children: [
           if (!mine) ...[
             ExcludeSemantics(

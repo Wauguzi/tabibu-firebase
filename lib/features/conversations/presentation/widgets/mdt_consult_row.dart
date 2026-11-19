@@ -5,7 +5,7 @@ import 'package:tabibu/features/conversations/presentation/mdt_labels.dart';
 import 'package:tabibu/features/conversations/presentation/widgets/mdt_avatar_stack.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
-/// One consult on the MDT tab: the members, the case, the last message and
+/// One consult on the MDT tab: the creator, the case, the last message and
 /// when. A closed consult reads "Case completed, consult closed".
 class MdtConsultRow extends StatelessWidget {
   const MdtConsultRow({
@@ -41,9 +41,16 @@ class MdtConsultRow extends StatelessWidget {
           )
         : mdtRowTime(consult.lastMessageAt, language);
     final subtitle = _subtitle(l10n);
+    final patient = mdtPatientLine(consult, l10n);
+    final owner = mdtConsultOwner(consult);
     return ListRowCard(
-      leading: MdtAvatarStack(members: mdtAcceptedMembers(consult)),
-      title: mdtConsultTitle(consult, l10n),
+      leading: Avatar(
+        name: mdtMemberName(owner),
+        image: mdtMemberImage(owner),
+        radius: 20,
+      ),
+      title: mdtRef(consult),
+      detail: patient.isEmpty ? null : patient,
       subtitle: subtitle.isEmpty ? null : subtitle,
       trailingText: when.isEmpty ? null : when,
       chevron: false,

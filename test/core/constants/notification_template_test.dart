@@ -123,10 +123,16 @@ void main() {
       sw = await AppLocalizations.delegate.load(const Locale('sw'));
     });
 
-    const args = {'newCount': '3', 'disease': 'Cholera', 'county': 'Kisumu'};
+    const args = {
+      'newCount': '3',
+      'disease': 'Cholera',
+      'county': 'Kisumu',
+      'name': 'Dr. Achieng Odhiambo',
+    };
 
     String filled(String template) => template
         .replaceAll('{newCount}', args['newCount']!)
+        .replaceAll('{name}', args['name']!)
         .replaceAll('{disease}', args['disease']!)
         .replaceAll('{county}', args['county']!);
 

@@ -81,6 +81,7 @@ class _MembersBody extends StatelessWidget {
           _MemberRow(
             member: member,
             isMe: member.uid == myUid,
+            isOwner: member.uid == mdtConsultOwner(consult).uid,
             // The owner cannot be removed, and only the owner removes.
             onRemove: open && iOwn && member.uid != consult.createdByUid
                 ? () => onChoose(MdtChoseRemove(member.uid))
@@ -108,11 +109,13 @@ class _MemberRow extends StatelessWidget {
   const _MemberRow({
     required this.member,
     required this.isMe,
+    required this.isOwner,
     required this.onRemove,
   });
 
   final ConversationMemberModel member;
   final bool isMe;
+  final bool isOwner;
   final VoidCallback? onRemove;
 
   @override
@@ -131,20 +134,20 @@ class _MemberRow extends StatelessWidget {
             child: Column(
               crossAxisAlignment: .start,
               children: [
-                Row(
+                Wrap(
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: AppSpacing.xs,
+                  runSpacing: AppSpacing.xxs,
                   children: [
-                    Flexible(
-                      child: Text(
-                        mdtMemberName(member),
-                        style: textTheme.titleSmall,
-                        maxLines: 1,
-                        overflow: .ellipsis,
-                      ),
+                    Text(
+                      mdtMemberName(member),
+                      style: textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: .ellipsis,
                     ),
-                    if (isMe) ...[
-                      const SizedBox(width: AppSpacing.xs),
-                      StatusChip(label: l10n.mdtYou, tone: .neutral),
-                    ],
+                    if (isOwner)
+                      StatusChip(label: l10n.mdtAdmin, tone: .signed),
+                    if (isMe) StatusChip(label: l10n.mdtYou, tone: .neutral),
                   ],
                 ),
                 if (specialty.isNotEmpty)

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,6 +12,9 @@ import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_state.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
+import 'package:tabibu/features/conversations/blocs/mdt_bloc/mdt_bloc.dart';
+import 'package:tabibu/features/conversations/blocs/mdt_bloc/mdt_event.dart';
+import 'package:tabibu/features/conversations/blocs/mdt_bloc/mdt_state.dart';
 import 'package:tabibu/features/notifications/blocs/notifications_bloc/notifications_bloc.dart';
 import 'package:tabibu/features/notifications/blocs/notifications_bloc/notifications_event.dart';
 import 'package:tabibu/features/notifications/blocs/notifications_bloc/notifications_state.dart';
@@ -63,12 +68,18 @@ void main() {
       when(
         () => authBloc.state,
       ).thenReturn(SignInSuccess(session: _patientSession()));
+      whenListen(
+        blocs.mdt,
+        const Stream<MdtState>.empty(),
+        initialState: const MdtInitial(),
+      );
     });
 
     Widget screen(Role role) => MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>.value(value: authBloc),
         BlocProvider<NotificationsBloc>.value(value: blocs.notifications),
+        BlocProvider<MdtBloc>.value(value: blocs.mdt),
       ],
       child: NotificationsScreen(role: role),
     );
@@ -578,6 +589,232 @@ void main() {
       expect(find.text('Notifications'), findsOneWidget);
       expect(find.text('Appointment confirmed'), findsOneWidget);
       expect(tester.takeException(), isNull);
+    });
+
+    void asDoctor() {
+      final doctor = RoleSessions.doctor();
+      when(() => authBloc.state).thenReturn(
+        SignInSuccess(
+          session: PractitionerSession(
+            doctor: doctor.doctor.copyWith(uid: 'doc-1'),
+            roles: doctor.roles,
+          ),
+        ),
+      );
+    }
+
+    NotificationModel invite({
+      String uid = 'invite-1',
+      String actionStatus = 'Pending',
+      String recipientUid = 'doc-1',
+      String? expiresAt,
+      String resourceUid = 'conv-1',
+    }) {
+      final at = DateTime.now().toUtc();
+      return NotificationModel(
+        uid: uid,
+        creationDate: at.toIso8601String(),
+        recipientUid: recipientUid,
+        templateKey: NotificationTemplate.mdtInvited.value,
+        category: 'Mdt',
+        title: 'Consult invitation',
+        resourceUid: resourceUid,
+        metadata: NotificationMetadataModel(
+          actionType: 'Approval',
+          actionStatus: actionStatus,
+          expiresAt:
+              expiresAt ?? at.add(const Duration(days: 2)).toIso8601String(),
+        ),
+      );
+    }
+
+    Future<StreamController<MdtState>> pumpInvite(
+      WidgetTester tester, {
+      required List<NotificationModel> items,
+      Role role = .doctor,
+      bool router = false,
+    }) async {
+      final states = StreamController<MdtState>.broadcast();
+      addTearDown(states.close);
+      whenListen(blocs.mdt, states.stream, initialState: const MdtInitial());
+      when(
+        () => blocs.notifications.state,
+      ).thenReturn(NotificationsLoadSuccess(items: items));
+      if (router) {
+        final go = GoRouter(
+          initialLocation: '/notifications',
+          routes: [
+            GoRoute(path: '/notifications', builder: (_, _) => screen(role)),
+            GoRoute(
+              path: '/doctor/mdt/:conversationUid',
+              builder: (_, state) =>
+                  Text('consult ${state.pathParameters['conversationUid']}'),
+            ),
+          ],
+        );
+        addTearDown(go.dispose);
+        await tester.pumpRouterApp(go);
+      } else {
+        await tester.pumpApp(screen(role));
+      }
+      await tester.pump();
+      return states;
+    }
+
+    testWidgets('a pending invite shows Accept and Decline', (tester) async {
+      asDoctor();
+      await pumpInvite(tester, items: [invite()]);
+      expect(find.text('Accept'), findsOneWidget);
+      expect(find.text('Decline'), findsOneWidget);
+    });
+
+    testWidgets('Accept loads only that button, ignores a second tap, '
+        'then refreshes and opens', (tester) async {
+      asDoctor();
+      final states = await pumpInvite(tester, items: [invite()], router: true);
+      await tester.tap(find.byKey(const ValueKey('mdt-accept-invite-1')));
+      await tester.pump();
+
+      final buttons = tester
+          .widgetList<TabibuButton>(find.byType(TabibuButton))
+          .toList();
+      expect(buttons.singleWhere((b) => b.label == 'Accept').isLoading, isTrue);
+      expect(
+        buttons.singleWhere((b) => b.label == 'Decline').isLoading,
+        isFalse,
+      );
+
+      await tester.tap(find.byKey(const ValueKey('mdt-accept-invite-1')));
+      await tester.tap(find.byKey(const ValueKey('mdt-decline-invite-1')));
+      await tester.pump();
+      verify(
+        () => blocs.mdt.add(
+          const MdtRespondRequested(
+            uid: 'doc-1',
+            conversationUid: 'conv-1',
+            accept: true,
+          ),
+        ),
+      ).called(1);
+      verifyNever(
+        () => blocs.mdt.add(
+          const MdtRespondRequested(
+            uid: 'doc-1',
+            conversationUid: 'conv-1',
+            accept: false,
+          ),
+        ),
+      );
+
+      states.add(const MdtWriteSuccess());
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+      verify(
+        () => blocs.mdt.add(const MdtRefreshed(uid: 'doc-1', role: .doctor)),
+      ).called(1);
+      expect(find.text('consult conv-1'), findsOneWidget);
+    });
+
+    testWidgets('Decline loads only that button and the row reads declined', (
+      tester,
+    ) async {
+      asDoctor();
+      final states = await pumpInvite(tester, items: [invite()]);
+      await tester.tap(find.byKey(const ValueKey('mdt-decline-invite-1')));
+      await tester.pump();
+
+      final buttons = tester
+          .widgetList<TabibuButton>(find.byType(TabibuButton))
+          .toList();
+      expect(
+        buttons.singleWhere((b) => b.label == 'Decline').isLoading,
+        isTrue,
+      );
+      expect(
+        buttons.singleWhere((b) => b.label == 'Accept').isLoading,
+        isFalse,
+      );
+      verify(
+        () => blocs.mdt.add(
+          const MdtRespondRequested(
+            uid: 'doc-1',
+            conversationUid: 'conv-1',
+            accept: false,
+          ),
+        ),
+      ).called(1);
+
+      states.add(const MdtWriteSuccess());
+      await tester.pump();
+      expect(find.text('Declined'), findsOneWidget);
+      expect(find.byType(TabibuButton), findsNothing);
+    });
+
+    testWidgets('a refusal clears the loading and leaves the plain row', (
+      tester,
+    ) async {
+      asDoctor();
+      final states = await pumpInvite(tester, items: [invite()]);
+      await tester.tap(find.byKey(const ValueKey('mdt-accept-invite-1')));
+      await tester.pump();
+      states.add(const MdtWriteFailure(error: AppError.permissionDenied));
+      await tester.pump();
+      expect(find.byType(TabibuButton), findsNothing);
+      expect(find.text('Consult invitation'), findsOneWidget);
+    });
+
+    testWidgets('an answered, expired or replaced invite has no buttons', (
+      tester,
+    ) async {
+      asDoctor();
+      final past = DateTime.now()
+          .toUtc()
+          .subtract(const Duration(hours: 1))
+          .toIso8601String();
+      await pumpInvite(
+        tester,
+        items: [
+          invite(uid: 'expired', expiresAt: past),
+          invite(uid: 'answered', actionStatus: 'Accepted'),
+          invite(uid: 'declined', actionStatus: 'Declined'),
+          invite(uid: 'replaced', actionStatus: 'Cancelled'),
+          invite(uid: 'other', recipientUid: 'someone-else'),
+        ],
+      );
+      expect(find.byType(TabibuButton), findsNothing);
+
+      when(
+        () => blocs.notifications.state,
+      ).thenReturn(NotificationsLoadSuccess(items: [invite()]));
+      await tester.pumpApp(screen(.patient));
+      await tester.pump();
+      expect(find.byType(TabibuButton), findsNothing);
+    });
+
+    testWidgets('Accept and Decline fit at 2.0x text in Swahili at 360 dp', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(360, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      asDoctor();
+      when(
+        () => blocs.notifications.state,
+      ).thenReturn(NotificationsLoadSuccess(items: [invite()]));
+      await tester.pumpApp(
+        MediaQuery(
+          data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+          child: screen(.doctor),
+        ),
+        locale: const Locale('sw'),
+      );
+      await tester.pump();
+      final l10n = AppLocalizations.of(
+        tester.element(find.byType(NotificationsScreen)),
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text(l10n.mdtAccept), findsOneWidget);
+      expect(find.text(l10n.mdtDecline), findsOneWidget);
     });
   });
 }

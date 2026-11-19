@@ -2246,9 +2246,14 @@
     "@notificationAppointmentCancelledByDoctorBody": {
         "description": "Inbox body for the `appointmentCancelledByDoctor` push"
     },
-    "notificationMdtInvitedBody": "You have been invited to an MDT discussion.",
+    "notificationMdtInvitedBody": "{name} invited you to discuss a case.",
     "@notificationMdtInvitedBody": {
-        "description": "Inbox body for the `mdtInvited` push"
+        "description": "Inbox body for the `mdtInvited` push. {name} is the inviter's display name; no patient detail, no case number.",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
     },
     "notificationMdtInviteAcceptedBody": "A colleague has joined your MDT discussion.",
     "@notificationMdtInviteAcceptedBody": {
@@ -6305,6 +6310,10 @@
     "@mdtYou": {
         "description": "The signed-in member"
     },
+    "mdtAdmin": "Admin",
+    "@mdtAdmin": {
+        "description": "MDT members sheet: the chip on the member who opened the consult"
+    },
     "mdtPreview": "{sender}: {preview}",
     "@mdtPreview": {
         "description": "MDT preview line; sender and text",
@@ -6329,17 +6338,17 @@
     "@mdtEmptyDoctor": {
         "description": "MDT empty body for doctors"
     },
-    "mdtEmptyPathologist": "Doctors can invite you to talk through a case. You can also start one from any case.",
+    "mdtEmptyPathologist": "Start a consult from here. Invite a doctor or a pathologist to talk through a case.",
     "@mdtEmptyPathologist": {
         "description": "MDT empty body for pathologists"
+    },
+    "errorMdtAlreadyOpen": "This case already has an open consult.",
+    "@errorMdtAlreadyOpen": {
+        "description": "MDT: a second open consult on the same case is refused"
     },
     "mdtEmptyTitle": "No consults yet",
     "@mdtEmptyTitle": {
         "description": "MDT empty title"
-    },
-    "mdtGoToDesk": "Go to my desk",
-    "@mdtGoToDesk": {
-        "description": "MDT empty desk button"
     },
     "mdtClosedNote": "Consults close when the case is completed. You can still read them.",
     "@mdtClosedNote": {
@@ -8739,10 +8748,6 @@
     "@chatVoicePlayFailed": {
         "description": "Chat: playback fetch or decode failed"
     },
-    "chatVoiceTranscriptUnavailable": "Transcript not available for voice notes.",
-    "@chatVoiceTranscriptUnavailable": {
-        "description": "Chat: plain line under a voice note; no ASR for m4a"
-    },
     "hybridTidyNotes": "Tidy my notes",
     "@hybridTidyNotes": {
         "description": "Hybrid: tidy action under the symptoms field"
@@ -8862,8 +8867,6 @@
     "regionReadDisclaimer": "Disclaimer: Ask AI draft, not a result",
     "@regionReadDisclaimer": {
         "description": "Ask AI panel: disclaimer under a region read, once an answer exists"
-    }
-}
     },
     "addPatientTitle": "Add a patient",
     "@addPatientTitle": {
@@ -8893,3 +8896,5 @@
     "doctorReportDownload": "Download report",
     "@doctorReportDownload": {
         "description": "Doctor case and report screens: download the signed report as a PDF"
+    }
+}

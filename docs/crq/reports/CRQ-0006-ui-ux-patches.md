@@ -291,6 +291,26 @@ branch as it is found, certified on the phone, then recorded here.
     already limits that file to the report's readers, a patient after release); and it carries the
     patient's age, from the case's recorded age or the date of birth. A walk-in case that was never
     sent still links to the pathologist step. Certified on the iPhone, 19 Nov.
+39. **Pathologists could not start a consult, a case could hold two, and an invitation could
+    not be answered where it arrived.**
+    - **Starting:** doctors and pathologists both get the MDT tab's + button and the empty state's
+      Start a consult. New consult is two collapsible steps, as reporting is: Pick a case (with a
+      search and a capped list; picking folds it, and its header reopens it) and Invite colleagues
+      (a capped list); Send invite waits for a case, a colleague and the question.
+    - **One open consult per case, decided by the server:** `openMdt` records it on the case
+      (`openMdtUid`, server-only in the rules, with a rules test) and refuses a second as
+      `mdtAlreadyOpen`, whoever asks; closing clears it. A one-off backfill
+      (`functions/scripts/backfill-open-mdt.ts`, dry run by default) marked the one live case,
+      19 Nov. The case picker leaves such cases out.
+    - **The invitation** names the inviter, from the server's own copy of their profile, never the
+      request, and the inbox answers it: Accept and Decline, only the tapped one loading. Accept
+      refreshes the consults and opens the consult; Decline marks the row.
+    - **Reading:** each list row shows one avatar, the creator's; the card and the consult's header
+      show the age band and sex below the consult number, instead of the members starting with
+      "You". A colleague's message carries "Dr. Achieng O." above it, the text centred in both
+      bubbles. The members sheet marks the creator Admin, in the Done green. The ambiguous "Transcript
+      not available for voice notes." is gone.
+    Certified on the iPhone, 19 Nov.
 
 ## 2. Business justification
 

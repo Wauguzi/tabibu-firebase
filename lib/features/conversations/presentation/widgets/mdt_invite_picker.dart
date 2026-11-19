@@ -45,6 +45,7 @@ class MdtInvitePicker extends StatefulWidget {
     required this.selected,
     required this.onToggle,
     required this.limit,
+    this.listMaxHeight,
     super.key,
   });
 
@@ -54,6 +55,10 @@ class MdtInvitePicker extends StatefulWidget {
 
   /// How many people can be chosen: the room the consult has left.
   final int limit;
+
+  /// Caps the candidate list so the step does not grow with the directory.
+  /// The search stays above the cap. Unset, the list is as long as it is.
+  final double? listMaxHeight;
 
   @override
   State<MdtInvitePicker> createState() => _MdtInvitePickerState();
@@ -99,20 +104,47 @@ class _MdtInvitePickerState extends State<MdtInvitePicker> {
             body: l10n.findDoctorNoResultsBody,
           )
         else
-          for (final p in rows) ...[
-            _Candidate(
-              practitioner: p,
-              selected: widget.selected.contains(p.uid),
-              // A full list still lets a chosen person be taken off.
-              onTap: widget.selected.contains(p.uid)
-                  ? () => widget.onToggle(p.uid)
-                  : widget.selected.length >= widget.limit
-                  ? null
-                  : () => widget.onToggle(p.uid),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-          ],
+          _CandidateList(
+            maxHeight: widget.listMaxHeight,
+            children: [
+              for (final p in rows) ...[
+                _Candidate(
+                  practitioner: p,
+                  selected: widget.selected.contains(p.uid),
+                  // A full list still lets a chosen person be taken off.
+                  onTap: widget.selected.contains(p.uid)
+                      ? () => widget.onToggle(p.uid)
+                      : widget.selected.length >= widget.limit
+                      ? null
+                      : () => widget.onToggle(p.uid),
+                ),
+                const SizedBox(height: AppSpacing.sm),
+              ],
+            ],
+          ),
       ],
+    );
+  }
+}
+
+class _CandidateList extends StatelessWidget {
+  const _CandidateList({required this.children, this.maxHeight});
+
+  final List<Widget> children;
+  final double? maxHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = this.maxHeight;
+    if (maxHeight == null) return Column(children: children);
+    return SizedBox(
+      key: const Key('mdt-invite-list'),
+      height: maxHeight,
+      child: ListView(
+        primary: false,
+        padding: EdgeInsets.zero,
+        children: children,
+      ),
     );
   }
 }

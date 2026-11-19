@@ -588,7 +588,7 @@ its role reads nothing.
 
 | Path | Holds | Read by | Client writes |
 |---|---|---|---|
-| `cases/{caseUid}` | The order and case: tests, prices, priority, lab fields, stage, location and step | Role patient, doctor or pathologist, in `participantUids` | The doctor, before a pathologist accepts: the clinical and sample notes, and when the sample was collected |
+| `cases/{caseUid}` | The order and case: tests, prices, priority, lab fields, stage, location and step; `openMdtUid`, the case's one open consult, written only by the server and cleared when that consult closes | Role patient, doctor or pathologist, in `participantUids` | The doctor, before a pathologist accepts: the clinical and sample notes, and when the sample was collected |
 | `cases/{c}/log/{seq}` | The append-only stage log | The doctor and pathologist; others only rows marked `patientVisible` | None |
 | `cases/{c}/private/payment` | Payment method, insurer, policy number | The case's doctor and patient | None |
 | `cases/{c}/riskCheck/current` | The order risk check (AI, direct use) | The case's doctor | None |
@@ -696,7 +696,8 @@ leave memory.
 under its home path (`/patient`, `/doctor`, `/pathologist`), so the guard's
 role check covers every tab. Patients have Home, Appointments, Results and
 Profile; doctors Today, Cases, MDT and Profile; pathologists Desk, Signed,
-MDT and Profile. `HomeShell` draws the floating menu over the tabs, keeps
+MDT and Profile. Doctors and pathologists both start a consult from the MDT
+tab, one open consult per case. `HomeShell` draws the floating menu over the tabs, keeps
 each tab's state while another shows, and sends back from another tab to
 the first before it leaves the app. Profile signs out through `AuthBloc`
 after a confirmation sheet; the guard then moves the person to sign-in.

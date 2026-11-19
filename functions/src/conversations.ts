@@ -21,6 +21,7 @@ import { logger } from 'firebase-functions';
 import { withTimeout } from './ai-domain';
 import {
   ageYears,
+  displayName,
   idOf,
   languageIn,
   num,
@@ -436,14 +437,31 @@ async function loadInvitees(tx: Transaction, db: Firestore, uids: string[]): Pro
 
 function inviteNotes(
   conversationUid: string,
-  invitees: { invitee: Invitee; round: number; expiresAt: string; inviterUid: string; inviterRole: string }[],
+  invitees: {
+    invitee: Invitee;
+    round: number;
+    expiresAt: string;
+    inviterUid: string;
+    inviterRole: string;
+    inviterName: string;
+  }[],
 ): NoteSpec[] {
-  return invitees.map(({ invitee, round, expiresAt, inviterUid, inviterRole }) =>
-    conversationNote('mdtInvited', conversationUid, `${conversationUid}-r${round}`, invitee.uid, invitee.role, invitee.language, {
-      expiresAt,
-      initiatorUid: inviterUid,
-      initiatorRole: inviterRole,
-    }),
+  return invitees.map(({ invitee, round, expiresAt, inviterUid, inviterRole, inviterName }) =>
+    conversationNote(
+      'mdtInvited',
+      conversationUid,
+      `${conversationUid}-r${round}`,
+      invitee.uid,
+      invitee.role,
+      invitee.language,
+      {
+        expiresAt,
+        initiatorUid: inviterUid,
+        initiatorRole: inviterRole,
+        // The name the doctor already has on file. Never a field from the request.
+        templateArgs: { name: inviterName },
+      },
+    ),
   );
 }
 
@@ -473,11 +491,26 @@ export async function openMdtHandler(
     const primary = (c.role === 'doctor' && s.doctorUid === c.uid) || (c.role === 'pathologist' && s.pathologistUid === c.uid);
     if (!primary) throw refuse('permission-denied', 'notPrimaryViewer');
     if (existing) {
-      if (existing.createdByUid === c.uid && existing.linkedResourceUid === caseUid) return { conversationUid };
+      if (existing.createdByUid === c.uid && existing.linkedResourceUid === caseUid) {
+        // A retry of the open consult records it when an older open left the case blank.
+        if (
+          existing.type === 'GroupConsult' &&
+          existing.status === 'Open' &&
+          str(s.fields.openMdtUid) === ''
+        ) {
+          tx.update(caseSnap.ref, { openMdtUid: conversationUid, lastUpdatedAt: timestamp(now) });
+        }
+        return { conversationUid };
+      }
       throw refuse('already-exists', 'alreadyExists');
     }
     if (s.pathologistUid === '' || s.currentStage === 'Cancelled') {
       throw refuse('failed-precondition', 'conversationUnavailable');
+    }
+    // One open consult per case. Whoever asks, a second one waits until this one closes.
+    const openMdtUid = str(s.fields.openMdtUid);
+    if (openMdtUid !== '' && openMdtUid !== conversationUid) {
+      throw refuse('already-exists', 'mdtAlreadyOpen');
     }
 
     const window = await loadRate(tx, db, `mdts:${c.uid}:${nairobiDayKey(now)}`);
@@ -504,10 +537,18 @@ export async function openMdtHandler(
       db,
       inviteNotes(
         conversationUid,
-        invitees.map((invitee) => ({ invitee, round: 1, expiresAt, inviterUid: c.uid, inviterRole: c.role })),
+        invitees.map((invitee) => ({
+          invitee,
+          round: 1,
+          expiresAt,
+          inviterUid: c.uid,
+          inviterRole: c.role,
+          inviterName: displayName(owner),
+        })),
       ),
     );
 
+    tx.update(caseSnap.ref, { openMdtUid: conversationUid, lastUpdatedAt: at });
     tx.create(
       ref,
       conversationDoc(
@@ -561,6 +602,7 @@ export async function inviteToMdtHandler(
     }
     if (liveCount(members) + inviteeUids.length > MAX_MEMBERS) throw refuse('failed-precondition', 'tooManyMembers');
     const invitees = await loadInvitees(tx, db, inviteeUids);
+    const inviter = (await tx.get(db.collection(DOCTORS).doc(c.uid))).data();
     const at = timestamp(now);
     const expiresAt = timestamp(new Date(now.getTime() + INVITE_TTL_MS));
     const rounds = invitees.map((invitee) => ({
@@ -569,6 +611,7 @@ export async function inviteToMdtHandler(
       expiresAt,
       inviterUid: c.uid,
       inviterRole: c.role,
+      inviterName: displayName(inviter),
     }));
     // A new round replaces the last one, whose row must not stay a pending approval.
     const replaced: LoadedNotification[] = [];
@@ -740,8 +783,14 @@ export async function closeConversationHandler(
         ? conv.createdByUid === c.uid
         : mine?.status === 'Accepted' && mine.actorRole === 'doctor' && c.role === 'doctor';
     if (!allowed) throw refuse('permission-denied', 'notParticipant');
-    if (conv.status === 'Closed') return { status: 'Closed' };
+    const caseUid = conv.type === 'GroupConsult' ? str(conv.linkedResourceUid) : '';
+    const caseRef = caseUid === '' ? undefined : db.collection('cases').doc(caseUid);
+    const caseSnap = caseRef ? await tx.get(caseRef) : undefined;
     const at = timestamp(now);
+    const clearCase =
+      caseRef !== undefined && caseSnap?.exists === true && str(caseSnap.get('openMdtUid')) === conversationUid;
+    if (clearCase && caseRef) tx.update(caseRef, { openMdtUid: '', lastUpdatedAt: at });
+    if (conv.status === 'Closed') return { status: 'Closed' };
     tx.update(ref, { status: 'Closed', closedAt: at, lastUpdatedAt: at });
     return { status: 'Closed' };
   });
@@ -841,6 +890,14 @@ export function closeCaseConversations(tx: Transaction, loaded: CaseThreads, now
       ...(departure.close ? { status: 'Closed', closedAt: at } : {}),
       lastUpdatedAt: at,
     });
+    // The case was read before this transaction's writes. Closing the consult frees the case
+    // for another; removing one member leaves the consult, and the field, as they are.
+    if (departure.close && data.type === 'GroupConsult') {
+      const linked = str(data.linkedResourceUid);
+      if (linked !== '') {
+        tx.update(ref.firestore.collection('cases').doc(linked), { openMdtUid: '', lastUpdatedAt: at });
+      }
+    }
     for (const row of invites) NotificationTx.settle(tx, row, 'Cancelled', '', now);
   }
 }

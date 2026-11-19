@@ -138,6 +138,7 @@ void main() {
         'roleAlreadySet': AppError.roleAlreadySet,
         'patientAlreadyRegistered': AppError.patientAlreadyRegistered,
         'patientExists': AppError.patientExists,
+        'mdtAlreadyOpen': AppError.mdtAlreadyOpen,
         'doctorsOnly': AppError.doctorsOnly,
         'invalidPatient': AppError.invalidPatient,
         'accountNotFound': AppError.accountNotFound,

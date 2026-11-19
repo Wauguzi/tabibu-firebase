@@ -117,6 +117,23 @@ describe('cases', () => {
       await assertFails(updateDoc(ref, { ...patch, ...at }));
     }
   });
+
+  it('a doctor and a pathologist cannot write which consult is open', async () => {
+    await seed('cases/case1', caseDoc({
+      currentStage: 'OrderCreated',
+      pathologistUid: '',
+      participantUids: ['drOdhiambo', 'amina', 'drWanjiru'],
+    }));
+    const doctor = doc(db('drOdhiambo', DOCTOR), 'cases/case1');
+    const pathologist = doc(db('drWanjiru', PATHOLOGIST), 'cases/case1');
+    await assertFails(updateDoc(doctor, { openMdtUid: 'mdt-1', ...at }));
+    await assertFails(updateDoc(pathologist, { openMdtUid: 'mdt-1', ...at }));
+    await assertFails(updateDoc(doctor, {
+      clinicalNotes: 'Updated',
+      openMdtUid: 'mdt-1',
+      ...at,
+    }));
+  });
 });
 
 describe('log', () => {

@@ -13,6 +13,7 @@ class ListRowCard extends StatelessWidget {
   const ListRowCard({
     required this.title,
     this.leading,
+    this.detail,
     this.subtitle,
     this.chip,
     this.trailingText,
@@ -24,6 +25,10 @@ class ListRowCard extends StatelessWidget {
 
   final String title;
   final Widget? leading;
+
+  /// A line under the title, when the title and what follows it are
+  /// different facts. Omitted by every row that does not pass one.
+  final String? detail;
   final String? subtitle;
   final Widget? chip;
   final String? trailingText;
@@ -38,6 +43,7 @@ class ListRowCard extends StatelessWidget {
     final isDark = scheme.brightness == .dark;
 
     final leading = this.leading;
+    final detail = this.detail;
     final subtitle = this.subtitle;
     final chip = this.chip;
     final trailingText = this.trailingText;
@@ -72,6 +78,13 @@ class ListRowCard extends StatelessWidget {
                     maxLines: 2,
                     overflow: .ellipsis,
                   ),
+                  if (detail != null)
+                    Text(
+                      detail,
+                      style: textTheme.bodySmall,
+                      maxLines: 2,
+                      overflow: .ellipsis,
+                    ),
                   if (subtitle != null)
                     Text(
                       subtitle,

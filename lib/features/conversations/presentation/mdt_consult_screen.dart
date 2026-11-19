@@ -423,18 +423,17 @@ class _MdtConsultScreenState extends State<MdtConsultScreen> {
     final l10n = context.l10n;
     final closed = consult.statusValue == .closed;
     final members = mdtAcceptedMembers(consult);
-    final names = [
-      for (final m in members)
-        if (m.uid == _uid) l10n.mdtYou else mdtMemberShortName(m),
-    ].join(', ');
+    final patient = mdtPatientLine(consult, l10n);
     final inProgress = state.reportInProgress;
     final link = _caseLink(consult, inProgress);
     return Column(
       crossAxisAlignment: .stretch,
       children: [
         _topBar(
-          title: mdtConsultTitle(consult, l10n),
-          subtitle: closed ? l10n.mdtMembersClosed(names) : names,
+          title: mdtRef(consult),
+          subtitle: closed
+              ? l10n.mdtClosedSubtitle
+              : (patient.isEmpty ? null : patient),
           trailing: CircleIconButton(
             icon: Assets.icons.mdtIcon,
             semanticLabel: l10n.mdtMemberCount(

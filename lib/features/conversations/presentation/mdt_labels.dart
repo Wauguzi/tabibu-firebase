@@ -16,6 +16,36 @@ String mdtMemberName(ConversationMemberModel member) => [
 String mdtMemberShortName(ConversationMemberModel member) =>
     [member.title, member.lastName].where((p) => p.isNotEmpty).join(' ');
 
+/// Title and first name in full, then an initial for every later name part.
+///
+/// The member record has no middle-name field, so a middle name is another
+/// word of the first or last name: "Achieng" and "Wanjiku Odhiambo" with
+/// title "Dr." read "Dr. Achieng W. O.".
+String mdtMemberSenderLabel(ConversationMemberModel member) {
+  final given = _nameParts(member.firstName);
+  final family = _nameParts(member.lastName);
+  final later = <String>[if (given.length > 1) ...given.skip(1), ...family];
+  final lead = given.isNotEmpty
+      ? given.first
+      : (later.isEmpty ? '' : later.removeAt(0));
+  return [
+    member.title.trim(),
+    lead,
+    for (final part in later) '${part[0].toUpperCase()}.',
+  ].where((part) => part.isNotEmpty).join(' ');
+}
+
+List<String> _nameParts(String raw) =>
+    raw.trim().split(RegExp(r'\s+')).where((part) => part.isNotEmpty).toList();
+
+/// The member who opened the consult: the Owner, else whoever created it.
+ConversationMemberModel mdtConsultOwner(ConversationModel consult) {
+  for (final member in consult.members.values) {
+    if (member.memberRoleValue == .owner) return member;
+  }
+  return consult.members[consult.createdByUid] ?? .empty();
+}
+
 /// Members who have joined, the owner first.
 List<ConversationMemberModel> mdtAcceptedMembers(ConversationModel consult) {
   final accepted = [

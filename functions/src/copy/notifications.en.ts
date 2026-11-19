@@ -1,4 +1,4 @@
-/** English push copy for the event table. Placeholders: {newCount}, {disease}, {county}. */
+/** English push copy for the event table. Placeholders: {newCount}, {disease}, {county}, {name}. */
 export const pushEn: Record<string, { title?: string; body: string; bodyPlural?: string }> = {
   orderCreated: { title: 'Tests ordered', body: 'Your doctor has ordered tests for you.' },
   pathologistRequested: { title: 'New case waiting', body: 'A new case is waiting.' },
@@ -50,7 +50,7 @@ export const pushEn: Record<string, { title?: string; body: string; bodyPlural?:
     title: 'Appointment cancelled',
     body: 'Your doctor cancelled your appointment. You can book another time.',
   },
-  mdtInvited: { title: 'Consult invitation', body: 'You have been invited to an MDT discussion.' },
+  mdtInvited: { title: 'Consult invitation', body: '{name} invited you to discuss a case.' },
   mdtInviteAccepted: { title: 'Invitation accepted', body: 'A colleague has joined your MDT discussion.' },
   mdtInviteDeclined: { title: 'Invitation declined', body: 'A colleague declined your MDT invitation.' },
   messageReceived: {

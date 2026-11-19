@@ -478,6 +478,8 @@ service cloud.firestore {
                                               'PathologistRejected']
             && changed().hasOnly(['clinicalNotes', 'sampleNotes', 'sampleCollectedAt',
                                   'lastUpdatedAt'])
+            // openMdtUid is not in this list: only the server records which
+            // consult is open on the case.
             && text('clinicalNotes', 2000)
             && text('sampleNotes', 1000)
             && isoUtc(request.resource.data.sampleCollectedAt)
