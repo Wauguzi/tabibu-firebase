@@ -9,7 +9,7 @@ import type { DocumentData, DocumentReference } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 import { ApiError, ThinkingLevel, Type, type Part, type Schema } from '@google/genai';
 
-import { AI_TIMEOUT_MS, AiError, withTimeout, type AiFailureReason } from './ai';
+import { AiError, withTimeout, type AiFailureReason } from './ai';
 import {
   GEMINI_THINKING_LEVEL,
   createGeminiGenerate,
@@ -76,8 +76,17 @@ export const PREREAD_FEW_SHOT = true;
 export const PREREAD_BATCH_CONCURRENCY = 4;
 /** Whole-run budget inside the 300 s Cloud Function. */
 export const PREREAD_WORKER_TIMEOUT_MS = 240_000;
-/** Each model call stays at the shared AI timeout (60 s). */
-export const PREREAD_CALL_TIMEOUT_MS = AI_TIMEOUT_MS;
+/**
+ * A one-tile call answers in seconds. 25 s is long enough for a slow answer and
+ * short enough that a hang can be aborted and tried again inside the 240 s budget.
+ */
+export const PREREAD_TILE_TIMEOUT_MS = 25_000;
+/** Per tile call. Not the shared 60 s handler timeout. */
+export const PREREAD_CALL_TIMEOUT_MS = PREREAD_TILE_TIMEOUT_MS;
+/** Tries after the first, on Timeout or ServiceError only. */
+export const PREREAD_TILE_MAX_RETRIES = 2;
+/** Lets the aborted socket close before the next request. */
+export const PREREAD_TILE_RETRY_BACKOFF_MS = 250;
 /**
  * Whole-factor nearest-neighbour enlarge of each tile before encoding, so a 96 px tile covers more
  * encoder patches. 1 is the proven setting (36 tiles in about 9 s); 3 is the candidate that
@@ -110,6 +119,43 @@ export interface PrereadFailureLog {
 }
 
 export type PrereadLog = (entry: PrereadFailureLog) => void;
+
+/** A retry line: why the previous try failed, and which try is starting. No image, no label. */
+export interface PrereadTileRetryLog {
+  reason: string;
+  attempt: number;
+}
+
+export type PrereadRetryLog = (entry: PrereadTileRetryLog) => void;
+
+export function defaultTileRetryLog(entry: PrereadTileRetryLog): void {
+  logger.warn('preread tile retry', { reason: entry.reason, attempt: entry.attempt });
+}
+
+/** One settled tile call. No image, no label, no case or patient id. */
+export interface PrereadTileCallLog {
+  attempt: number;
+  elapsedMs: number;
+  outcome: 'ok' | 'timeout' | 'error';
+  errorName?: string;
+  status?: number;
+  code?: string;
+  requestBytes: number;
+  imageCount: number;
+  model: string;
+  location: string;
+  batchIndex: number;
+  batches: number;
+  inFlight: number;
+  firstCallAfterMs: number;
+}
+
+export type PrereadCallLog = (entry: PrereadTileCallLog) => void;
+
+export function defaultTileCallLog(entry: PrereadTileCallLog): void {
+  if (entry.outcome === 'ok') logger.info('preread tile call', entry);
+  else logger.warn('preread tile call', entry);
+}
 
 export function httpStatusClass(status: number | undefined): HttpStatusClass {
   if (typeof status !== 'number' || !Number.isFinite(status)) return 'none';
@@ -177,7 +223,11 @@ export interface ClassifiedTile {
 
 /** Injectable vision seam: production talks to Gemini; tests fake it. */
 export interface PrereadVision {
-  classify(crops: TileCrop[], profile: PrereadProfile): Promise<ClassifiedTile[]>;
+  classify(
+    crops: TileCrop[],
+    profile: PrereadProfile,
+    position?: { attempt: number; batchIndex: number; batches: number },
+  ): Promise<ClassifiedTile[]>;
 }
 
 export interface PrereadCache {
@@ -196,10 +246,16 @@ export interface PrereadWorkerOptions {
   enabled?: boolean;
   /** Override the 240 s whole-run budget (tests). */
   workerTimeoutMs?: number;
-  /** Override the 60 s per-call budget (tests). */
+  /** Override the 25 s per-tile budget (tests). */
   callTimeoutMs?: number;
+  /** Epoch ms when the worker budget ends. Set by the worker; tests shrink it via `workerTimeoutMs`. */
+  deadlineMs?: number;
   /** Structured failure log (tests inject a spy). */
   log?: PrereadLog;
+  /** Structured retry log (tests inject a spy). */
+  retryLog?: PrereadRetryLog;
+  /** One line per settled tile call (tests inject a spy). */
+  callLog?: PrereadCallLog;
   /** Override live few-shot fixtures (tests). `false` forces none. */
   fewShot?: readonly FewShotTile[] | false;
 }
@@ -235,9 +291,14 @@ export async function processQueuedPreread(
   if (!claimed) return;
 
   try {
+    const workerTimeoutMs = options.workerTimeoutMs ?? PREREAD_WORKER_TIMEOUT_MS;
     const result = await withTimeout(
-      runPreread(deps, caseUid, runUid, claimed, { ...options, log }),
-      options.workerTimeoutMs ?? PREREAD_WORKER_TIMEOUT_MS,
+      runPreread(deps, caseUid, runUid, claimed, {
+        ...options,
+        log,
+        deadlineMs: Date.now() + workerTimeoutMs,
+      }),
+      workerTimeoutMs,
     );
     await commitIfStillRunning(runRef, {
       status: 'Ready',
@@ -311,14 +372,20 @@ async function runPreread(
   if (imagePaths.length === 0) throw new AiError('OffSchema');
 
   const model = workerTextModel(deps.config, options.model);
-  const generate = options.generate ?? createGeminiGenerate({ location: workerLocation(deps.config) });
+  const location = workerLocation(deps.config);
+  // Shared across the tiles of this run: open calls, and when the first one started.
+  const calls = { runStartedMs: Date.now(), open: 0, firstAt: null as number | null };
+  const generate = options.generate ?? createGeminiGenerate({ location });
   const vision =
     options.vision ??
     geminiVision({
       generate,
       model,
+      location,
       callTimeoutMs: options.callTimeoutMs ?? PREREAD_CALL_TIMEOUT_MS,
       fewShot: options.fewShot,
+      callLog: options.callLog ?? defaultTileCallLog,
+      calls,
     });
   const cache = options.cache ?? memoryCache();
 
@@ -380,7 +447,11 @@ async function runPreread(
     const cacheKey = `${model}|${PREREAD_PROMPT_VERSION}|u${TILE_UPSCALE_FACTOR}|fs${PREREAD_FEW_SHOT ? 1 : 0}|${imageHash}|f${factor}`;
     let classified = await cache.get(cacheKey);
     if (!classified) {
-      classified = await classifyInBatches(vision, crops, profile);
+      classified = await classifyInBatches(vision, crops, profile, PREREAD_BATCH_CONCURRENCY, {
+        deadlineMs: options.deadlineMs,
+        callTimeoutMs: options.callTimeoutMs ?? PREREAD_CALL_TIMEOUT_MS,
+        retryLog: options.retryLog,
+      });
       await cache.set(cacheKey, classified);
     }
 
@@ -659,19 +730,44 @@ export function assertPathsUnder(caseUid: string, runUid: string, paths: string[
   }
 }
 
-/** One more try for a request that failed in transit; a malformed answer is not retried. */
+/** Up to two further tries when a call fails in transit. A malformed or stale answer stops at once. */
 async function classifyWithRetry(
   vision: PrereadVision,
   batch: TileCrop[],
   profile: PrereadProfile,
+  limits: {
+    deadlineMs: number;
+    callTimeoutMs: number;
+    retryLog: PrereadRetryLog;
+    batchIndex: number;
+    batches: number;
+  },
 ): Promise<ClassifiedTile[]> {
-  try {
-    return await vision.classify(batch, profile);
-  } catch (e) {
-    const reason = failureReasonOf(e);
-    if (reason !== 'Timeout' && reason !== 'ServiceError') throw e;
-    return vision.classify(batch, profile);
+  const attempts = PREREAD_TILE_MAX_RETRIES + 1;
+  let last: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    if (attempt > 1) {
+      // A retry that cannot finish before the worker budget is another hung call.
+      const room =
+        Date.now() + PREREAD_TILE_RETRY_BACKOFF_MS + limits.callTimeoutMs <= limits.deadlineMs;
+      if (!room) throw last;
+      limits.retryLog({ reason: failureReasonOf(last), attempt });
+      await new Promise((resolve) => setTimeout(resolve, PREREAD_TILE_RETRY_BACKOFF_MS));
+    }
+    try {
+      return await vision.classify(batch, profile, {
+        attempt,
+        batchIndex: limits.batchIndex,
+        batches: limits.batches,
+      });
+    } catch (e) {
+      last = e;
+      const reason = failureReasonOf(e);
+      if (reason !== 'Timeout' && reason !== 'ServiceError') throw e;
+      if (attempt === attempts) throw e;
+    }
   }
+  throw last;
 }
 
 /**
@@ -683,6 +779,11 @@ export async function classifyInBatches(
   crops: TileCrop[],
   profile: PrereadProfile,
   concurrency: number = PREREAD_BATCH_CONCURRENCY,
+  limits: {
+    deadlineMs?: number;
+    callTimeoutMs?: number;
+    retryLog?: PrereadRetryLog;
+  } = {},
 ): Promise<ClassifiedTile[]> {
   const batches: TileCrop[][] = [];
   for (let i = 0; i < crops.length; i += PREREAD_TILES_PER_REQUEST) {
@@ -701,7 +802,13 @@ export async function classifyInBatches(
       next += 1;
       if (index >= batches.length) return;
       try {
-        results[index] = await classifyWithRetry(vision, batches[index], profile);
+        results[index] = await classifyWithRetry(vision, batches[index], profile, {
+          deadlineMs: limits.deadlineMs ?? Number.POSITIVE_INFINITY,
+          callTimeoutMs: limits.callTimeoutMs ?? PREREAD_CALL_TIMEOUT_MS,
+          retryLog: limits.retryLog ?? defaultTileRetryLog,
+          batchIndex: index,
+          batches: batches.length,
+        });
       } catch (e) {
         const statusClass = e instanceof PrereadCallError ? e.statusClass : 'none';
         const reason = failureReasonOf(e);
@@ -752,14 +859,17 @@ function memoryCache(): PrereadCache {
 function geminiVision(args: {
   generate: GeminiGenerate;
   model: string;
+  location: string;
   callTimeoutMs?: number;
   /** Override live few-shot (tests). Default follows PREREAD_FEW_SHOT. */
   fewShot?: readonly FewShotTile[] | false;
+  callLog: PrereadCallLog;
+  calls: { runStartedMs: number; open: number; firstAt: number | null };
 }): PrereadVision {
   const generate = args.generate;
   const callTimeoutMs = args.callTimeoutMs ?? PREREAD_CALL_TIMEOUT_MS;
   return {
-    async classify(crops, profile) {
+    async classify(crops, profile, position) {
       if (crops.length === 0) return [];
       const fewShot =
         args.fewShot === false
@@ -777,10 +887,42 @@ function geminiVision(args: {
         fewShot,
       });
       let text: string;
+      // A fresh controller per try: aborting the timed-out call drops its socket
+      // before the retry opens another.
+      const abort = new AbortController();
+      const request: GeminiGenerateRequest = {
+        ...built.body,
+        config: { ...built.body.config, abortSignal: abort.signal },
+      };
+      const requestBytes = requestSize(request);
+      const imageCount = countClassifyImages(built.content);
+      args.calls.open += 1;
+      const inFlight = args.calls.open;
+      const started = Date.now();
+      if (args.calls.firstAt === null) args.calls.firstAt = started;
+      const settled = (outcome: PrereadTileCallLog['outcome'], error?: unknown): void => {
+        args.calls.open -= 1;
+        const fields = outcome === 'ok' || error === undefined ? {} : callErrorFields(error);
+        args.callLog({
+          attempt: position?.attempt ?? 1,
+          elapsedMs: Date.now() - started,
+          outcome,
+          ...fields,
+          requestBytes,
+          imageCount,
+          model: args.model,
+          location: args.location,
+          batchIndex: position?.batchIndex ?? 0,
+          batches: position?.batches ?? 1,
+          inFlight,
+          firstCallAfterMs: (args.calls.firstAt ?? started) - args.calls.runStartedMs,
+        });
+      };
       try {
-        const response = await withTimeout(generate(built.body), callTimeoutMs);
+        const response = await withTimeout(generate(request), callTimeoutMs, abort);
         text = response.text;
       } catch (e) {
+        settled(failureReasonOf(e) === 'Timeout' ? 'timeout' : 'error', e);
         if (e instanceof AiError) {
           throw e instanceof PrereadCallError
             ? e
@@ -788,6 +930,7 @@ function geminiVision(args: {
         }
         throw new PrereadCallError('ServiceError', statusClassOf(e));
       }
+      settled('ok');
       if (!text.trim()) throw new PrereadCallError('OffSchema', 'none');
       let parsed: unknown;
       try {
@@ -804,6 +947,32 @@ function geminiVision(args: {
         statusClass: 'none',
       });
     },
+  };
+}
+
+function requestSize(request: GeminiGenerateRequest): number {
+  try {
+    return Buffer.byteLength(JSON.stringify(request));
+  } catch {
+    return -1;
+  }
+}
+
+/** Name, HTTP status and code only. The message can carry an id or a label. */
+function callErrorFields(error: unknown): { errorName: string; status?: number; code?: string } {
+  const errorName = error instanceof Error ? error.name : 'Error';
+  const record = error as { status?: unknown; code?: unknown };
+  const status = typeof record.status === 'number' ? record.status : undefined;
+  const code =
+    typeof record.code === 'string'
+      ? record.code
+      : typeof record.code === 'number'
+        ? String(record.code)
+        : undefined;
+  return {
+    errorName,
+    ...(status === undefined ? {} : { status }),
+    ...(code === undefined ? {} : { code }),
   };
 }
 

@@ -311,6 +311,16 @@ branch as it is found, certified on the phone, then recorded here.
       bubbles. The members sheet marks the creator Admin, in the Done green. The ambiguous "Transcript
       not available for voice notes." is gone.
     Certified on the iPhone, 19 Nov.
+40. **Every live pre-read failed on a hung tile call.** One single-tile call timed out twice at
+    60 s, through the existing single retry, and failed the run; timed-out calls were never
+    cancelled (the instance warned of listeners piling up on one stream). A tile call is now
+    aborted when its timer fires, gets 25 s, and up to two more tries with a short backoff, all
+    within the worker's 240 s budget; `OffSchema` and `Stale` still fail at once. Each call logs
+    once when it settles (attempt, elapsed time, outcome, the error's name, status and code,
+    request size, image count, model, location, batch and calls in flight), never an image, a
+    label or an id. Deployed 19 Nov. **Open:** the tile calls still hang in the deployed worker
+    while the same request answers in 3 to 8 s from a workstation; the diagnostics are for the
+    next run. A failed pre-read still falls back to a manual read.
 
 ## 2. Business justification
 
