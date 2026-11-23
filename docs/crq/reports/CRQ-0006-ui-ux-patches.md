@@ -358,6 +358,9 @@ branch as it is found, certified on the phone, then recorded here.
     words; a test keeps "tile" out of any impression or finding that can reach a report. This also
     removes one way an explanation was refused for pre-read vocabulary. New pre-reads only, after the
     `onPrereadWritten` deploy.
+47. **The Full report card read "PDF · PDF · from …".** The line expected a file size, but the PDF is
+    built on demand, so the code passed "PDF" as the size. It now reads "PDF · from {facility}" in both
+    languages. Pending the device run.
 
 ## 2. Business justification
 

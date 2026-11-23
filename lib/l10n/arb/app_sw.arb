@@ -679,7 +679,7 @@
     "resultDetailListenMeta": "{language} · {duration}",
     "resultDetailNextSteps": "Hatua zinazofuata kutoka kwa {doctor}",
     "resultDetailFullReport": "Ripoti kamili",
-    "resultDetailFileMeta": "PDF · {size} · kutoka {facility}",
+    "resultDetailFileMeta": "PDF · kutoka {facility}",
     "resultDetailDownload": "Pakua",
     "resultDetailShare": "Shiriki",
     "resultDetailBookFollowUp": "Weka miadi ya ufuatiliaji",

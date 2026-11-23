@@ -423,6 +423,9 @@ void main() {
       expect(find.byType(ListenCard), findsNothing);
       expect(find.byType(VerificationTimeline), findsNothing);
       expect(find.text(l10n.resultDetailDownload), findsOneWidget);
+      // The PDF is built on demand: its line names the type once, no size.
+      expect(find.textContaining('PDF · PDF'), findsNothing);
+      expect(find.textContaining('PDF · from '), findsOneWidget);
       expect(
         tester.widget<ReportFileCard>(find.byType(ReportFileCard)).onDownload,
         isNotNull,

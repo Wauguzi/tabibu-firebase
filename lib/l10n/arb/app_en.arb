@@ -3207,13 +3207,10 @@
     "@resultDetailFullReport": {
         "description": "Shared result: report file card title"
     },
-    "resultDetailFileMeta": "PDF · {size} · from {facility}",
+    "resultDetailFileMeta": "PDF · from {facility}",
     "@resultDetailFileMeta": {
-        "description": "Shared result: report file size and source",
+        "description": "Shared result: the report file's type and source (the PDF is built on demand, so it has no size)",
         "placeholders": {
-            "size": {
-                "type": "String"
-            },
             "facility": {
                 "type": "String"
             }

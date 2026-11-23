@@ -683,7 +683,7 @@ class _SharedBodyState extends State<_SharedBody> {
         ReportFileCard(
           title: l10n.resultDetailFullReport,
           fileName: fileName,
-          meta: l10n.resultDetailFileMeta('PDF', facility),
+          meta: l10n.resultDetailFileMeta(facility),
           downloadLabel: _downloading
               ? l10n.resultsLoadingLabel
               : l10n.resultDetailDownload,
