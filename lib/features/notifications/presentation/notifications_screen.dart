@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -10,6 +11,10 @@ import 'package:tabibu/core/helpers/role_helper.dart';
 import 'package:tabibu/core/utils/nairobi_time.dart';
 import 'package:tabibu/core/utils/settle_refresh.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
+import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_bloc.dart';
+import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_event.dart';
+import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_state.dart';
+import 'package:tabibu/features/appointments/presentation/widgets/decline_booking_sheet.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
 import 'package:tabibu/features/conversations/blocs/mdt_bloc/mdt_bloc.dart';
@@ -50,6 +55,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   String? _answeringUid;
   bool _answeringAccept = false;
   String _answeringConversation = '';
+  String _answeringTemplate = '';
 
   /// Rows this screen has settled: a decline, or a refusal from the server.
   final Map<String, NotificationActionStatus> _settled = {};
@@ -72,6 +78,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _ => RoleHelper.none,
     };
     context.read<NotificationsBloc>().add(NotificationsRequested(uid: _uid));
+    // A booking request answered here needs its patient's name for the
+    // decline sheet, so the doctor's appointments load with the inbox.
+    final appointments = context.read<AppointmentsBloc>();
+    if (widget.role == .doctor && appointments.state.appointments.isEmpty) {
+      appointments.add(AppointmentsRequested(uid: _uid, role: widget.role));
+    }
   }
 
   Future<void> _refresh() async {
@@ -122,18 +134,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool _canAnswer(NotificationModel row) {
     if (widget.role == .patient || row.recipientUid != _uid) return false;
     if (_settled.containsKey(row.uid)) return false;
-    if (row.templateKey != NotificationTemplate.mdtInvited.value) {
-      return false;
-    }
+    final invite = row.templateKey == NotificationTemplate.mdtInvited.value;
+    final booking =
+        row.templateKey == NotificationTemplate.appointmentRequested.value &&
+        widget.role == .doctor;
+    if (!invite && !booking) return false;
     return row.isActionable(DateTime.now().toUtc());
   }
 
-  void _answer(NotificationModel row, {required bool accept}) {
+  Future<void> _answer(NotificationModel row, {required bool accept}) async {
     if (_answeringUid != null || row.resourceUid.isEmpty) return;
+    if (row.templateKey == NotificationTemplate.appointmentRequested.value) {
+      await _answerBooking(row, accept: accept);
+      return;
+    }
     setState(() {
       _answeringUid = row.uid;
       _answeringAccept = accept;
       _answeringConversation = row.resourceUid;
+      _answeringTemplate = row.templateKey;
     });
     context.read<MdtBloc>().add(
       MdtRespondRequested(
@@ -144,9 +163,74 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
+  /// The booking request's own answer: Accept as it is, Decline through the
+  /// same reason sheet the booking requests screen uses.
+  Future<void> _answerBooking(
+    NotificationModel row, {
+    required bool accept,
+  }) async {
+    final appointments = context.read<AppointmentsBloc>();
+    DeclineChoice? choice;
+    if (!accept) {
+      final name =
+          appointments.state.appointments
+              .firstWhereOrNull((a) => a.uid == row.resourceUid)
+              ?.patientName ??
+          '';
+      choice = await DeclineBookingSheet.show(context, name: name);
+      if (choice == null || !mounted) return;
+    }
+    setState(() {
+      _answeringUid = row.uid;
+      _answeringAccept = accept;
+      _answeringConversation = '';
+      _answeringTemplate = row.templateKey;
+    });
+    appointments.add(
+      AppointmentDecisionRequested(
+        appointmentUid: row.resourceUid,
+        accept: accept,
+        reason: choice?.reason,
+        note: choice?.note ?? '',
+      ),
+    );
+  }
+
+  void _onAppointments(BuildContext context, AppointmentsState state) {
+    final uid = _answeringUid;
+    if (uid == null ||
+        _answeringTemplate != NotificationTemplate.appointmentRequested.value) {
+      return;
+    }
+    switch (state) {
+      case AppointmentDecisionSuccess():
+        setState(() {
+          _answeringUid = null;
+          _settled[uid] = _answeringAccept
+              ? NotificationActionStatus.accepted
+              : NotificationActionStatus.declined;
+        });
+        context.read<AppointmentsBloc>().add(
+          AppointmentsRefreshed(uid: _uid, role: widget.role),
+        );
+      case AppointmentWriteFailure(:final error):
+        setState(() {
+          _answeringUid = null;
+          if (error != AppError.noInternet) {
+            _settled[uid] = NotificationActionStatus.cancelled;
+          }
+        });
+      default:
+        break;
+    }
+  }
+
   void _onMdt(BuildContext context, MdtState state) {
     final uid = _answeringUid;
-    if (uid == null) return;
+    if (uid == null ||
+        _answeringTemplate != NotificationTemplate.mdtInvited.value) {
+      return;
+    }
     switch (state) {
       case MdtWriteSuccess():
         final accept = _answeringAccept;
@@ -204,8 +288,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) {
     final body = SafeArea(
-      child: BlocListener<MdtBloc, MdtState>(
-        listener: _onMdt,
+      child: MultiBlocListener(
+        listeners: [
+          BlocListener<MdtBloc, MdtState>(listener: _onMdt),
+          BlocListener<AppointmentsBloc, AppointmentsState>(
+            listener: _onAppointments,
+          ),
+        ],
         child: BlocConsumer<NotificationsBloc, NotificationsState>(
           listener: (context, state) {
             if (state is NotificationsLoadFailure) {

@@ -9,6 +9,10 @@ import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:tabibu/core/constants/enums.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
+import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_bloc.dart';
+import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_event.dart';
+import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_state.dart';
+import 'package:tabibu/features/appointments/data/models/appointment_model.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_state.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
@@ -59,6 +63,8 @@ PatientSession _patientSession() => PatientSession(
 
 void main() {
   group('NotificationsScreen', () {
+    setUpAll(() => registerFallbackValue(const AppointmentsReset()));
+
     late FeatureBlocs blocs;
     late MockAuthBloc authBloc;
 
@@ -80,6 +86,7 @@ void main() {
         BlocProvider<AuthBloc>.value(value: authBloc),
         BlocProvider<NotificationsBloc>.value(value: blocs.notifications),
         BlocProvider<MdtBloc>.value(value: blocs.mdt),
+        BlocProvider<AppointmentsBloc>.value(value: blocs.appointments),
       ],
       child: NotificationsScreen(role: role),
     );
@@ -815,6 +822,118 @@ void main() {
       expect(tester.takeException(), isNull);
       expect(find.text(l10n.mdtAccept), findsOneWidget);
       expect(find.text(l10n.mdtDecline), findsOneWidget);
+    });
+
+    NotificationModel booking({String uid = 'booking-1'}) {
+      final at = DateTime.now().toUtc();
+      return NotificationModel(
+        uid: uid,
+        creationDate: at.toIso8601String(),
+        recipientUid: 'doc-1',
+        templateKey: NotificationTemplate.appointmentRequested.value,
+        category: 'Appointment',
+        title: 'New appointment request',
+        resourceUid: 'appt-1',
+        metadata: NotificationMetadataModel(
+          actionType: 'Approval',
+          actionStatus: 'Pending',
+          expiresAt: at.add(const Duration(days: 1)).toIso8601String(),
+        ),
+      );
+    }
+
+    Future<StreamController<AppointmentsState>> pumpBooking(
+      WidgetTester tester, {
+      Role role = .doctor,
+    }) async {
+      final states = StreamController<AppointmentsState>.broadcast();
+      addTearDown(states.close);
+      whenListen(
+        blocs.appointments,
+        states.stream,
+        initialState: const AppointmentsLoadSuccess(
+          appointments: [
+            AppointmentModel(uid: 'appt-1', patientName: 'Amina Otieno'),
+          ],
+        ),
+      );
+      when(
+        () => blocs.notifications.state,
+      ).thenReturn(NotificationsLoadSuccess(items: [booking()]));
+      await tester.pumpApp(screen(role));
+      await tester.pump();
+      return states;
+    }
+
+    testWidgets('a pending booking request shows Accept and Decline', (
+      tester,
+    ) async {
+      asDoctor();
+      await pumpBooking(tester);
+      expect(find.text('Accept'), findsOneWidget);
+      expect(find.text('Decline'), findsOneWidget);
+    });
+
+    testWidgets('Accept on a booking request loads only that button, sends '
+        'the decision once, then settles and refreshes', (tester) async {
+      asDoctor();
+      final states = await pumpBooking(tester);
+      await tester.tap(find.byKey(const ValueKey('mdt-accept-booking-1')));
+      await tester.pump();
+
+      final buttons = tester
+          .widgetList<TabibuButton>(find.byType(TabibuButton))
+          .toList();
+      expect(buttons.singleWhere((b) => b.label == 'Accept').isLoading, isTrue);
+      expect(
+        buttons.singleWhere((b) => b.label == 'Decline').isLoading,
+        isFalse,
+      );
+      await tester.tap(find.byKey(const ValueKey('mdt-accept-booking-1')));
+      await tester.pump();
+      verify(
+        () => blocs.appointments.add(
+          const AppointmentDecisionRequested(
+            appointmentUid: 'appt-1',
+            accept: true,
+          ),
+        ),
+      ).called(1);
+
+      states.add(
+        const AppointmentDecisionSuccess(
+          appointment: AppointmentModel(uid: 'appt-1', status: 'Accepted'),
+        ),
+      );
+      await tester.pump();
+      expect(find.text('Accept'), findsNothing);
+      verify(
+        () => blocs.appointments.add(
+          const AppointmentsRefreshed(uid: 'doc-1', role: .doctor),
+        ),
+      ).called(1);
+    });
+
+    testWidgets('Decline on a booking request asks for a reason first', (
+      tester,
+    ) async {
+      asDoctor();
+      await pumpBooking(tester);
+      await tester.tap(find.byKey(const ValueKey('mdt-decline-booking-1')));
+      // A zero-duration pump does not return while a sheet route is up.
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 600));
+
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      expect(
+        find.text(l10n.bookingRequestsDeclineTitle('Amina Otieno')),
+        findsOneWidget,
+      );
+      verifyNever(
+        () => blocs.appointments.add(
+          any(that: isA<AppointmentDecisionRequested>()),
+        ),
+      );
     });
   });
 }

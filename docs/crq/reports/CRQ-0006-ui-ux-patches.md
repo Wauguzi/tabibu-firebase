@@ -336,6 +336,12 @@ branch as it is found, certified on the phone, then recorded here.
     fifth of its tiles end Unclear, and `Stale` still fails it at once. Certified live, 19 Nov: the
     histopathology pre-read came back Ready, the two tiles that had hung answering in 3.6 and 4.5 s,
     no retries and no Unclear tile.
+43. **A booking request could not be answered from the notification.** The doctor's inbox row for a
+    pending, unexpired booking request now has Accept and Decline, as the MDT invitation does:
+    only the tapped button loads, Accept sends the decision through `AppointmentsBloc` and refreshes
+    the appointments, and Decline opens the same reason sheet as Booking requests, named for the
+    patient (the inbox loads the doctor's appointments so the name is there). Certified on the
+    iPhone pending the device run.
 
 ## 2. Business justification
 
