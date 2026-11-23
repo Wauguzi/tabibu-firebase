@@ -74,6 +74,10 @@ read on the way. Each entry is filled in as its patch lands.
    against the live project from 16 to 23 Nov, story by story (22 passed, 4 in part, 6 not run),
    and the README's Trying it points to it. CRQ-0002, -0004 and -0005 take their device runs from
    it.
+10. **The docs described a backend that was not yet live.** The threat model's controls now read
+    live (the deployed rules match the repository); the architecture, AI service, notifications
+    and alert engine reports give the current status, the pre-read's tile limits and the twelve
+    switches; CRQ-0006 drops a wrong cross-reference.
 
 ## 2. Business justification
 

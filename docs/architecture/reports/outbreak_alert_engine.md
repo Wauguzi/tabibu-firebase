@@ -10,8 +10,8 @@
 | Field | Value |
 |---|---|
 | Owner | Theo — CTO, Mobile Engineer |
-| Status | Built: functions, rules, blocs and screens |
-| Last reviewed | 2026-11-15 |
+| Status | Live: functions, rules, blocs and screens; the loop certified on the device ([UAT-ITR-0001](../../testing/reports/UAT-ITR-0001-three-roles-end-to-end-2026-11-23.md)) |
+| Last reviewed | 2026-11-23 |
 | Collections | `notifiableEvents`, `notifiableEventLinks`, `epiCounts`, `alertSignals`, `alerts`, `publicAlerts`, `alertDeliveries`, `alertApprovers`, `demoAccounts` |
 | Bundled data | `notifiable_diseases.json`, `public_health_guidance.json` (§2) |
 | Related | [`notifications_engine.md`](./notifications_engine.md) (delivery), [`ai_preread_service.md`](./ai_preread_service.md) (drafting) |
@@ -74,7 +74,7 @@ report cannot raise them.
 |---|---|
 | [IDSR Clinician's Handbook for Priority Diseases](https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf), MoH (2nd-edition era; archived copy, because the live host often times out) | Reporting categories and the statutory reminder (forms MOH 502 and 505) |
 | [WHO AFRO IDSR Technical Guidelines, 3rd edition](https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third), Booklet Two's standard case definitions | The case-definition bullets, each checked against the booklet's text (23 Nov 2026) |
-| [IDSR Technical Guidelines for Kenya, 3rd edition](https://nphi.go.ke/sites/default/files/2024-02/IDSR%20Technical%20Guidelines%20for%20Kenya%2011.05.2022_9am.pdf), MoH and KNPHI | The current categories. **Not yet read**: the host serves an expired certificate |
+| [IDSR Technical Guidelines for Kenya, 3rd edition](https://nphi.go.ke/sites/default/files/2024-02/IDSR%20Technical%20Guidelines%20for%20Kenya%2011.05.2022_9am.pdf), MoH and KNPHI | The current categories. **Not yet read**: the host often fails to serve it (timed out on 23 Nov 2026) |
 | [Geteri et al., *BMC Research Notes* 17:309 (2024), Table 1](https://pmc.ncbi.nlm.nih.gov/articles/PMC11481684/) | Kenya's 2021 IDSR priority list and its groups |
 | [Public Health Act, Cap. 242, s.17](https://www.sheriaplex.com/kenya-acts/5487-section-17-application-of-part) and [s.18](https://www.sheriaplex.com/kenya-acts/5488-section-18-notification-of-infectious-diseases) ([official text](https://new.kenyalaw.org/akn/ke/act/1921/38)) | The legal list, and notification to the medical officer of health |
 | [IHR (2005), consolidated text](https://apps.who.int/gb/bd/pdf_files/IHR_2014-2022-2024-en.pdf), [WHA77.17](https://apps.who.int/gb/ebwha/pdf_files/WHA77/A77_R17-en.pdf), and the [UK IHR focal point protocol](https://www.gov.uk/government/publications/international-health-regulations-2005-uk-national-focal-point-communications-protocol/international-health-regulations-2005-uk-national-focal-point-communications-protocol) (Annex 2's right box) | `ihrStatus` |

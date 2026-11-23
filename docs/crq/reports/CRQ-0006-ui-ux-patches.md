@@ -375,7 +375,8 @@ says why something is unavailable, and when it will be, replaces a generic failu
 
 
 - **Push on the iPhone:** the free Personal Team cannot add the push entitlement, so APNs
-  issues no token; the in-app inbox still works and Android receives pushes (CRQ-0004 §3).
+  issues no token (the iOS project carries no `aps-environment` entitlement); the in-app inbox
+  still works and Android receives pushes.
 - **Server rules:** none beyond patch 14's missing-document read; the app explains the server's
   existing refusals.
 

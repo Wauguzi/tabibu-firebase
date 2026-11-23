@@ -10,7 +10,7 @@
 |---|---|
 | Owner | Theo — CTO, Mobile Engineer |
 | Status | Server jobs built on Gemini; two in-app tasks on the device's own model, one with a cloud fallback (§8); three in-app cloud calls through AI Logic, all on in the live project (§9) |
-| Last reviewed | 2026-11-18 |
+| Last reviewed | 2026-11-23 |
 | Runs on | Cloud Functions (`functions/src`), calling Gemini on the Agent Platform through `@google/genai` (`ai-gemini.ts`); every server job uses `gemini-3.8-flash` (`ai_text_model`) |
 | Credentials | None stored. The Functions runtime service account holds Vertex AI User (`roles/aiplatform.user`) and the SDK uses Application Default Credentials |
 | Writes to | Firestore `cases/{caseUid}/preread/{runUid}` and the job records in §1; Storage `preread/{caseUid}/{runUid}/` |
@@ -67,6 +67,13 @@ App listens ◄── Firestore ◄── Admin SDK write (status=Ready|Failed) 
   is stored. A call has 60 seconds and one retry on 429 or 503. A timeout, a
   service error or an answer off the schema writes `Failed` with a
   `failureReason`, and is never thrown back into the trigger's retry loop.
+- **The pre-read is one call per tile**, up to four at a time inside a
+  240-second budget. Each call is aborted at 25 seconds and tried twice more
+  on a timeout or a service error, and its answer is capped at 1,024 output
+  tokens, thinking included. A tile that never answers is Unclear: never
+  guessed and never cached. The run fails if more than a fifth of its tiles
+  end Unclear, and no call starts after the budget runs out or the run has
+  failed.
 - A pre-read still `Queued` or `Running` 30 minutes after it was requested is
   failed as `Stale` by the sweep, and the case moves on to a manual read.
 - Rules deny client writes to every `preread` document and job record.
