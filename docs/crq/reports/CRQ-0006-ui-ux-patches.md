@@ -260,8 +260,8 @@ branch as it is found, certified on the phone, then recorded here.
     the screen". Because the saved copy can show before the sync returns, Mark as discussed could
     start while that open was in flight and its later result stopped the spinner; a release now
     keeps an in-flight open from replacing it. Certified on the iPhone, 19 Nov: the explanation
-    shows at once and a replay plays from the phone. The Mark as discussed loading is pending the
-    device run.
+    shows at once and a replay plays from the phone. The Mark as discussed loading is
+    certified on the iPhone, 23 Nov.
 37. **A doctor could not add or order for a walk-in patient, and their patient list was empty.**
     - **Adding:** a floating button on the order's patient step opens a sheet with the sign-up
       fields (first and last name, a required sex picker, date of birth, phone, optional email),
@@ -325,7 +325,7 @@ branch as it is found, certified on the phone, then recorded here.
     (All, Low confidence, Waiting 4h+, Notifiable) now sit on one horizontally scrolling line, as the
     results and find-a-doctor chips do, so Swahili and large text scroll sideways instead of wrapping.
     The list's side inset moved inside the list, so each card's left and right borders paint.
-    Pending the device run.
+    Certified on the iPhone, 23 Nov.
 42. **One tile that never answered failed the whole pre-read.** Patch 40's diagnostics (19 Nov
     12:45 UTC) showed eight tiles answering in 2 to 8 s and one hanging on every try, alone: the
     model ran on instead of returning its small JSON, and the request set no output limit. Each
@@ -341,17 +341,17 @@ branch as it is found, certified on the phone, then recorded here.
     only the tapped button loads, Accept sends the decision through `AppointmentsBloc` and refreshes
     the appointments, and Decline opens the same reason sheet as Booking requests, named for the
     patient (the inbox loads the doctor's appointments so the name is there). Certified on the
-    iPhone pending the device run.
+    iPhone, 23 Nov.
 44. **A message notification opened nothing.** Message notifications link to
     `/conversations/{id}`, which no route handled. An `appt_` id now opens the appointment chat for
     the patient or doctor, and an MDT id the consult for a doctor or pathologist; each screen loads
     itself on open (the consult syncs when it is not on the phone). A case chat (`case_`) has no
-    screen yet and still opens the inbox. Push and banner taps use the same routing. Pending the
-    device run.
+    screen yet and still opens the inbox. Push and banner taps use the same routing. Certified
+    on the iPhone, 23 Nov.
 45. **Sharing a result ended on an empty screen.** The done screen showed nothing when the new share
     was not yet in the bloc. Sharing now returns to the report it was shared from with "Shared with
     {name}", and the done screen and its route are removed; Stop sharing stays on the shared-reports
-    list. Pending the device run.
+    list. Certified on the iPhone, 23 Nov.
 46. **A patient read "3 of 3 tiles (100%) are marked as tumour."** The pre-read's findings, built
     in code, are filled into the report's comments, which the patient reads. They now say "Tumour in
     3 of 3 areas examined (100%)." and "No area examined shows tumour.", the same numbers in clinical
@@ -360,7 +360,7 @@ branch as it is found, certified on the phone, then recorded here.
     `onPrereadWritten` deploy.
 47. **The Full report card read "PDF · PDF · from …".** The line expected a file size, but the PDF is
     built on demand, so the code passed "PDF" as the size. It now reads "PDF · from {facility}" in both
-    languages. Pending the device run.
+    languages. Certified on the iPhone, 23 Nov.
 
 ## 2. Business justification
 
@@ -416,8 +416,8 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | `make rules-test` | Pass — 250, with RT-203 (patch 14), RT-5's care-team query (patch 37) and the server-only `openMdtUid` (patch 39) |
 | `make spell` | Pass — 0 issues |
 | Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed. Patch 23: the refresh on open and the busy field and button. Patch 24: the kept failed language, the `requestReportText` call, the refused retry, the failed line and the loading colour. Patch 25: the WAV name and type, each debug log, the WAV check and the `sw` code. Patch 26: the names and the gap |
-| Manual run | Patches 1 to 42 certified on the iPhone 14, 17–19 Nov, but for the Mark as discussed loading (36) and the desk (41), pending. 19 Nov: the histopathology pre-read Ready live (patch 42), and the outbreak alert loop end to end on the device: NAATs for Ebola ordered, a confirmed finding signed, the alert drafted, approved and delivered to the county's demo accounts (patches 30 and 32). Patches 43 to 47, pending |
-| Certification | Pending the end of the run |
+| Manual run | Patches 1 to 42 certified on the iPhone 14, 17–19 Nov; the Mark as discussed loading (36) and the desk (41) on 23 Nov. 19 Nov: the histopathology pre-read Ready live (patch 42), and the outbreak alert loop end to end on the device: NAATs for Ebola ordered, a confirmed finding signed, the alert drafted, approved and delivered to the county's demo accounts (patches 30 and 32). Patches 43 to 47 and the round-2 fixes certified on 23 Nov |
+| Certification | Certified by Theo, 2026-11-23: every patch on the device |
 
 ## 8. Approval
 
@@ -468,7 +468,8 @@ the order picker now also shows only the signed-in doctor's rows.
 
 **Greptile round 3: 5/5,** no new finding.
 
-The device run of patches 43 to 47 follows.
+**Device run, 23 Nov.** Patches 36, 41 and 43 to 47 and the round-2 fixes work on the device; the
+run is complete.
 
 ## 10. Related records
 
