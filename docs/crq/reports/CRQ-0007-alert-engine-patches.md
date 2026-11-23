@@ -58,6 +58,10 @@ read on the way. Each entry is filled in as its patch lands.
    survive the reopen, a Ready one is not fetched again, and an approval found on the server
    replaces its draft. They stay in memory only: unapproved model text is still never written to
    the phone (Theo, 23 Nov, keeping the architecture's rule).
+6. **This week's Ebola alert still read "Demo: …"** because it was drafted before the deploy and
+   only its count changed after. `functions/scripts/redraft-alert.ts` asks for a new draft as the
+   approver would, through the same handler (dry run by default); run once on 23 Nov, the alert
+   came back drafted by the current template.
 
 ## 2. Business justification
 
