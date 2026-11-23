@@ -70,6 +70,10 @@ read on the way. Each entry is filled in as its patch lands.
    The review screen's More menu now starts with "Ask for a new draft" (up to 3 per alert); the
    screen follows the alert until the new draft is in (every 3 s, up to 90 s), and the two
    refusals, the limit and an alert past drafting, each say so and keep the current draft.
+9. **No report showed how the app was tested end to end.** UAT-ITR-0001 records the three roles
+   against the live project from 16 to 23 Nov, story by story (22 passed, 4 in part, 6 not run),
+   and the README's Trying it points to it. CRQ-0002, -0004 and -0005 take their device runs from
+   it.
 
 ## 2. Business justification
 

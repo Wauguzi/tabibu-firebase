@@ -57,10 +57,10 @@ few people who can read a slide or run a test, a county learns of a cluster late
 Organization keeps COVID-19, Ebola virus disease and Marburg virus disease among its current
 [priority diseases for research and development](https://www.who.int/activities/prioritizing-diseases-for-research-and-development-in-emergency-contexts),
 and its [fact sheet](https://www.who.int/news-room/fact-sheets/detail/ebola-disease) puts the average
-Ebola case fatality rate at around 50%, varying from 25% to 90% in past outbreaks. In May 2026 Kenya's
-Ministry of Health issued a
-[public advisory on the Ebola outbreak in Ituri Province](https://health.go.ke/sites/default/files/2026-05/PRESS%20RELEASE_EVD_DRC_Final.pdf)
-in the Democratic Republic of the Congo. The alert engine is built for that gap. When a pathologist
+Ebola case fatality rate at around 50%, varying from 25% to 90% in past outbreaks. On 6 October 2026
+Kenya's Ministry of Health
+[confirmed the country's first imported case of Bundibugyo Ebola virus disease](https://www.health.go.ke/sites/default/files/2026-10/CS%20PRESS%20RELEASE-%201ST%20EBOLA%20CASE.pdf),
+tested at the National Virology Reference Laboratory and KEMRI. The alert engine is built for that gap. When a pathologist
 signs a confirmed notifiable finding it becomes an anonymous count, with no patient and no clinic in
 it. When a county's count calls for it, a draft alert in English and Kiswahili, grounded in Ministry
 of Health and WHO guidance, waits for an approver, and only then reaches clinicians and then the
@@ -203,6 +203,14 @@ password:
 
 The accounts come from `make seed-live`, which also adds two clinic patients and an admin account for
 the Firebase console.
+
+**How it was tested.** I ran all three roles end to end against this live project, with every AI
+job live: a patient booking by voice, a doctor ordering, a pathologist scoring a live pre-read and
+signing, the explanation approved and heard, and a signed Ebola finding becoming an alert that an
+approver released to the county. The
+[UAT report](docs/testing/reports/UAT-ITR-0001-three-roles-end-to-end-2026-11-23.md) records each
+story as passed, partly passed or not run, and the [change records](docs/crq/reports/README.md)
+hold every fix the runs turned up, across the pull requests that built the app.
 
 **Voice.** At booking, a patient can speak their symptoms; the recording becomes text for them to
 check before sending. The chats have a microphone in the composer too, where a voice note is
