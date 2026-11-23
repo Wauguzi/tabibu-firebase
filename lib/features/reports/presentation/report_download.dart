@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:tabibu/core/constants/enums.dart';
 import 'package:tabibu/core/helpers/get_it_helper.dart';
+import 'package:tabibu/core/services/analytics_service.dart';
 import 'package:tabibu/features/cases/data/models/case_model.dart';
 import 'package:tabibu/features/patients/data/models/patient_model.dart';
 import 'package:tabibu/features/patients/data/patient_sync.dart';
@@ -34,6 +35,7 @@ class ReportDownload {
     Future<List<PatientModel>> Function(String doctorUid)? carePatients,
     Future<List<int>> Function(String path)? readSignature,
     Logger? logger,
+    AnalyticsService? analytics,
   }) : _pdf = pdfBuilder ?? getIt<ReportPdfBuilder>(),
        _reports = reports ?? getIt<ReportCacheHelper>(),
        _temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory,
@@ -44,7 +46,10 @@ class ReportDownload {
        // Named for the caller; the field stays private.
        // ignore: prefer_initializing_formals
        _readSignature = readSignature,
-       _logger = logger ?? Logger();
+       _logger = logger ?? Logger(),
+       // Named for the caller; the field stays private.
+       // ignore: prefer_initializing_formals
+       _analytics = analytics;
 
   final ReportPdfBuilder _pdf;
   final ReportCacheHelper _reports;
@@ -53,6 +58,7 @@ class ReportDownload {
   final Future<List<PatientModel>> Function(String doctorUid)? _carePatients;
   final Future<List<int>> Function(String path)? _readSignature;
   final Logger _logger;
+  final AnalyticsService? _analytics;
 
   /// Builds and shares the PDF, or throws [AppError] when the release gate
   /// refuses (`permissionDenied` / `dataNotFound`). Callers show a generic
@@ -104,6 +110,8 @@ class ReportDownload {
       await _share(
         ShareParams(files: [XFile(file.path, mimeType: 'application/pdf')]),
       );
+      // Role only: the event must not carry a name, a case or a report.
+      await _logDownloaded(viewerRole);
     } on AppError {
       // Refusal: nothing personal reaches the log.
       rethrow;
@@ -120,6 +128,16 @@ class ReportDownload {
         }
       }
     }
+  }
+
+  Future<void> _logDownloaded(ActorRole viewerRole) async {
+    final analytics =
+        _analytics ??
+        (getIt.isRegistered<AnalyticsService>()
+            ? getIt<AnalyticsService>()
+            : null);
+    if (analytics == null) return;
+    await analytics.logReportDownloaded(role: viewerRole.name);
   }
 
   Future<ReportTextApprovedModel?> _approvedTranslation({

@@ -117,6 +117,13 @@ class _EnterShareCodeScreenState extends State<EnterShareCodeScreen> {
   }
 
   void _openCase(BuildContext context, String caseUid) {
+    // The refresh on open ran before the code was accepted, so the report
+    // it fetched could not include this one.
+    if (_uid.isNotEmpty) {
+      context.read<CasesBloc>().add(
+        CasesRefreshed(uid: _uid, role: widget.role),
+      );
+    }
     if (widget.role == .pathologist) {
       CaseWorkspaceRoute(caseUid: caseUid).pushReplacement(context);
     } else {

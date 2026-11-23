@@ -344,6 +344,20 @@ void main() {
       expect(find.text(l10n.shareCodeWrong), findsNothing);
     });
 
+    testWidgets('a redeemed code refreshes reports', (tester) async {
+      await pumpScreen(
+        tester,
+        then: const [ShareRedeemSuccess(redeemedCaseUid: 'c1')],
+      );
+      await tester.pumpAndSettle();
+
+      verify(
+        () =>
+            blocs.cases.add(const CasesRefreshed(uid: 'doc-1', role: .doctor)),
+      ).called(2);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+
     testWidgets('a doctor who redeems lands on the case', (tester) async {
       await pumpScreen(
         tester,

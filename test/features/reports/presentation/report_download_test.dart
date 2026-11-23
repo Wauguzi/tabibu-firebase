@@ -10,6 +10,7 @@ import 'package:logger/logger.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:tabibu/core/constants/enums.dart';
+import 'package:tabibu/core/services/analytics_service.dart';
 import 'package:tabibu/features/cases/data/models/case_model.dart';
 import 'package:tabibu/features/patients/data/models/patient_model.dart';
 import 'package:tabibu/features/reports/data/cache/report_cache_helper.dart';
@@ -25,6 +26,8 @@ import '../data/models/pathology_report_model_test.dart' show reportJson;
 class _MockPdf extends Mock implements ReportPdfBuilder {}
 
 class _MockReports extends Mock implements ReportCacheHelper {}
+
+class _MockAnalytics extends Mock implements AnalyticsService {}
 
 class _MemoryLog extends LogOutput {
   final lines = <String>[];
@@ -60,6 +63,7 @@ void main() {
   late Directory tempDir;
   late List<ShareParams> shared;
   late ReportDownload download;
+  late _MockAnalytics analytics;
   late Future<List<int>> Function(String path)? readSignature;
   late Future<List<PatientModel>> Function(String doctorUid)? carePatients;
 
@@ -77,6 +81,10 @@ void main() {
   setUp(() async {
     pdf = _MockPdf();
     reports = _MockReports();
+    analytics = _MockAnalytics();
+    when(
+      () => analytics.logReportDownloaded(role: any(named: 'role')),
+    ).thenAnswer((_) async {});
     logOutput = _MemoryLog();
     tempDir = await Directory.systemTemp.createTemp('report_download_');
     shared = <ShareParams>[];
@@ -112,6 +120,7 @@ void main() {
         if (read == null) throw StateError('signature read was not stubbed');
         return read(path);
       },
+      analytics: analytics,
       logger: Logger(
         level: Level.warning,
         output: logOutput,
@@ -125,6 +134,30 @@ void main() {
   });
 
   group('ReportDownload', () {
+    test('a shared PDF logs the role once', () async {
+      await download.sharePatientReport(
+        report: signed(),
+        caseModel: caseModel,
+        patient: patient,
+        language: 'en',
+        l10n: l10n,
+        now: now,
+      );
+      verify(() => analytics.logReportDownloaded(role: 'patient')).called(1);
+
+      await download.sharePatientReport(
+        report: signed(),
+        caseModel: caseModel,
+        patient: patient,
+        language: 'en',
+        l10n: l10n,
+        now: now,
+        viewerRole: .doctor,
+        viewerUid: 'doc-1',
+      );
+      verify(() => analytics.logReportDownloaded(role: 'doctor')).called(1);
+    });
+
     test('refuses an unreleased report and never shares', () async {
       await expectLater(
         () => download.sharePatientReport(

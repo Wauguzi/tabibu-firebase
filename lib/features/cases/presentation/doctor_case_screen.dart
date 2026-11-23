@@ -32,6 +32,37 @@ import 'package:tabibu/features/reports/presentation/report_download.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
+/// Offline reads that still have a cached copy. Anything else is a real
+/// failure, not a silent stale report.
+const _offlineReportRead = <AppError>{
+  .noInternet,
+  .serviceUnavailable,
+  .requestTimeout,
+};
+
+/// The report to put in the PDF. A code just redeemed is readable on the
+/// server and not in the cache yet, so this syncs first. Offline, the
+/// cache is the copy we already have.
+Future<PathologyReportModel?> reportReadyToDownload({
+  required ReportCacheHelper reports,
+  required String uid,
+  required String caseUid,
+  required String currentReportUid,
+}) async {
+  List<PathologyReportModel> rows;
+  try {
+    rows = await reports.syncReports(uid, role: .doctor);
+  } on AppError catch (error) {
+    if (!_offlineReportRead.contains(error)) rethrow;
+    rows = await reports.getReports(uid, role: .doctor);
+  }
+  return rows.firstWhereOrNull(
+    (report) =>
+        report.caseUid == caseUid &&
+        (currentReportUid.isEmpty || report.uid == currentReportUid),
+  );
+}
+
 /// D-CASE. One case as its doctor reads it: the patient, where the case is,
 /// the order, and the report once it is signed.
 class DoctorCaseScreen extends StatefulWidget {
@@ -402,15 +433,11 @@ class _Body extends StatelessWidget {
               if (!getIt.isRegistered<ReportCacheHelper>()) return null;
               final session = context.read<AuthBloc>().state.session;
               if (session is! PractitionerSession) return null;
-              final rows = await getIt<ReportCacheHelper>().getReports(
-                session.doctor.uid,
-                role: .doctor,
-              );
-              return rows.firstWhereOrNull(
-                (report) =>
-                    report.caseUid == caseModel.uid &&
-                    (caseModel.currentReportUid.isEmpty ||
-                        report.uid == caseModel.currentReportUid),
+              return await reportReadyToDownload(
+                reports: getIt<ReportCacheHelper>(),
+                uid: session.doctor.uid,
+                caseUid: caseModel.uid,
+                currentReportUid: caseModel.currentReportUid,
               );
             },
           ),
