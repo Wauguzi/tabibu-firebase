@@ -4,12 +4,16 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:tabibu/core/helpers/get_it_helper.dart';
+import 'package:tabibu/core/helpers/reference_data_helper.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_bloc.dart';
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_event.dart';
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_state.dart';
+import 'package:tabibu/features/alerts/data/models/alert_evidence_model.dart';
 import 'package:tabibu/features/alerts/data/models/alert_model.dart';
 import 'package:tabibu/features/alerts/data/models/alert_text_model.dart';
+import 'package:tabibu/features/alerts/data/models/notifiable_disease_model.dart';
 import 'package:tabibu/features/alerts/presentation/alert_sent_screen.dart';
 import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
@@ -56,6 +60,8 @@ AlertModel _alert({
     ),
   },
 );
+
+class _MockReferenceData extends Mock implements ReferenceDataHelper {}
 
 void main() {
   late MockAuthBloc authBloc;
@@ -116,6 +122,54 @@ void main() {
   ].join('\n');
 
   group('AlertSentScreen', () {
+    testWidgets('fills the approved text as delivery did, from the approved '
+        'evidence', (tester) async {
+      final referenceData = _MockReferenceData();
+      when(referenceData.notifiableDiseases).thenAnswer(
+        (_) async => const [
+          NotifiableDiseaseModel(
+            diseaseId: 'malaria',
+            nameEn: 'Malaria',
+            nameSw: 'Malaria',
+          ),
+        ],
+      );
+      getIt.registerSingleton<ReferenceDataHelper>(referenceData);
+      addTearDown(getIt.reset);
+      mockState(
+        AlertReviewLoadSuccess(
+          current:
+              _alert(
+                approvedText: const {
+                  'clinician_en': AlertTextModel(
+                    headline: 'Health alert: {disease} in {county} County',
+                    body: 'Week of {weekStart}: {count}.',
+                  ),
+                  'patient_en': AlertTextModel(
+                    headline: 'Health alert: {disease} in {county} County',
+                    body: 'Cases of {disease} in {county} County.',
+                  ),
+                },
+              ).copyWith(
+                evidence: const AlertEvidenceModel(confirmedCount: 9),
+                approvedEvidence: const AlertEvidenceModel(
+                  confirmedCount: 2,
+                  weekStart: '2026-11-23',
+                ),
+              ),
+        ),
+      );
+      await pumpScreen(tester);
+      await tester.pump();
+
+      expect(
+        find.text('Health alert: Malaria in Embakasi County'),
+        findsNWidgets(2),
+      );
+      expect(find.text('Week of 2026-11-23: 2.'), findsOneWidget);
+      expect(find.textContaining('{'), findsNothing);
+    });
+
     testWidgets('shows what was approved, for where and when', (tester) async {
       mockState(AlertReviewLoadSuccess(current: _alert()));
       await pumpScreen(tester);

@@ -1,4 +1,5 @@
 import 'package:collection/collection.dart';
+import 'package:tabibu/features/alerts/data/models/alert_evidence_model.dart';
 import 'package:tabibu/features/alerts/data/models/alert_model.dart';
 import 'package:tabibu/features/alerts/data/models/alert_text_model.dart';
 import 'package:tabibu/features/alerts/data/models/notifiable_disease_model.dart';
@@ -6,13 +7,16 @@ import 'package:tabibu/features/alerts/data/models/notifiable_disease_model.dart
 final _placeholder = RegExp(r'\{([a-zA-Z]+)\}');
 
 /// The values delivery fills in (`alert-delivery.ts` `renderArgs`), for one
-/// draft language. A value the phone does not have is left out, so its
-/// placeholder stays visible rather than blank.
+/// draft language, from [evidence] (the alert's own, or what was approved).
+/// A value the phone does not have is left out, so its placeholder stays
+/// visible rather than blank.
 Map<String, String> alertRenderArgs(
   AlertModel alert,
   List<NotifiableDiseaseModel> register,
-  String language,
-) {
+  String language, {
+  AlertEvidenceModel? evidence,
+}) {
+  final facts = evidence ?? alert.evidence;
   final disease = register.firstWhereOrNull(
     (d) => d.diseaseId == alert.diseaseId,
   );
@@ -20,9 +24,8 @@ Map<String, String> alertRenderArgs(
   return {
     if (name != null && name.isNotEmpty) 'disease': name,
     if (alert.countyName.isNotEmpty) 'county': alert.countyName,
-    'count': '${alert.evidence.confirmedCount}',
-    if (alert.evidence.weekStart.isNotEmpty)
-      'weekStart': alert.evidence.weekStart,
+    'count': '${facts.confirmedCount}',
+    if (facts.weekStart.isNotEmpty) 'weekStart': facts.weekStart,
   };
 }
 
@@ -34,9 +37,31 @@ String _fill(String text, Map<String, String> args) =>
 Map<String, AlertTextModel> renderAlertDrafts(
   AlertModel alert,
   List<NotifiableDiseaseModel> register,
-) => {
-  for (final MapEntry(:key, :value) in alert.machineText.entries)
-    key: _render(value, alertRenderArgs(alert, register, key.split('_').last)),
+) => _renderAll(alert, alert.machineText, register);
+
+/// What was sent, as delivery rendered it: the approved text filled from
+/// the evidence approved with it.
+Map<String, AlertTextModel> renderAlertApproved(
+  AlertModel alert,
+  List<NotifiableDiseaseModel> register,
+) => _renderAll(
+  alert,
+  alert.approvedText,
+  register,
+  evidence: alert.approvedEvidence,
+);
+
+Map<String, AlertTextModel> _renderAll(
+  AlertModel alert,
+  Map<String, AlertTextModel> texts,
+  List<NotifiableDiseaseModel> register, {
+  AlertEvidenceModel? evidence,
+}) => {
+  for (final MapEntry(:key, :value) in texts.entries)
+    key: _render(
+      value,
+      alertRenderArgs(alert, register, key.split('_').last, evidence: evidence),
+    ),
 };
 
 AlertTextModel _render(AlertTextModel text, Map<String, String> args) =>

@@ -83,6 +83,10 @@ read on the way. Each entry is filled in as its patch lands.
     transformations (`permissiveContentTransformations`), which are meant for that, instead of
     the defaults, which turn away ordinary clinical wording. The notes still never leave the
     phone. A failed call now logs which kind of error it was, never the text.
+12. **The sent screen showed the approved alert with its placeholders.** Approving unchanged stores
+    the machine text, which delivery fills on the server; the sent screen showed it as stored. It
+    now fills it the same way, from the evidence approved with it, so it reads as the approver saw
+    it and as it was delivered. Certified on the iOS Simulator, 23 Nov.
 
 ## 2. Business justification
 
