@@ -921,7 +921,8 @@ until it is deployed.
   Each denial has a matching allowed write that differs only in the field
   under test, so a test cannot pass because of an unrelated failure.
 - **Function tests** in `functions/src/*.test.ts`, run by
-  `make functions-test`: lint and build as a deploy would, then the handlers
+  `make functions-test`: lint and build as a deploy would, type-check the tests
+  and scripts as CI does, then the handlers
   against the Firestore and Auth emulators, so transactions and queries
   behave as in production. Both suites run on the `demo-tabibu` project id,
   which cannot reach the live project.
