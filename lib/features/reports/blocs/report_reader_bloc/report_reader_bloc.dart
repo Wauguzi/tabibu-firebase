@@ -57,6 +57,11 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
   int _releaseGeneration = 0;
   bool _releasing = false;
 
+  /// The case being released. Only its opens wait; another case's open is
+  /// kept and replayed when the release ends, never dropped.
+  String _releasingCase = '';
+  ReportReaderOpened? _deferredOpen;
+
   bool _releaseSupersedes(int generation) =>
       _releasing || generation != _releaseGeneration;
 
@@ -78,8 +83,11 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
     ReportReaderOpened event,
     Emitter<ReportReaderState> emit,
   ) async {
-    // A release already on screen keeps its spinner; this open can wait.
-    if (_releasing) return;
+    if (_releasing) {
+      // The released case keeps its spinner; another case opens after.
+      if (event.caseUid != _releasingCase) _deferredOpen = event;
+      return;
+    }
     final generation = _releaseGeneration;
     // Never show another case's report while this one loads.
     final same = state.caseUid == event.caseUid;
@@ -227,6 +235,7 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
     final report = state.report;
     _releaseGeneration += 1;
     _releasing = true;
+    _releasingCase = state.caseUid;
     // In progress first, so a repeated failure is a new state and shows.
     emit(_copy(ReportReaderWriteInProgress.new));
     try {
@@ -256,6 +265,10 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
       }
     } finally {
       _releasing = false;
+      _releasingCase = '';
+      final next = _deferredOpen;
+      _deferredOpen = null;
+      if (next != null && !isClosed) add(next);
     }
     if (state is! ReportDiscussedSuccess) return;
     await _awaitDrafts(emit, report.uid);
@@ -421,6 +434,7 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
         kind: ReportTextKind.explanation.value,
         language: event.language,
       );
+      unawaited(_analytics.logExplanationRetried(language: event.language));
     } on Object catch (e) {
       emit(_failure(e));
       return;

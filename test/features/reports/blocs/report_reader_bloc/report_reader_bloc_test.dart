@@ -81,6 +81,9 @@ void main() {
     when(() => internet.check()).thenAnswer((_) async => true);
     when(() => analytics.logReportDiscussed()).thenAnswer((_) async {});
     when(
+      () => analytics.logExplanationRetried(language: any(named: 'language')),
+    ).thenAnswer((_) async {});
+    when(
       () => analytics.logExplanationReviewed(approved: any(named: 'approved')),
     ).thenAnswer((_) async {});
     when(
@@ -569,6 +572,59 @@ void main() {
       },
     );
 
+    test("another case's open during a release loads after it", () async {
+      final release = Completer<Map<String, dynamic>>();
+      final other = _report().copyWith(caseUid: 'case-b');
+      when(
+        () => reports.getReports('d1', role: Role.doctor),
+      ).thenAnswer((_) async => [_report(), other]);
+      when(
+        () => reports.syncReports('d1', role: Role.doctor),
+      ).thenAnswer((_) async => [_report(), other]);
+      when(
+        () => remote.markDiscussed(caseUid: _case, reportUid: 'v1'),
+      ).thenAnswer((_) => release.future);
+      when(
+        () => remote.fetchReportText(
+          caseUid: any(named: 'caseUid'),
+          textUid: any(named: 'textUid'),
+        ),
+      ).thenAnswer(
+        (invocation) async => ReportTextModel.empty().copyWith(
+          uid: invocation.namedArguments[#textUid] as String,
+          status: 'Ready',
+          machineText: const {'found': 'Ready.'},
+        ),
+      );
+      final bloc = build();
+      addTearDown(bloc.close);
+
+      bloc.add(
+        const ReportReaderOpened(uid: 'd1', role: Role.doctor, caseUid: _case),
+      );
+      await bloc.stream.firstWhere((s) => s is ReportReaderLoadSuccess);
+      bloc.add(const ReportDiscussedRequested());
+      await bloc.stream.firstWhere((s) => s is ReportReaderWriteInProgress);
+      bloc.add(
+        const ReportReaderOpened(
+          uid: 'd1',
+          role: Role.doctor,
+          caseUid: 'case-b',
+        ),
+      );
+      await pumpEventQueue();
+      expect(bloc.state, isA<ReportReaderWriteInProgress>());
+
+      release.complete({'status': 'ok'});
+      await bloc.stream.firstWhere(
+        (s) =>
+            s is ReportReaderLoadSuccess &&
+            s.caseUid == 'case-b' &&
+            s.report?.caseUid == 'case-b',
+      );
+      expect(bloc.state.caseUid, 'case-b');
+    });
+
     test('closes after a release', () async {
       when(
         () => reports.getReports('d1', role: Role.doctor),
@@ -954,6 +1010,7 @@ void main() {
         expect(bloc.state.writingLanguages, contains('en'));
         expect(bloc.state.failedExplanations.containsKey('en'), isFalse);
         expect(bloc.state.explanations.containsKey('sw'), isTrue);
+        verify(() => analytics.logExplanationRetried(language: 'en')).called(1);
       },
     );
 
