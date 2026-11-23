@@ -330,6 +330,7 @@ class CaseHive {
   @HiveField(50)
   final bool synced;
 
-  @HiveField(51)
+  // A record cached before this field has none: it reads as no open consult.
+  @HiveField(51, defaultValue: '')
   final String openMdtUid;
 }

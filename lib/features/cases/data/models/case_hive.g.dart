@@ -67,7 +67,7 @@ class CaseHiveAdapter extends TypeAdapter<CaseHive> {
       cancelReason: fields[47] as String,
       createdAt: fields[48] as String,
       lastUpdatedAt: fields[49] as String,
-      openMdtUid: fields[51] as String,
+      openMdtUid: fields[51] == null ? '' : fields[51] as String,
       synced: fields[50] as bool,
     );
   }
