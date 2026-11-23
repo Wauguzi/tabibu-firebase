@@ -342,6 +342,12 @@ branch as it is found, certified on the phone, then recorded here.
     the appointments, and Decline opens the same reason sheet as Booking requests, named for the
     patient (the inbox loads the doctor's appointments so the name is there). Certified on the
     iPhone pending the device run.
+44. **A message notification opened nothing.** Message notifications link to
+    `/conversations/{id}`, which no route handled. An `appt_` id now opens the appointment chat for
+    the patient or doctor, and an MDT id the consult for a doctor or pathologist; each screen loads
+    itself on open (the consult syncs when it is not on the phone). A case chat (`case_`) has no
+    screen yet and still opens the inbox. Push and banner taps use the same routing. Pending the
+    device run.
 
 ## 2. Business justification
 
