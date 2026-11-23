@@ -82,6 +82,7 @@ void main() {
     when(
       () => analytics.logAlertReviewed(decision: any(named: 'decision')),
     ).thenAnswer((_) async {});
+    when(() => analytics.logAlertRedraftRequested()).thenAnswer((_) async {});
   });
 
   group('AlertReviewBloc', () {
@@ -392,6 +393,38 @@ void main() {
       verify: (_) {
         verify(() => alerts.requestAlertDraft(alertUid: 'a1')).called(1);
         verify(() => alerts.fetchAlert('a1')).called(2);
+        verify(() => analytics.logAlertRedraftRequested()).called(1);
+      },
+    );
+
+    test(
+      'opening another alert while the redraft is awaited stops its poll',
+      () async {
+        when(
+          () => alerts.requestAlertDraft(alertUid: 'a1'),
+        ).thenAnswer((_) async => {'status': 'redrafting'});
+        when(() => alerts.fetchAlert('a1')).thenAnswer((_) async => drafting);
+        when(
+          () => alerts.fetchAlert('b2'),
+        ).thenAnswer((_) async => _alert('b2'));
+        late AlertReviewBloc bloc;
+        bloc = AlertReviewBloc(
+          alerts: alerts,
+          internet: internet,
+          analytics: analytics,
+          // The approver opens another alert during the first wait.
+          delay: (_) async {
+            bloc.add(const AlertReviewOpened(alertUid: 'b2'));
+            await Future<void>.delayed(Duration.zero);
+          },
+        )..emit(AlertReviewLoadSuccess(current: _alert('a1')));
+        addTearDown(bloc.close);
+
+        bloc.add(const AlertRedraftRequested(alertUid: 'a1'));
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+
+        expect(bloc.state.current?.uid, 'b2');
+        verify(() => alerts.fetchAlert('a1')).called(1);
       },
     );
 
@@ -421,32 +454,35 @@ void main() {
       'a redraft limit keeps the draft that is on screen',
       setUp: () => when(
         () => alerts.requestAlertDraft(alertUid: any(named: 'alertUid')),
-      ).thenThrow(AppError.redraftLimit),
+      ).thenThrow(AppError.alertRedraftLimit),
       build: build,
       seed: () => AlertReviewLoadSuccess(current: _alert('a1')),
       act: (bloc) => bloc.add(const AlertRedraftRequested(alertUid: 'a1')),
       expect: () => [
         AlertDecisionInProgress(current: _alert('a1')),
         AlertDecisionFailure(
-          error: AppError.redraftLimit,
+          error: AppError.alertRedraftLimit,
           current: _alert('a1'),
         ),
       ],
-      verify: (_) => verifyNever(() => alerts.fetchAlert(any())),
+      verify: (_) {
+        verifyNever(() => alerts.fetchAlert(any()));
+        verifyNever(() => analytics.logAlertRedraftRequested());
+      },
     );
 
     blocTest<AlertReviewBloc, AlertReviewState>(
       'an alert that can no longer be redrafted keeps its draft',
       setUp: () => when(
         () => alerts.requestAlertDraft(alertUid: any(named: 'alertUid')),
-      ).thenThrow(AppError.invalidState),
+      ).thenThrow(AppError.alertRedraftClosed),
       build: build,
       seed: () => AlertReviewLoadSuccess(current: _alert('a1')),
       act: (bloc) => bloc.add(const AlertRedraftRequested(alertUid: 'a1')),
       expect: () => [
         AlertDecisionInProgress(current: _alert('a1')),
         AlertDecisionFailure(
-          error: AppError.invalidState,
+          error: AppError.alertRedraftClosed,
           current: _alert('a1'),
         ),
       ],

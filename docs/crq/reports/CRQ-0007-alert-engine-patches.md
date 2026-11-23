@@ -132,11 +132,14 @@ alert demo.
 
 | Check | Result |
 |---|---|
-| `make analyze` / `make bloc-lint` | Pending |
-| `make test` (`TZ=UTC`) | Pending |
-| `make functions-test` | Pending |
-| Manual run | Pending |
-| Certification | Pending |
+| `make analyze` / `make bloc-lint` | Pass — no issues |
+| `make test` (`TZ=UTC`) | Pass — 3,965 |
+| `make functions-test` | Pass — 703 |
+| `make rules-test` | Pass — 250 (no rule changed) |
+| `make spell` / `make release-check` | Pass — 0 issues / 36 checks |
+| iOS simulator build | Pass, with the on-device guardrail change (entry 11) |
+| Manual run | The Ebola loop on the iOS Simulator, 23 Nov, from order to delivered alert ([UAT-ITR-0001](../../testing/reports/UAT-ITR-0001-three-roles-end-to-end-2026-11-23.md)) |
+| Certification | 2026-11-23, Theo |
 
 ## 8. Approval
 
@@ -151,7 +154,16 @@ alert demo.
 
 ## 9. Post-implementation review
 
-Filled in after the run.
+**Pre-review pass (23 Nov), before the pull request.** A local Greptile-style pass over the branch
+found these, each fixed with a test that fails without the fix:
+
+- **A redraft could put its alert back over another one.** The review bloc is shared and the
+  redraft polls for up to 90 seconds; an approver who opened another alert meanwhile could have it
+  replaced by the first. The poll now stops once another alert is current.
+- **Asking for a new draft logged no analytics event** (the architecture's rule 7). It logs
+  `alert_redraft_requested`, with nothing about the alert, once the server accepts it.
+- **The two refusals had generic names** (`invalidState`), mapped app-wide to alert copy; they
+  are now `alertRedraftLimit` and `alertRedraftClosed`, from the same server reason keys.
 
 ## 10. Related records
 

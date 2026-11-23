@@ -370,7 +370,7 @@ void main() {
         when(() => alerts.fetchAlert('a1')).thenAnswer((_) async => _alert());
         when(
           () => alerts.requestAlertDraft(alertUid: any(named: 'alertUid')),
-        ).thenThrow(AppError.redraftLimit);
+        ).thenThrow(AppError.alertRedraftLimit);
         await pumpScreen(tester, bloc: realBloc());
 
         await tester.tap(find.byType(MoreButton));
@@ -380,7 +380,7 @@ void main() {
         await tester.pump(const Duration(milliseconds: 300));
 
         expect(
-          find.text(AppError.redraftLimit.description(l10n)),
+          find.text(AppError.alertRedraftLimit.description(l10n)),
           findsOneWidget,
         );
         expect(find.text('More malaria than usual'), findsOneWidget);

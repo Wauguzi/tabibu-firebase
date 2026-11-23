@@ -136,6 +136,7 @@ class AlertReviewBloc extends Bloc<AlertReviewEvent, AlertReviewState> {
     emit(AlertDecisionInProgress(queue: state.queue, current: seen));
     try {
       await _alerts.requestAlertDraft(alertUid: seen.uid);
+      unawaited(_analytics.logAlertRedraftRequested());
     } on Object catch (e) {
       emit(_decisionFailure(_toAppError(e)));
       return;
@@ -145,8 +146,11 @@ class AlertReviewBloc extends Bloc<AlertReviewEvent, AlertReviewState> {
           redraftPollFor.inMilliseconds ~/ redraftPollEvery.inMilliseconds;
       for (var tick = 0; tick <= ticks; tick++) {
         if (tick > 0) await _delay(redraftPollEvery);
-        if (emit.isDone) return;
+        // The bloc is shared: once another alert is open, this one's poll
+        // must not put it back on screen.
+        if (emit.isDone || state.current?.uid != seen.uid) return;
         final next = await _alerts.fetchAlert(seen.uid);
+        if (state.current?.uid != seen.uid) return;
         if (next == null) {
           emit(
             AlertReviewLoadFailure(

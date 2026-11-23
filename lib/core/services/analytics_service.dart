@@ -300,6 +300,10 @@ class AnalyticsService {
     ),
   );
 
+  /// A redraft the server accepted; the alert's id and text stay out.
+  Future<void> logAlertRedraftRequested() =>
+      _guard(() => _analytics.logEvent(name: 'alert_redraft_requested'));
+
   Future<void> logCaseNotesSaved() =>
       _guard(() => _analytics.logEvent(name: 'case_notes_saved'));
 

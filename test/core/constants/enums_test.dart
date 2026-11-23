@@ -184,8 +184,8 @@ void main() {
         'voiceDisabled': AppError.voiceUnavailable,
         'prereadPending': AppError.prereadPending,
         'conversationUnavailable': AppError.conversationUnavailable,
-        'redraftLimit': AppError.redraftLimit,
-        'invalidState': AppError.invalidState,
+        'redraftLimit': AppError.alertRedraftLimit,
+        'invalidState': AppError.alertRedraftClosed,
       };
       for (final entry in keys.entries) {
         final exception = _TestFunctionsException(
@@ -303,19 +303,19 @@ void main() {
         'Check it, or contact support.',
       );
       expect(
-        AppError.redraftLimit.description(en),
+        AppError.alertRedraftLimit.description(en),
         'This alert has had its 3 new drafts.',
       );
       expect(
-        AppError.redraftLimit.description(sw),
+        AppError.alertRedraftLimit.description(sw),
         'Arifa hii imepata rasimu 3 mpya.',
       );
       expect(
-        AppError.invalidState.description(en),
+        AppError.alertRedraftClosed.description(en),
         'This alert can no longer be redrafted.',
       );
       expect(
-        AppError.invalidState.description(sw),
+        AppError.alertRedraftClosed.description(sw),
         'Arifa hii haiwezi kupata rasimu mpya tena.',
       );
       expect(

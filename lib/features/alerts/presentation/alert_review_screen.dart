@@ -87,8 +87,8 @@ class _AlertReviewScreenState extends State<AlertReviewScreen> {
         // approver. Offline there is nothing newer to read. A refused
         // redraft leaves the draft on screen: the server did not replace it.
         if (error != .noInternet &&
-            error != .redraftLimit &&
-            error != .invalidState) {
+            error != .alertRedraftLimit &&
+            error != .alertRedraftClosed) {
           _reload(context);
         }
       case AlertReviewLoadFailure(:final error) when ours:
