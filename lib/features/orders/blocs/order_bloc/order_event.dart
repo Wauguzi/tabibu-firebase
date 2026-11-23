@@ -99,6 +99,30 @@ final class OrderPaymentChanged extends OrderEvent {
   List<Object?> get props => [insured, insurerId, insurerName, policyNumber];
 }
 
+/// The walk-in row settled after the wizard left the patient step.
+/// The case stays; only who it is for, and whether they are on file, changes.
+final class OrderPatientResolved extends OrderEvent {
+  const OrderPatientResolved({
+    required this.patientId,
+    required this.patientName,
+    required this.patientPending,
+    required this.patientHeld,
+  });
+
+  final String patientId;
+  final String patientName;
+  final bool patientPending;
+  final bool patientHeld;
+
+  @override
+  List<Object?> get props => [
+    patientId,
+    patientName,
+    patientPending,
+    patientHeld,
+  ];
+}
+
 /// Create the case (`createOrder`), then watch its risk check.
 final class OrderCreateRequested extends OrderEvent {
   const OrderCreateRequested();

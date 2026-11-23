@@ -421,6 +421,64 @@ void main() {
       await bloc.close();
     });
 
+    test('a later sync swaps the id and send can proceed', () async {
+      when(
+        () => cases.fetchRiskCheck(any()),
+      ).thenAnswer((_) async => _check('Ready'));
+      final bloc = build()
+        ..add(
+          const OrderStarted(
+            appointmentUid: '',
+            patientId: 'local-1',
+            patientName: 'Amina Wambui',
+            doctorUid: 'doc-1',
+            patientPending: true,
+          ),
+        )
+        ..add(const OrderTestToggled(labTestId: 't1'));
+      await bloc.stream.firstWhere((s) => s.draft.testIds.contains('t1'));
+      final caseUid = bloc.state.draft.caseUid;
+
+      bloc.add(
+        const OrderPatientResolved(
+          patientId: 'server-9',
+          patientName: 'Amina Wambui',
+          patientPending: false,
+          patientHeld: false,
+        ),
+      );
+      final resolved = await bloc.stream.firstWhere(
+        (s) => s.draft.patientId == 'server-9',
+      );
+
+      expect(resolved.draft.patientPending, isFalse);
+      expect(resolved.draft.caseUid, caseUid);
+      expect(resolved.draft.testIds, ['t1']);
+      bloc.add(const OrderCreateRequested());
+      await bloc.stream.firstWhere(
+        (s) => s.draft.created && s.riskCheckSettled,
+      );
+      bloc.add(const OrderPathologistSelected(pathologistUid: 'path-a'));
+      final sendable = await bloc.stream.firstWhere((s) => s.canSend);
+
+      expect(sendable.canSend, isTrue);
+      expect(sendable.draft.patientId, 'server-9');
+      verify(
+        () => cases.createOrder(
+          caseUid: any(named: 'caseUid'),
+          appointmentUid: '',
+          patientId: 'server-9',
+          labTestIds: any(named: 'labTestIds'),
+          priority: any(named: 'priority'),
+          sampleCollectedAt: any(named: 'sampleCollectedAt'),
+          payment: any(named: 'payment'),
+          clinicalNotes: any(named: 'clinicalNotes'),
+          sampleNotes: any(named: 'sampleNotes'),
+        ),
+      ).called(1);
+      await bloc.close();
+    });
+
     test('a held patient is not ordered', () async {
       final bloc = build()
         ..add(
