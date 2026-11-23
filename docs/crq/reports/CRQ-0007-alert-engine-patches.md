@@ -71,13 +71,18 @@ read on the way. Each entry is filled in as its patch lands.
    screen follows the alert until the new draft is in (every 3 s, up to 90 s), and the two
    refusals, the limit and an alert past drafting, each say so and keep the current draft.
 9. **No report showed how the app was tested end to end.** UAT-ITR-0001 records the three roles
-   against the live project from 16 to 23 Nov, story by story (22 passed, 4 in part, 6 not run),
-   and the README's Trying it points to it. CRQ-0002, -0004 and -0005 take their device runs from
+   against the live project from 16 to 23 Nov, story by story, and the README's Trying it points
+   to it. CRQ-0002, -0004 and -0005 take their device runs from
    it.
 10. **The docs described a backend that was not yet live.** The threat model's controls now read
     live (the deployed rules match the repository); the architecture, AI service, notifications
     and alert engine reports give the current status, the pre-read's tile limits and the twelve
     switches; CRQ-0006 drops a wrong cross-reference.
+11. **The doctor's notes summary on Apple's on-device model.** Both on-device tasks only rewrite
+    text the person typed, so the model now runs with Apple's guardrails for content
+    transformations (`permissiveContentTransformations`), which are meant for that, instead of
+    the defaults, which turn away ordinary clinical wording. The notes still never leave the
+    phone. A failed call now logs which kind of error it was, never the text.
 
 ## 2. Business justification
 
