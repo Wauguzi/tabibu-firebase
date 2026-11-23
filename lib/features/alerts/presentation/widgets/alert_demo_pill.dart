@@ -2,8 +2,9 @@ import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
-/// The demo mark, in the timeline's Now tone. A row, not a stretched
-/// parent: [StatusChip] flexes to the width it is given.
+/// The demo mark, in the timeline's Now tone. [Align] gives the chip loose
+/// constraints: its own width beside a stretched parent, and it wraps,
+/// never overflows, where large text leaves it less room.
 class AlertDemoPill extends StatelessWidget {
   const AlertDemoPill({super.key});
 
@@ -14,7 +15,7 @@ class AlertDemoPill extends StatelessWidget {
       container: true,
       label: l10n.alertDemoPillSemantics,
       child: ExcludeSemantics(
-        child: UnconstrainedBox(
+        child: Align(
           alignment: AlignmentDirectional.centerStart,
           child: StatusChip(label: l10n.alertDemoPill, tone: .attention),
         ),

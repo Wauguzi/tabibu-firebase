@@ -179,6 +179,13 @@ without the fix:
   WHO source with the case definitions. They cite the handbook again, and a test holds both
   rules.
 
+**Greptile round 2 (PR #30, 4/5).** One finding, fixed with a test that fails without the fix:
+
+- **P2: the home strip's Demo pill had no large-text tests.** The strip now has them in `en` and
+  `sw` at 1.0x and 2.0x on a 360 dp screen, and the Kiswahili 2.0x case found a real overflow: the
+  pill sat in an `UnconstrainedBox`, so "Majaribio" ran 80 pixels past the narrow column. It now
+  aligns to the start, keeping its own width and wrapping where room runs out.
+
 ## 10. Related records
 
 - [CRQ-0006](./CRQ-0006-ui-ux-patches.md): the device run that first took the alert loop end to end.

@@ -425,6 +425,36 @@ void main() {
       expect(find.byType(AlertDemoPill), findsNothing);
     });
 
+    for (final language in ['en', 'sw']) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets('a demo notice strip lays out in $language at ${scale}x '
+            'on 360 dp', (tester) async {
+          tester.view.physicalSize = const Size(360 * 3, 6000);
+          tester.view.devicePixelRatio = 3;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          tester.platformDispatcher.textScaleFactorTestValue = scale;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          final l10n = lookupAppLocalizations(Locale(language));
+          // No visit or result card: this case is about the strip.
+          stubDefault(
+            appointments: const [],
+            cases: const [],
+            alerts: [_alert().copyWith(synthetic: true)],
+          );
+          await tester.pumpApp(screen(), locale: Locale(language));
+          await tester.pumpAndSettle();
+
+          expect(find.text(l10n.alertDemoPill), findsOneWidget);
+          expect(
+            find.text(l10n.patientHomeNoticeLabel('Embakasi')),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
+
     testWidgets('hides the notice when no alert exists', (tester) async {
       stubDefault(
         appointments: appointments(),
