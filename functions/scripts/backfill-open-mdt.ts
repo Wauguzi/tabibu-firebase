@@ -64,69 +64,105 @@ async function main(): Promise<void> {
   console.log(JSON.stringify({ written }));
 }
 
-async function buildPlan(db: Firestore): Promise<{
+export interface RecordedOpenMdt {
+  id: string;
+  openMdtUid: string;
+}
+
+export interface OpenConsultLink {
+  caseUid: string;
+  conversationUid: string;
+}
+
+export interface OpenMdtPlan {
   set: { caseUid: string; openMdtUid: string }[];
   clear: { caseUid: string; openMdtUid: string }[];
   unchanged: number;
   conflicts: { caseUid: string; conversationUids: string[] }[];
-}> {
-  const snap = await db.collection('conversations').where('type', '==', 'GroupConsult').get();
-  const open = new Map<string, OpenConsult[]>();
-  for (const doc of snap.docs) {
-    const data = doc.data();
-    if (data.status !== 'Open' || data.linkedResourceType !== 'Order') continue;
-    const caseUid = typeof data.linkedResourceUid === 'string' ? data.linkedResourceUid : '';
-    if (caseUid === '') continue;
-    const list = open.get(caseUid) ?? [];
-    list.push({ conversationUid: doc.id });
-    open.set(caseUid, list);
-  }
+}
 
-  const set: { caseUid: string; openMdtUid: string }[] = [];
-  const clear: { caseUid: string; openMdtUid: string }[] = [];
-  const conflicts: { caseUid: string; conversationUids: string[] }[] = [];
+/**
+ * Set and clear never name the same case. A single different open consult is
+ * repaired. A recorded link is cleared only when that case has no open consult.
+ */
+export function planOpenMdt(
+  recorded: readonly RecordedOpenMdt[],
+  consults: readonly OpenConsultLink[],
+): OpenMdtPlan {
+  const open = new Map<string, OpenConsult[]>();
+  for (const consult of consults) {
+    const list = open.get(consult.caseUid) ?? [];
+    list.push({ conversationUid: consult.conversationUid });
+    open.set(consult.caseUid, list);
+  }
+  const recordedById = new Map(recorded.map((row) => [row.id, row.openMdtUid]));
+
+  const set: OpenMdtPlan['set'] = [];
+  const conflicts: OpenMdtPlan['conflicts'] = [];
   let unchanged = 0;
 
-  for (const [caseUid, consults] of open) {
-    const caseSnap = await db.collection('cases').doc(caseUid).get();
-    if (!caseSnap.exists) {
+  for (const [caseUid, rows] of open) {
+    if (!recordedById.has(caseUid)) {
       conflicts.push({
         caseUid,
-        conversationUids: consults.map((c) => c.conversationUid),
+        conversationUids: rows.map((row) => row.conversationUid),
       });
       continue;
     }
-    const current = caseSnap.get('openMdtUid');
-    const recorded = typeof current === 'string' ? current : '';
-    if (consults.length !== 1) {
+    const current = recordedById.get(caseUid) ?? '';
+    if (rows.length !== 1) {
       conflicts.push({
         caseUid,
-        conversationUids: consults.map((c) => c.conversationUid),
+        conversationUids: rows.map((row) => row.conversationUid),
       });
       continue;
     }
-    const only = consults[0].conversationUid;
-    if (recorded === only) {
+    const only = rows[0].conversationUid;
+    if (current === only) {
       unchanged += 1;
       continue;
     }
     set.push({ caseUid, openMdtUid: only });
   }
 
-  const recorded = await db.collection('cases').select('openMdtUid').get();
-  for (const doc of recorded.docs) {
-    const current = doc.get('openMdtUid');
-    if (typeof current !== 'string' || current === '') continue;
-    const consults = open.get(doc.id) ?? [];
-    if (consults.some((c) => c.conversationUid === current)) continue;
-    if (consults.length > 1) continue;
-    clear.push({ caseUid: doc.id, openMdtUid: '' });
+  const setting = new Set(set.map((row) => row.caseUid));
+  const clear: OpenMdtPlan['clear'] = [];
+  for (const row of recorded) {
+    if (row.openMdtUid === '') continue;
+    if (setting.has(row.id)) continue;
+    const rows = open.get(row.id) ?? [];
+    if (rows.length !== 0) continue;
+    clear.push({ caseUid: row.id, openMdtUid: '' });
   }
 
   return { set, clear, unchanged, conflicts };
 }
 
-main().catch((error: unknown) => {
-  console.error(error instanceof Error ? error.message : 'Backfill failed.');
-  process.exitCode = 1;
-});
+async function buildPlan(db: Firestore): Promise<OpenMdtPlan> {
+  const snap = await db.collection('conversations').where('type', '==', 'GroupConsult').get();
+  const consults: OpenConsultLink[] = [];
+  for (const doc of snap.docs) {
+    const data = doc.data();
+    if (data.status !== 'Open' || data.linkedResourceType !== 'Order') continue;
+    const caseUid = typeof data.linkedResourceUid === 'string' ? data.linkedResourceUid : '';
+    if (caseUid === '') continue;
+    consults.push({ caseUid, conversationUid: doc.id });
+  }
+
+  const recordedDocs = await db.collection('cases').select('openMdtUid').get();
+  const recorded = recordedDocs.docs.map((doc) => {
+    const current = doc.get('openMdtUid');
+    return {
+      id: doc.id,
+      openMdtUid: typeof current === 'string' ? current : '',
+    };
+  });
+  return planOpenMdt(recorded, consults);
+}
+
+if (require.main === module) {
+  main().catch((error: unknown) => {
+    console.error(error instanceof Error ? error.message : 'Backfill failed.');
+    process.exitCode = 1;
+  });
+}
