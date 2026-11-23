@@ -296,7 +296,10 @@ extension GetItInjectableX on _i174.GetIt {
       ),
     );
     gh.factory<_i1058.PatientsBloc>(
-      () => _i1058.PatientsBloc(gh<_i594.PatientSync>()),
+      () => _i1058.PatientsBloc(
+        gh<_i594.PatientSync>(),
+        gh<_i399.AnalyticsService>(),
+      ),
     );
     gh.lazySingleton<_i679.ConversationCacheHelper>(
       () => _i679.ConversationCacheHelper(

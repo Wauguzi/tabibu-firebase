@@ -265,6 +265,26 @@ class AnalyticsService {
   Future<void> logReportDiscussed() =>
       _guard(() => _analytics.logEvent(name: 'report_discussed'));
 
+  /// A doctor added a walk-in patient. Nothing about the patient.
+  Future<void> logPatientAdded() =>
+      _guard(() => _analytics.logEvent(name: 'patient_added'));
+
+  /// A refused explanation was asked for again: its language code only.
+  Future<void> logExplanationRetried({required String language}) => _guard(
+    () => _analytics.logEvent(
+      name: 'explanation_retried',
+      parameters: {'language': language},
+    ),
+  );
+
+  /// A signed report was downloaded as a PDF: who, by role only.
+  Future<void> logReportDownloaded({required String role}) => _guard(
+    () => _analytics.logEvent(
+      name: 'report_downloaded',
+      parameters: {'role': role},
+    ),
+  );
+
   Future<void> logExplanationReviewed({required bool approved}) => _guard(
     () => _analytics.logEvent(
       name: 'explanation_reviewed',

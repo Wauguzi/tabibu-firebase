@@ -10,6 +10,11 @@ sealed class PatientsState extends Equatable {
   final List<PatientModel> patients;
   final String doctorUid;
 
+  /// The rows only when they belong to [uid]: a screen never shows another
+  /// session's patients.
+  List<PatientModel> patientsFor(String uid) =>
+      uid.isNotEmpty && uid == doctorUid ? patients : const [];
+
   @override
   List<Object?> get props => [patients, doctorUid];
 }

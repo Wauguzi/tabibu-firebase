@@ -107,7 +107,15 @@ class PatientSync {
   /// Sends every pending row once, then replaces this doctor's list with the
   /// server's. Offline leaves the cache. A pending or held row stays; a
   /// synced row the server no longer lists leaves this doctor's cache.
-  Future<List<PatientModel>> drain(String doctorUid) async {
+  ///
+  /// [isCurrent] is asked before every cache write: work that outlives its
+  /// session (a sign-out wipes the cache) stops instead of writing the old
+  /// doctor's patients back.
+  Future<List<PatientModel>> drain(
+    String doctorUid, {
+    bool Function()? isCurrent,
+  }) async {
+    final current = isCurrent ?? () => true;
     final rows = await store.carePatients(doctorUid);
     if (!await online()) return rows;
     for (final row in rows) {
@@ -116,14 +124,17 @@ class PatientSync {
       if (ids == null) continue;
       try {
         final reply = await addPatient(row, ids);
+        if (!current()) return const [];
         await _apply(rows, row, reply);
       } on AppError catch (error) {
         if (error != AppError.patientExists) rethrow;
+        if (!current()) return const [];
         final held = row.copyWith(held: true, synced: false);
         await store.put([held]);
       }
     }
     final remote = await careTeam(doctorUid);
+    if (!current()) return const [];
     await store.cacheFromCloud(remote);
     await _dropRemoved(doctorUid, remote);
     return await store.carePatients(doctorUid);

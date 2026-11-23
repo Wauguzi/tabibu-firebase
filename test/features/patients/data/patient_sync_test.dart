@@ -226,6 +226,32 @@ void main() {
       },
     );
 
+    test(
+      'a sync whose session ended writes nothing back to the cache',
+      () async {
+        online = true;
+        remote = [_pending('booked').copyWith(synced: true)];
+        var current = true;
+        final client = PatientSync(
+          store: store,
+          online: () async => online,
+          careTeam: (doctorUid) async {
+            // Sign-out lands while the list is on its way.
+            current = false;
+            return remote!;
+          },
+          areaIds: (_) async => (countyId: 47, subCountyId: 30),
+          addPatient: (patient, _) async =>
+              AddPatientCreated(patient.patientId),
+        );
+
+        final rows = await client.drain('doc-1', isCurrent: () => current);
+
+        expect(rows, isEmpty);
+        expect(store.rows.containsKey('booked'), isFalse);
+      },
+    );
+
     test('offline returns the cache and calls nothing', () async {
       await store.put([_pending('id-1')]);
       remote = [
