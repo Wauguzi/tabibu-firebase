@@ -72,7 +72,8 @@ report cannot raise them.
 
 | Source | Used for |
 |---|---|
-| [IDSR Clinician's Handbook for Priority Diseases](http://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf), MoH (2nd-edition era; archived copy) | Reporting categories, case definitions, forms MOH 502 and 505 |
+| [IDSR Clinician's Handbook for Priority Diseases](https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf), MoH (2nd-edition era; archived copy, because the live host often times out) | Reporting categories and the statutory reminder (forms MOH 502 and 505) |
+| [WHO AFRO IDSR Technical Guidelines, 3rd edition](https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third), Booklet Two's standard case definitions | The case-definition bullets, each checked against the booklet's text (23 Nov 2026) |
 | [IDSR Technical Guidelines for Kenya, 3rd edition](https://nphi.go.ke/sites/default/files/2024-02/IDSR%20Technical%20Guidelines%20for%20Kenya%2011.05.2022_9am.pdf), MoH and KNPHI | The current categories. **Not yet read**: the host serves an expired certificate |
 | [Geteri et al., *BMC Research Notes* 17:309 (2024), Table 1](https://pmc.ncbi.nlm.nih.gov/articles/PMC11481684/) | Kenya's 2021 IDSR priority list and its groups |
 | [Public Health Act, Cap. 242, s.17](https://www.sheriaplex.com/kenya-acts/5487-section-17-application-of-part) and [s.18](https://www.sheriaplex.com/kenya-acts/5488-section-18-notification-of-infectious-diseases) ([official text](https://new.kenyalaw.org/akn/ke/act/1921/38)) | The legal list, and notification to the medical officer of health |
@@ -91,15 +92,22 @@ not taken from a Kenyan list. A test mapping marked `mappingVerified: false`
 `public_health_guidance.json` holds patient and clinician bullets for the 20
 eligible diseases that have guidance (smallpox has none). Each bullet links
 its source, and each source carries its title, publisher, https URL and dates.
-Patient bullets paraphrase Ministry of Health and WHO guidance, for example:
+Patient bullets paraphrase a **standing** Ministry of Health or WHO source,
+never a release about one event or a news report: a notice's footer and its
+"Read the guidance" button use the first patient source, so that source must
+read as official guidance in Kenya. In practice:
 
-- MoH Kenya: the [advisory on the Ebola outbreak in the DRC's Ituri Province, 18 May 2026](https://health.go.ke/sites/default/files/2026-05/PRESS%20RELEASE_EVD_DRC_Final.pdf),
-  the [advisory on health risks in heavy rains](https://health.go.ke/sites/default/files/2023-11/PRESS%20RELEASE-%20ADVISORY%20ON%20HEALTH%20RISKS%20AMID%20ONGOING%20HEAVY%20RAINS%20.pdf),
-  the [mpox key messages](https://health.go.ke/sites/default/files/MPOX%20SOCIAL%20MEDIA%20POSTS%202024%20FINAL.pdf)
-  and the [mpox and Marburg preparedness update](https://www.health.go.ke/sites/default/files/2024-11/MPOX%20RESPONSE%20AND%20ENHANCED%20MARBURG%20VIRUS%20DISEASE%20PREPAREDNESS-31.10.2024.pdf);
-- the WHO fact sheets, such as [cholera](https://www.who.int/news-room/fact-sheets/detail/cholera),
+- the WHO fact sheets, such as [Ebola disease](https://www.who.int/news-room/fact-sheets/detail/ebola-disease),
+  [cholera](https://www.who.int/news-room/fact-sheets/detail/cholera),
   [malaria](https://www.who.int/news-room/fact-sheets/detail/malaria) and
-  [dengue](https://www.who.int/news-room/fact-sheets/detail/dengue-and-severe-dengue).
+  [dengue](https://www.who.int/news-room/fact-sheets/detail/dengue-and-severe-dengue);
+- MoH Kenya's [mpox key messages](https://health.go.ke/sites/default/files/MPOX%20SOCIAL%20MEDIA%20POSTS%202024%20FINAL.pdf)
+  and the IDSR handbook (polio).
+
+A test holds this: no patient source's title names a press release, a statement,
+an advisory or an outbreak elsewhere, and every publisher is the WHO or the
+Ministry. Anthrax has no standing source online (only county notices relayed by
+newspapers), so its notice carries the clinician guidance alone.
 
 Clinician bullets are the case definition plus the statutory reminder: "Report
 a suspected or confirmed case to the medical officer of health: immediately
@@ -326,3 +334,4 @@ the alert scope, the guidance and the attribution.
 |---|---|---|
 | 2026-11-15 | Crafted for this repository. | Theo |
 | 2026-11-18 | §9 and §10: demo accounts read demo notices; the functions' synthetic flag. | Theo |
+| 2026-11-23 | §2.1, §2.2: case definitions from the WHO AFRO IDSR guidelines, the handbook at its archived copy, patient guidance from standing sources only. §5: the approver reads the draft filled in. §10: the demo pill. | Theo |

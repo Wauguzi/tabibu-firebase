@@ -1,23 +1,23 @@
 [
   {
     "diseaseId": "ebola_virus_disease",
-    "reviewedOn": "2026-10-30",
+    "reviewedOn": "2026-11-23",
     "bullets": [
       {
         "bulletId": "ebola_virus_disease-p1",
         "audience": "Patient",
-        "textEn": "Seek care promptly for fever, severe headache, vomiting or unexplained bleeding, especially after travel to affected areas.",
-        "textSw": "Tafuta matibabu haraka ukiwa na homa, kuumwa na kichwa kali, kutapika au kutokwa na damu kusikoeleweka, hasa baada ya kusafiri kwenda maeneo yaliyoathirika.",
+        "textEn": "Seek care early for sudden fever, tiredness, muscle pain, headache or sore throat, or later vomiting, diarrhoea or unexplained bleeding: early care can save lives.",
+        "textSw": "Tafuta matibabu mapema ukiwa na homa ya ghafla, uchovu, maumivu ya misuli, kuumwa na kichwa au koo, au baadaye kutapika, kuhara au kutokwa na damu kusikoeleweka: matibabu ya mapema yanaweza kuokoa maisha.",
         "swIsOfficial": false,
-        "sourceId": "S15"
+        "sourceId": "who-ebola-2025-04-24"
       },
       {
         "bulletId": "ebola_virus_disease-p3",
         "audience": "Patient",
-        "textEn": "Wash hands with soap, avoid contact with sick people's body fluids and with sick or dead animals, and avoid bushmeat.",
-        "textSw": "Nawa mikono kwa sabuni, epuka kugusa majimaji ya wagonjwa na wanyama wagonjwa au waliokufa, na epuka nyama ya porini.",
+        "textEn": "Avoid close contact with sick people and their body fluids, and with fruit bats, monkeys or apes, and do not eat their raw meat.",
+        "textSw": "Epuka kugusana kwa karibu na wagonjwa na majimaji ya miili yao, na popo wa matunda, nyani au sokwe, na usile nyama yao mbichi.",
         "swIsOfficial": false,
-        "sourceId": "S15"
+        "sourceId": "who-ebola-2025-04-24"
       },
       {
         "bulletId": "ebola_virus_disease-c1",
@@ -25,7 +25,7 @@
         "textEn": "Suspected VHF: fever under 3 weeks, severely ill, plus 2 or more haemorrhagic signs. Confirmed: lab-confirmed or epidemiologically linked.",
         "textSw": "VHF inayoshukiwa: homa ya chini ya wiki 3, mgonjwa mahututi, pamoja na dalili 2 au zaidi za kutokwa na damu. Iliyothibitishwa: imethibitishwa kimaabara au ina uhusiano wa kiepidemiolojia.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "ebola_virus_disease-c2",
@@ -38,20 +38,28 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
       },
       {
-        "sourceId": "S15",
-        "title": "EVD outbreak in Ituri Province, DRC: public health advisory",
-        "publisher": "MoH Kenya, Director General",
-        "url": "https://health.go.ke/sites/default/files/2026-05/PRESS%20RELEASE_EVD_DRC_Final.pdf",
-        "publishedOn": "2026-05-18",
-        "accessedOn": "2026-10-30"
+        "sourceId": "who-ebola-2025-04-24",
+        "title": "Ebola disease (fact sheet)",
+        "publisher": "World Health Organization",
+        "url": "https://www.who.int/news-room/fact-sheets/detail/ebola-disease",
+        "publishedOn": "2025-04-24",
+        "accessedOn": "2026-11-23"
       }
     ]
   },
@@ -97,7 +105,7 @@
         "textEn": "Suspected VHF: fever under 3 weeks, severely ill, plus 2 or more haemorrhagic signs. Confirmed: lab-confirmed or epidemiologically linked.",
         "textSw": "VHF inayoshukiwa: homa ya chini ya wiki 3, mgonjwa mahututi, pamoja na dalili 2 au zaidi za kutokwa na damu. Iliyothibitishwa: imethibitishwa kimaabara au ina uhusiano wa kiepidemiolojia.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "marburg_virus_disease-c2",
@@ -110,10 +118,18 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
       },
@@ -161,7 +177,7 @@
         "textEn": "Suspected VHF: fever under 3 weeks, severely ill, plus 2 or more haemorrhagic signs. Confirmed: lab-confirmed or epidemiologically linked.",
         "textSw": "VHF inayoshukiwa: homa ya chini ya wiki 3, mgonjwa mahututi, pamoja na dalili 2 au zaidi za kutokwa na damu. Iliyothibitishwa: imethibitishwa kimaabara au ina uhusiano wa kiepidemiolojia.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "lassa_fever-c2",
@@ -174,10 +190,18 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
       },
@@ -225,7 +249,7 @@
         "textEn": "Suspected VHF: fever under 3 weeks, severely ill, plus 2 or more haemorrhagic signs. Confirmed: lab-confirmed or epidemiologically linked.",
         "textSw": "VHF inayoshukiwa: homa ya chini ya wiki 3, mgonjwa mahututi, pamoja na dalili 2 au zaidi za kutokwa na damu. Iliyothibitishwa: imethibitishwa kimaabara au ina uhusiano wa kiepidemiolojia.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "crimean_congo_haemorrhagic_fever-c2",
@@ -238,10 +262,18 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
       },
@@ -257,7 +289,7 @@
   },
   {
     "diseaseId": "rift_valley_fever",
-    "reviewedOn": "2026-10-30",
+    "reviewedOn": "2026-11-23",
     "bullets": [
       {
         "bulletId": "rift_valley_fever-p1",
@@ -265,15 +297,15 @@
         "textEn": "Seek care promptly for fever with headache, muscle pain or blurred vision.",
         "textSw": "Tafuta matibabu haraka kwa homa pamoja na kuumwa na kichwa, maumivu ya misuli au kuona vibaya.",
         "swIsOfficial": false,
-        "sourceId": "S17"
+        "sourceId": "who-rvf-2024-12-20"
       },
       {
         "bulletId": "rift_valley_fever-p2",
         "audience": "Patient",
-        "textEn": "Avoid contact with sick animals and do not handle raw meat or milk from them.",
-        "textSw": "Epuka kugusa wanyama wagonjwa wala kushika nyama mbichi au maziwa yao.",
+        "textEn": "Avoid handling the blood, organs or tissue of sick animals, and do not drink unpasteurised or uncooked milk.",
+        "textSw": "Epuka kushika damu, viungo au nyama ya wanyama wagonjwa, na usinywe maziwa ambayo hayajachemshwa.",
         "swIsOfficial": false,
-        "sourceId": "S17"
+        "sourceId": "who-rvf-2024-12-20"
       },
       {
         "bulletId": "rift_valley_fever-p3",
@@ -281,7 +313,7 @@
         "textEn": "Sleep under insecticide-treated nets and use insect repellents.",
         "textSw": "Lala chini ya chandarua chenye dawa na tumia dawa za kufukuza mbu.",
         "swIsOfficial": false,
-        "sourceId": "S17"
+        "sourceId": "who-rvf-2024-12-20"
       },
       {
         "bulletId": "rift_valley_fever-c1",
@@ -289,7 +321,7 @@
         "textEn": "Febrile illness over 48 h not responding to antimalarials or antibiotics, plus animal contact or an RVF area, ± haemorrhage, jaundice or renal signs. Confirmed: anti-RVF IgM ELISA or RT-PCR.",
         "textSw": "Homa zaidi ya saa 48 isiyoitikia dawa za malaria au antibiotiki, pamoja na kugusana na wanyama au eneo la RVF, pamoja na kutokwa na damu, manjano au dalili za figo au bila hivyo. Iliyothibitishwa: kipimo cha anti-RVF IgM ELISA au RT-PCR.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "rift_valley_fever-c2",
@@ -302,19 +334,27 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
       },
       {
-        "sourceId": "S17",
-        "title": "Press release: advisory on health risks amid ongoing heavy rains",
-        "publisher": "MoH Kenya, PS for Public Health and Professional Standards",
-        "url": "https://health.go.ke/sites/default/files/2023-11/PRESS%20RELEASE-%20ADVISORY%20ON%20HEALTH%20RISKS%20AMID%20ONGOING%20HEAVY%20RAINS%20.pdf",
-        "publishedOn": "2023-11-22",
+        "sourceId": "who-rvf-2024-12-20",
+        "title": "Rift Valley fever (fact sheet)",
+        "publisher": "World Health Organization",
+        "url": "https://www.who.int/news-room/fact-sheets/detail/rift-valley-fever",
+        "publishedOn": "2024-12-20",
         "accessedOn": "2026-10-30"
       }
     ]
@@ -350,10 +390,10 @@
       {
         "bulletId": "yellow_fever-c1",
         "audience": "Clinician",
-        "textEn": "Acute fever then jaundice within 2 weeks. Confirmed: IgM or viral isolation, or epidemiological link.",
-        "textSw": "Homa ya ghafla kisha manjano ndani ya wiki 2. Iliyothibitishwa: IgM au kutenga virusi, au uhusiano wa kiepidemiolojia.",
+        "textEn": "Acute fever then jaundice within 14 days. Confirmed: yellow-fever-specific IgM, a fourfold rise in antibody titres, or neutralising antibodies; an epidemiological link alone makes it probable.",
+        "textSw": "Homa ya ghafla kisha manjano ndani ya siku 14. Iliyothibitishwa: IgM mahususi ya homa ya manjano, ongezeko la mara nne la kingamwili, au kingamwili zinazozuia virusi; uhusiano wa kiepidemiolojia peke yake huifanya kuwa kesi inayowezekana.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "yellow_fever-c2",
@@ -366,10 +406,18 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
       },
@@ -385,7 +433,7 @@
   },
   {
     "diseaseId": "dengue",
-    "reviewedOn": "2026-10-30",
+    "reviewedOn": "2026-11-23",
     "bullets": [
       {
         "bulletId": "dengue-p1",
@@ -398,10 +446,10 @@
       {
         "bulletId": "dengue-p2",
         "audience": "Patient",
-        "textEn": "Clear stagnant water around the home and sleep under nets.",
-        "textSw": "Ondoa maji yaliyotuama karibu na nyumba na lala chini ya chandarua.",
+        "textEn": "Cover, empty and clean water containers around the home every week, and use mosquito nets and repellents.",
+        "textSw": "Funika, mwaga na safisha vyombo vya maji karibu na nyumba kila wiki, na tumia chandarua na dawa za kufukuza mbu.",
         "swIsOfficial": false,
-        "sourceId": "S17"
+        "sourceId": "who-dengue-2025-08-21"
       },
       {
         "bulletId": "dengue-c1",
@@ -409,7 +457,7 @@
         "textEn": "Fever 2–7 days plus 2 or more of headache, retro-orbital pain, myalgia, arthralgia, rash, bleeding, leucopenia. Confirmed: IgM, rising IgG, PCR or isolation.",
         "textSw": "Homa siku 2–7 pamoja na dalili 2 au zaidi kati ya kuumwa na kichwa, maumivu nyuma ya macho, maumivu ya misuli, maumivu ya viungo, vipele, kutokwa na damu, seli nyeupe chache. Iliyothibitishwa: IgM, IgG inayopanda, PCR au kutenga virusi.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "dengue-c2",
@@ -422,19 +470,19 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
-        "accessedOn": "2026-10-30"
-      },
-      {
-        "sourceId": "S17",
-        "title": "Press release: advisory on health risks amid ongoing heavy rains",
-        "publisher": "MoH Kenya, PS for Public Health and Professional Standards",
-        "url": "https://health.go.ke/sites/default/files/2023-11/PRESS%20RELEASE-%20ADVISORY%20ON%20HEALTH%20RISKS%20AMID%20ONGOING%20HEAVY%20RAINS%20.pdf",
-        "publishedOn": "2023-11-22",
         "accessedOn": "2026-10-30"
       },
       {
@@ -473,17 +521,17 @@
         "textEn": "Report a suspected or confirmed case to the medical officer of health: weekly, on MOH 505",
         "textSw": "Ripoti kesi inayoshukiwa au iliyothibitishwa kwa afisa wa afya: kila wiki, kwa fomu MOH 505",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       }
     ],
     "sources": [
       {
-        "sourceId": "S1",
-        "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
-        "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
         "publishedOn": "",
-        "accessedOn": "2026-10-30"
+        "accessedOn": "2026-11-23"
       },
       {
         "sourceId": "who-chikungunya-2025-04-14",
@@ -497,15 +545,39 @@
   },
   {
     "diseaseId": "cholera",
-    "reviewedOn": "2026-10-30",
+    "reviewedOn": "2026-11-23",
     "bullets": [
+      {
+        "bulletId": "cholera-p1",
+        "audience": "Patient",
+        "textEn": "Seek treatment immediately for sudden watery diarrhoea: cholera can kill within hours if untreated.",
+        "textSw": "Tafuta matibabu mara moja ukiharisha maji ghafla: kipindupindu kinaweza kuua ndani ya saa chache kisipotibiwa.",
+        "swIsOfficial": false,
+        "sourceId": "who-cholera-2026-09-29"
+      },
+      {
+        "bulletId": "cholera-p2",
+        "audience": "Patient",
+        "textEn": "Most people recover with oral rehydration solution; severe cases need a health facility.",
+        "textSw": "Watu wengi hupona kwa myeyusho wa kurejesha maji mwilini (ORS); wagonjwa mahututi wanahitaji kituo cha afya.",
+        "swIsOfficial": false,
+        "sourceId": "who-cholera-2026-09-29"
+      },
+      {
+        "bulletId": "cholera-p3",
+        "audience": "Patient",
+        "textEn": "Use safe water and keep to basic sanitation and hygiene, and take the oral cholera vaccine where it is offered.",
+        "textSw": "Tumia maji salama na zingatia usafi wa mazingira na wa mwili, na pata chanjo ya kipindupindu ya kumeza inapotolewa.",
+        "swIsOfficial": false,
+        "sourceId": "who-cholera-2026-09-29"
+      },
       {
         "bulletId": "cholera-c1",
         "audience": "Clinician",
-        "textEn": "Suspected: age 5 or over with acute profuse watery diarrhoea (3 or more times in 24 h); in an epidemic, age 2 or over. Confirmed: V. cholerae O1/O139 isolated from stool, or epidemiological link.",
-        "textSw": "Inayoshukiwa: umri wa miaka 5 au zaidi na kuhara maji mengi ya ghafla (mara 3 au zaidi kwa saa 24); wakati wa mlipuko, umri wa miaka 2 au zaidi. Iliyothibitishwa: V. cholerae O1/O139 imetengwa kutoka choo, au uhusiano wa kiepidemiolojia.",
+        "textEn": "Suspected: age 2 or over with acute watery diarrhoea and severe dehydration, or dying from it; where an outbreak is declared, anyone with acute watery diarrhoea. Confirmed: V. cholerae O1/O139 by culture or PCR.",
+        "textSw": "Inayoshukiwa: umri wa miaka 2 au zaidi na kuhara maji kwa ghafla pamoja na upungufu mkubwa wa maji mwilini, au kufariki kutokana nako; palipotangazwa mlipuko, mtu yeyote mwenye kuhara maji kwa ghafla. Iliyothibitishwa: V. cholerae O1/O139 kwa uoteshaji au PCR.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "cholera-c2",
@@ -518,12 +590,28 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
+      },
+      {
+        "sourceId": "who-cholera-2026-09-29",
+        "title": "Cholera (fact sheet)",
+        "publisher": "World Health Organization",
+        "url": "https://www.who.int/news-room/fact-sheets/detail/cholera",
+        "publishedOn": "2026-09-29",
+        "accessedOn": "2026-11-23"
       }
     ]
   },
@@ -558,10 +646,10 @@
       {
         "bulletId": "plague-c1",
         "audience": "Clinician",
-        "textEn": "Sudden fever, chills, prostration, painful lymph nodes, or bloody sputum and dyspnoea. Confirmed: Y. pestis isolated from blood or bubo aspirate, or epidemiological link.",
-        "textSw": "Homa ya ghafla, baridi, udhaifu mkubwa, tezi za limfu zinazouma, au makohozi ya damu na kupumua kwa shida. Iliyothibitishwa: Y. pestis imetengwa kutoka damu au usaha wa tezi, au uhusiano wa kiepidemiolojia.",
+        "textEn": "Sudden fever, chills, headache, prostration and very painful lymph nodes, or cough with bloody sputum, chest pain and dyspnoea, plus exposure to infected animals, people or fleas, or an endemic area, in the past 10 days. Confirmed: Y. pestis isolated from blood or bubo aspirate, seroconversion, or an F1 antigen rapid test in endemic areas.",
+        "textSw": "Homa ya ghafla, baridi, kuumwa na kichwa, udhaifu mkubwa na tezi za limfu zinazouma sana, au kikohozi chenye makohozi ya damu, maumivu ya kifua na kupumua kwa shida, pamoja na kukutana na wanyama, watu au viroboto walioambukizwa, au eneo lenye ugonjwa, katika siku 10 zilizopita. Iliyothibitishwa: Y. pestis imetengwa kutoka damu au usaha wa tezi, mabadiliko ya kingamwili, au kipimo cha haraka cha antijeni F1 katika maeneo yenye ugonjwa.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "plague-c2",
@@ -574,10 +662,18 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
       },
@@ -593,39 +689,15 @@
   },
   {
     "diseaseId": "anthrax",
-    "reviewedOn": "2026-10-30",
+    "reviewedOn": "2026-11-23",
     "bullets": [
-      {
-        "bulletId": "anthrax-p1",
-        "audience": "Patient",
-        "textEn": "Seek care promptly for a painless black skin sore, or severe illness after eating meat from a sick animal.",
-        "textSw": "Tafuta matibabu haraka kwa kidonda cheusi cha ngozi kisichouma, au ugonjwa mkali baada ya kula nyama ya mnyama mgonjwa.",
-        "swIsOfficial": false,
-        "sourceId": "S21"
-      },
-      {
-        "bulletId": "anthrax-p2",
-        "audience": "Patient",
-        "textEn": "Do not eat meat from animals that died suddenly; report such deaths.",
-        "textSw": "Usile nyama ya wanyama waliokufa ghafla; ripoti vifo hivyo.",
-        "swIsOfficial": false,
-        "sourceId": "S21"
-      },
-      {
-        "bulletId": "anthrax-p3",
-        "audience": "Patient",
-        "textEn": "Vaccinate livestock where the veterinary services advise.",
-        "textSw": "Chanjo mifugo pale ambapo huduma za mifugo zinashauri.",
-        "swIsOfficial": false,
-        "sourceId": "S21"
-      },
       {
         "bulletId": "anthrax-c1",
         "audience": "Clinician",
-        "textEn": "Cutaneous eschar with oedema, or GI or inhalational forms, plus animal or animal-product link. Confirmed: B. anthracis isolated from the affected site.",
-        "textSw": "Kidonda cheusi cha ngozi pamoja na uvimbe, au aina ya tumbo au ya kuvuta pumzi, pamoja na uhusiano na mnyama au mazao ya mnyama. Iliyothibitishwa: B. anthracis imetengwa kutoka sehemu iliyoathirika.",
+        "textEn": "Cutaneous eschar with oedema, or GI, inhalational or meningeal forms, plus a link to sick animals or animal products. Confirmed: B. anthracis isolated from the affected site, or two supportive laboratory tests.",
+        "textSw": "Kidonda cheusi cha ngozi pamoja na uvimbe, au aina ya tumbo, ya kuvuta pumzi au ya uti wa mgongo, pamoja na uhusiano na wanyama wagonjwa au mazao ya wanyama. Iliyothibitishwa: B. anthracis imetengwa kutoka sehemu iliyoathirika, au vipimo viwili vya maabara vinavyounga mkono.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "anthrax-c2",
@@ -638,19 +710,19 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
-        "accessedOn": "2026-10-30"
-      },
-      {
-        "sourceId": "S21",
-        "title": "\"Siaya cautions residents of anthrax outbreak\" (relays a joint statement by the county chief officers for health and agriculture)",
-        "publisher": "The Star (Kenya), reporting a Siaya County Government advisory",
-        "url": "https://www.the-star.co.ke/news/2026-04-17-siaya-cautions-residents-of-anthrax-outbreak",
-        "publishedOn": "2026-04-17",
         "accessedOn": "2026-10-30"
       }
     ]
@@ -689,7 +761,7 @@
         "textEn": "Gradually rising, persistent high fever plus GI or constitutional symptoms. Confirmed: S. Typhi isolated from stool, blood, bone marrow or bowel fluid.",
         "textSw": "Homa kali inayoongezeka taratibu na kudumu pamoja na dalili za tumbo au za mwili. Iliyothibitishwa: S. Typhi imetengwa kutoka choo, damu, uloto au maji ya utumbo.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "typhoid_fever-c2",
@@ -702,10 +774,18 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
       },
@@ -753,7 +833,7 @@
         "textEn": "Diarrhoea with visible blood. Confirmed: stool culture positive for S. dysenteriae type 1.",
         "textSw": "Kuhara na damu inayoonekana. Iliyothibitishwa: choo kimeotesha S. dysenteriae aina ya 1.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "shigella_dysentery-c2",
@@ -766,10 +846,18 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
       },
@@ -814,10 +902,10 @@
       {
         "bulletId": "meningococcal_meningitis-c1",
         "audience": "Clinician",
-        "textEn": "Sudden fever plus neck stiffness, altered consciousness or other meningeal signs. Confirmed: N. meningitidis isolated from CSF or blood.",
-        "textSw": "Homa ya ghafla pamoja na shingo kukakamaa, kupoteza fahamu au dalili nyingine za uti wa mgongo. Iliyothibitishwa: N. meningitidis imetengwa kutoka maji ya uti wa mgongo au damu.",
+        "textEn": "Sudden fever plus neck stiffness or other meningeal signs (a bulging fontanelle in infants). Confirmed: N. meningitidis cultured or detected by PCR in CSF or blood.",
+        "textSw": "Homa ya ghafla pamoja na shingo kukakamaa au dalili nyingine za uti wa mgongo (utosi uliovimba kwa watoto wachanga). Iliyothibitishwa: N. meningitidis imeoteshwa au kugunduliwa kwa PCR katika maji ya uti wa mgongo au damu.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "meningococcal_meningitis-c2",
@@ -830,10 +918,18 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
       },
@@ -849,15 +945,15 @@
   },
   {
     "diseaseId": "malaria",
-    "reviewedOn": "2026-10-30",
+    "reviewedOn": "2026-11-23",
     "bullets": [
       {
         "bulletId": "malaria-p1",
         "audience": "Patient",
-        "textEn": "Sleep under an insecticide-treated net every night.",
-        "textSw": "Lala chini ya chandarua chenye dawa kila usiku.",
+        "textEn": "Sleep under an insecticide-treated mosquito net where malaria is present.",
+        "textSw": "Lala chini ya chandarua chenye dawa katika maeneo yenye malaria.",
         "swIsOfficial": false,
-        "sourceId": "S17"
+        "sourceId": "who-malaria-2025-12-04"
       },
       {
         "bulletId": "malaria-p2",
@@ -881,7 +977,7 @@
         "textEn": "Confirmed uncomplicated: fever in the past 24 h plus blood film or other parasite test. Confirmed severe: parasitaemia plus vital-organ dysfunction.",
         "textSw": "Iliyothibitishwa isiyo kali: homa saa 24 zilizopita pamoja na filamu ya damu au kipimo kingine cha vimelea. Iliyothibitishwa kali: vimelea damuni pamoja na kuharibika kwa kiungo muhimu.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "malaria-c2",
@@ -894,19 +990,19 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
-        "accessedOn": "2026-10-30"
-      },
-      {
-        "sourceId": "S17",
-        "title": "Press release: advisory on health risks amid ongoing heavy rains",
-        "publisher": "MoH Kenya, PS for Public Health and Professional Standards",
-        "url": "https://health.go.ke/sites/default/files/2023-11/PRESS%20RELEASE-%20ADVISORY%20ON%20HEALTH%20RISKS%20AMID%20ONGOING%20HEAVY%20RAINS%20.pdf",
-        "publishedOn": "2023-11-22",
         "accessedOn": "2026-10-30"
       },
       {
@@ -921,7 +1017,7 @@
   },
   {
     "diseaseId": "measles",
-    "reviewedOn": "2026-10-30",
+    "reviewedOn": "2026-11-23",
     "bullets": [
       {
         "bulletId": "measles-p1",
@@ -934,10 +1030,10 @@
       {
         "bulletId": "measles-p2",
         "audience": "Patient",
-        "textEn": "Keep up with local vaccination programmes.",
-        "textSw": "Endelea na programu za chanjo za eneo lako.",
+        "textEn": "Make sure children get both doses of the measles vaccine.",
+        "textSw": "Hakikisha watoto wanapata dozi zote mbili za chanjo ya surua.",
         "swIsOfficial": false,
-        "sourceId": "S17"
+        "sourceId": "who-measles-2026-07-15"
       },
       {
         "bulletId": "measles-p3",
@@ -961,7 +1057,7 @@
         "textEn": "Fever plus maculopapular rash plus cough, coryza or conjunctivitis. Confirmed: measles IgM or epidemiological link.",
         "textSw": "Homa pamoja na vipele vya mwili pamoja na kikohozi, mafua au macho mekundu. Iliyothibitishwa: IgM ya surua au uhusiano wa kiepidemiolojia.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "measles-c2",
@@ -974,19 +1070,19 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
-        "accessedOn": "2026-10-30"
-      },
-      {
-        "sourceId": "S17",
-        "title": "Press release: advisory on health risks amid ongoing heavy rains",
-        "publisher": "MoH Kenya, PS for Public Health and Professional Standards",
-        "url": "https://health.go.ke/sites/default/files/2023-11/PRESS%20RELEASE-%20ADVISORY%20ON%20HEALTH%20RISKS%20AMID%20ONGOING%20HEAVY%20RAINS%20.pdf",
-        "publishedOn": "2023-11-22",
         "accessedOn": "2026-10-30"
       },
       {
@@ -1033,7 +1129,7 @@
         "textEn": "Suspected: sudden-onset flaccid weakness under 15 years, not traumatic, or clinician suspects polio. Confirmed: poliovirus isolated from stool.",
         "textSw": "Inayoshukiwa: udhaifu wa ghafla wa kiungo kwa umri chini ya miaka 15, si kwa ajali, au daktari anashuku polio. Iliyothibitishwa: virusi vya polio vimetengwa kutoka choo.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "poliomyelitis-c2",
@@ -1046,10 +1142,18 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
       },
@@ -1094,10 +1198,10 @@
       {
         "bulletId": "influenza_new_subtype-c1",
         "audience": "Clinician",
-        "textEn": "Lab diagnosis of a novel subtype.",
-        "textSw": "Uchunguzi wa kimaabara wa aina mpya.",
+        "textEn": "Unexplained acute lower respiratory illness with fever and cough or breathlessness, plus contact with a case or with sick or dead birds or animals in the past 7 days. Confirmed: a new subtype found by a laboratory whose results WHO accepts.",
+        "textSw": "Ugonjwa wa ghafla wa njia ya chini ya hewa usioelezeka, wenye homa na kikohozi au kupumua kwa shida, pamoja na kukutana na mgonjwa au ndege au wanyama wagonjwa au waliokufa katika siku 7 zilizopita. Iliyothibitishwa: aina mpya imegunduliwa na maabara ambayo matokeo yake WHO inakubali.",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       },
       {
         "bulletId": "influenza_new_subtype-c2",
@@ -1110,10 +1214,18 @@
     ],
     "sources": [
       {
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "publishedOn": "",
+        "accessedOn": "2026-11-23"
+      },
+      {
         "sourceId": "S1",
         "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
         "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
         "accessedOn": "2026-10-30"
       },
@@ -1153,17 +1265,17 @@
         "textEn": "Report a suspected or confirmed case to the medical officer of health: immediately for this disease, on form MOH 502",
         "textSw": "Ripoti kesi inayoshukiwa au iliyothibitishwa kwa afisa wa afya: mara moja kwa ugonjwa huu, kwa fomu MOH 502",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       }
     ],
     "sources": [
       {
-        "sourceId": "S1",
-        "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
-        "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
         "publishedOn": "",
-        "accessedOn": "2026-10-30"
+        "accessedOn": "2026-11-23"
       },
       {
         "sourceId": "who-covid-2025-11-27",
@@ -1217,17 +1329,17 @@
         "textEn": "Report a suspected or confirmed case to the medical officer of health: immediately for this disease, on form MOH 502",
         "textSw": "Ripoti kesi inayoshukiwa au iliyothibitishwa kwa afisa wa afya: mara moja kwa ugonjwa huu, kwa fomu MOH 502",
         "swIsOfficial": false,
-        "sourceId": "S1"
+        "sourceId": "who-afro-idsr-2019"
       }
     ],
     "sources": [
       {
-        "sourceId": "S1",
-        "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
-        "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
-        "url": "https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
+        "sourceId": "who-afro-idsr-2019",
+        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
+        "publisher": "World Health Organization, Regional Office for Africa",
+        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
         "publishedOn": "",
-        "accessedOn": "2026-10-30"
+        "accessedOn": "2026-11-23"
       },
       {
         "sourceId": "S18",

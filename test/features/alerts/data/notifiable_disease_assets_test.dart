@@ -55,6 +55,29 @@ void main() {
     }
   });
 
+  // A notice's footer and "Read the guidance" use its first patient source,
+  // so a patient line never rests on one event's release or a newspaper.
+  test('patient guidance cites a standing MoH or WHO source', () {
+    final event = RegExp(
+      'press|statement|advisory|Ituri|DRC|outbreak in',
+      caseSensitive: false,
+    );
+    final official = RegExp(
+      '^(World Health Organization|Ministry of Health|MoH Kenya)',
+    );
+    for (final entry in guidance) {
+      final byId = {for (final s in entry.sources) s.sourceId: s};
+      for (final bullet in entry.bullets.where(
+        (b) => b.audienceValue == .patient,
+      )) {
+        final source = byId[bullet.sourceId]!;
+        final reason = '${entry.diseaseId} ${bullet.bulletId}';
+        expect(source.title, isNot(matches(event)), reason: reason);
+        expect(source.publisher, matches(official), reason: reason);
+      }
+    }
+  });
+
   test('every mapped test exists in the lab catalogue', () {
     final catalogue = {
       for (final row in _readAsset('lab_tests.json'))

@@ -174,8 +174,8 @@
     "kenyaGroup": "EpidemicProne",
     "categorySourceId": "S1",
     "categoryVerified": false,
-    "caseDefinitionEn": "Acute fever then jaundice within 2 weeks. Confirmed: IgM or viral isolation, or epidemiological link.",
-    "caseDefinitionSw": "Homa ya ghafla kisha manjano ndani ya wiki 2. Iliyothibitishwa: IgM au kutenga virusi, au uhusiano wa kiepidemiolojia.",
+    "caseDefinitionEn": "Acute fever then jaundice within 14 days. Confirmed: yellow-fever-specific IgM, a fourfold rise in antibody titres, or neutralising antibodies; an epidemiological link alone makes it probable.",
+    "caseDefinitionSw": "Homa ya ghafla kisha manjano ndani ya siku 14. Iliyothibitishwa: IgM mahususi ya homa ya manjano, ongezeko la mara nne la kingamwili, au kingamwili zinazozuia virusi; uhusiano wa kiepidemiolojia peke yake huifanya kuwa kesi inayowezekana.",
     "labTests": [
       {
         "labTestId": "9f7bb98b-c85c-4097-94df-802492f67c8e",
@@ -347,8 +347,8 @@
     "kenyaGroup": "EpidemicProne",
     "categorySourceId": "S1",
     "categoryVerified": false,
-    "caseDefinitionEn": "Suspected: age 5 or over with acute profuse watery diarrhoea (3 or more times in 24 h); in an epidemic, age 2 or over. Confirmed: V. cholerae O1/O139 isolated from stool, or epidemiological link.",
-    "caseDefinitionSw": "Inayoshukiwa: umri wa miaka 5 au zaidi na kuhara maji mengi ya ghafla (mara 3 au zaidi kwa saa 24); wakati wa mlipuko, umri wa miaka 2 au zaidi. Iliyothibitishwa: V. cholerae O1/O139 imetengwa kutoka choo, au uhusiano wa kiepidemiolojia.",
+    "caseDefinitionEn": "Suspected: age 2 or over with acute watery diarrhoea and severe dehydration, or dying from it; where an outbreak is declared, anyone with acute watery diarrhoea. Confirmed: V. cholerae O1/O139 by culture or PCR.",
+    "caseDefinitionSw": "Inayoshukiwa: umri wa miaka 2 au zaidi na kuhara maji kwa ghafla pamoja na upungufu mkubwa wa maji mwilini, au kufariki kutokana nako; palipotangazwa mlipuko, mtu yeyote mwenye kuhara maji kwa ghafla. Iliyothibitishwa: V. cholerae O1/O139 kwa uoteshaji au PCR.",
     "labTests": [
       {
         "labTestId": "9f7bb988-d78e-4c81-b7d5-60b53422709c",
@@ -392,8 +392,8 @@
     "kenyaGroup": "EpidemicProne",
     "categorySourceId": "S1",
     "categoryVerified": false,
-    "caseDefinitionEn": "Sudden fever, chills, prostration, painful lymph nodes, or bloody sputum and dyspnoea. Confirmed: Y. pestis isolated from blood or bubo aspirate, or epidemiological link.",
-    "caseDefinitionSw": "Homa ya ghafla, baridi, udhaifu mkubwa, tezi za limfu zinazouma, au makohozi ya damu na kupumua kwa shida. Iliyothibitishwa: Y. pestis imetengwa kutoka damu au usaha wa tezi, au uhusiano wa kiepidemiolojia.",
+    "caseDefinitionEn": "Sudden fever, chills, headache, prostration and very painful lymph nodes, or cough with bloody sputum, chest pain and dyspnoea, plus exposure to infected animals, people or fleas, or an endemic area, in the past 10 days. Confirmed: Y. pestis isolated from blood or bubo aspirate, seroconversion, or an F1 antigen rapid test in endemic areas.",
+    "caseDefinitionSw": "Homa ya ghafla, baridi, kuumwa na kichwa, udhaifu mkubwa na tezi za limfu zinazouma sana, au kikohozi chenye makohozi ya damu, maumivu ya kifua na kupumua kwa shida, pamoja na kukutana na wanyama, watu au viroboto walioambukizwa, au eneo lenye ugonjwa, katika siku 10 zilizopita. Iliyothibitishwa: Y. pestis imetengwa kutoka damu au usaha wa tezi, mabadiliko ya kingamwili, au kipimo cha haraka cha antijeni F1 katika maeneo yenye ugonjwa.",
     "labTests": [
       {
         "labTestId": "9f7bb989-3a54-40e6-b5ce-f4b4ee68e574",
@@ -425,8 +425,8 @@
     "kenyaGroup": "EpidemicProne",
     "categorySourceId": "S1",
     "categoryVerified": false,
-    "caseDefinitionEn": "Cutaneous eschar with oedema, or GI or inhalational forms, plus animal or animal-product link. Confirmed: B. anthracis isolated from the affected site.",
-    "caseDefinitionSw": "Kidonda cheusi cha ngozi pamoja na uvimbe, au aina ya tumbo au ya kuvuta pumzi, pamoja na uhusiano na mnyama au mazao ya mnyama. Iliyothibitishwa: B. anthracis imetengwa kutoka sehemu iliyoathirika.",
+    "caseDefinitionEn": "Cutaneous eschar with oedema, or GI, inhalational or meningeal forms, plus a link to sick animals or animal products. Confirmed: B. anthracis isolated from the affected site, or two supportive laboratory tests.",
+    "caseDefinitionSw": "Kidonda cheusi cha ngozi pamoja na uvimbe, au aina ya tumbo, ya kuvuta pumzi au ya uti wa mgongo, pamoja na uhusiano na wanyama wagonjwa au mazao ya wanyama. Iliyothibitishwa: B. anthracis imetengwa kutoka sehemu iliyoathirika, au vipimo viwili vya maabara vinavyounga mkono.",
     "labTests": [
       {
         "labTestId": "9f7bb988-d371-41b9-9f06-23f105cd9e15",
@@ -554,8 +554,8 @@
     "kenyaGroup": "EpidemicProne",
     "categorySourceId": "S1",
     "categoryVerified": false,
-    "caseDefinitionEn": "Sudden fever plus neck stiffness, altered consciousness or other meningeal signs. Confirmed: N. meningitidis isolated from CSF or blood.",
-    "caseDefinitionSw": "Homa ya ghafla pamoja na shingo kukakamaa, kupoteza fahamu au dalili nyingine za uti wa mgongo. Iliyothibitishwa: N. meningitidis imetengwa kutoka maji ya uti wa mgongo au damu.",
+    "caseDefinitionEn": "Sudden fever plus neck stiffness or other meningeal signs (a bulging fontanelle in infants). Confirmed: N. meningitidis cultured or detected by PCR in CSF or blood.",
+    "caseDefinitionSw": "Homa ya ghafla pamoja na shingo kukakamaa au dalili nyingine za uti wa mgongo (utosi uliovimba kwa watoto wachanga). Iliyothibitishwa: N. meningitidis imeoteshwa au kugunduliwa kwa PCR katika maji ya uti wa mgongo au damu.",
     "labTests": [
       {
         "labTestId": "9f7bb988-cfda-4d99-a3e2-2f5430fad7a7",
@@ -743,8 +743,8 @@
     "kenyaGroup": "EpidemicProne",
     "categorySourceId": "S1",
     "categoryVerified": false,
-    "caseDefinitionEn": "Lab diagnosis of a novel subtype.",
-    "caseDefinitionSw": "Uchunguzi wa kimaabara wa aina mpya.",
+    "caseDefinitionEn": "Unexplained acute lower respiratory illness with fever and cough or breathlessness, plus contact with a case or with sick or dead birds or animals in the past 7 days. Confirmed: a new subtype found by a laboratory whose results WHO accepts.",
+    "caseDefinitionSw": "Ugonjwa wa ghafla wa njia ya chini ya hewa usioelezeka, wenye homa na kikohozi au kupumua kwa shida, pamoja na kukutana na mgonjwa au ndege au wanyama wagonjwa au waliokufa katika siku 7 zilizopita. Iliyothibitishwa: aina mpya imegunduliwa na maabara ambayo matokeo yake WHO inakubali.",
     "labTests": [
       {
         "labTestId": "9f7bb98a-8b55-471c-b884-4f78217811f8",
