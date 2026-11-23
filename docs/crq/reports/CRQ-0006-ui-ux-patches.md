@@ -352,6 +352,12 @@ branch as it is found, certified on the phone, then recorded here.
     was not yet in the bloc. Sharing now returns to the report it was shared from with "Shared with
     {name}", and the done screen and its route are removed; Stop sharing stays on the shared-reports
     list. Pending the device run.
+46. **A patient read "3 of 3 tiles (100%) are marked as tumour."** The pre-read's findings, built
+    in code, are filled into the report's comments, which the patient reads. They now say "Tumour in
+    3 of 3 areas examined (100%)." and "No area examined shows tumour.", the same numbers in clinical
+    words; a test keeps "tile" out of any impression or finding that can reach a report. This also
+    removes one way an explanation was refused for pre-read vocabulary. New pre-reads only, after the
+    `onPrereadWritten` deploy.
 
 ## 2. Business justification
 

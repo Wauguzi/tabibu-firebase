@@ -27,6 +27,28 @@ function tilesOf(labels: string[]): Tile[] {
 
 const GRID = { rows: 10, cols: 10, tilePx: 96 };
 
+describe('preread-measure draft wording', () => {
+  it('the impression and findings that can reach a report never say tile', () => {
+    for (const labels of [
+      Array<string>(10).fill('Normal'),
+      [...Array<string>(6).fill('Tumour'), ...Array<string>(4).fill('Normal')],
+      Array<string>(4).fill('Unknown'),
+    ]) {
+      const tiles = tilesOf(labels);
+      const draft = histologyDraft(tiles, histologyMeasurements(tiles, GRID, 0.25));
+      const text = [draft.impression, ...draft.findings.map((f) => f.text)].join(' ');
+      assert.doesNotMatch(text, /\btiles?\b/i, text);
+    }
+  });
+
+  it('a tumour finding keeps its counts and percentage', () => {
+    const tiles = tilesOf([...Array<string>(3).fill('Tumour'), 'Normal']);
+    const m = histologyMeasurements(tiles, GRID, 0.25);
+    const draft = histologyDraft(tiles, m);
+    assert.equal(draft.findings[0].text, `Tumour in 3 of 4 areas examined (${m.tumourAreaPercent}%).`);
+  });
+});
+
 describe('preread-measure unknown tiles', () => {
   it('all-Normal stays "No tumour suspected" with Routine urgency', () => {
     const tiles = tilesOf(Array<string>(10).fill('Normal'));

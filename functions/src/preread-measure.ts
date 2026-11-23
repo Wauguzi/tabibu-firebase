@@ -238,12 +238,14 @@ export function histologyDraft(tiles: Tile[], m: Record<string, number>): Prerea
     findings: any
       ? [
           {
-            text: `${m.tumourTiles} of ${tiles.length} tiles (${m.tumourAreaPercent}%) are marked as tumour.`,
+            // Clinical words: the findings can be filled into the signed report a
+            // patient reads, which must not say "tile".
+            text: `Tumour in ${m.tumourTiles} of ${tiles.length} areas examined (${m.tumourAreaPercent}%).`,
             evidenceIds: evidence,
           },
           { text: `The largest focus spans about ${m.largestFocusMm} mm.`, evidenceIds: evidence },
         ]
-      : [{ text: 'No tile is marked as tumour.', evidenceIds: [] }],
+      : [{ text: 'No area examined shows tumour.', evidenceIds: [] }],
     impression: any
       ? `Tumour suspected in the section, in the size range of ${focusClass(m.largestFocusMm)}.`
       : unlabelled
