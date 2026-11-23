@@ -6,10 +6,10 @@
 | Title | UI and UX patches from the end-to-end device run |
 | Requested by | Theo — CTO |
 | Date raised | 2026-11-17 |
-| Date implemented | Pending; patches land as the run finds them |
+| Date implemented | 2026-11-23 |
 | Priority | P3 Medium — see [`mobile_workflow.md` §7](../../workflow/reports/mobile_workflow.md#7-escalation--severity) |
 | Change type | Normal |
-| Commit(s) / PR | `fix/ui-ux-patches`; the pull request follows the run |
+| Commit(s) / PR | [PR #18](https://github.com/Wauguzi/tabibu-firebase/pull/18), merged to `main` as `5478275` on 2026-11-23; one commit per patch, the round-1 fixes `918535b` to `a9ea7b4`, the round-2 fixes `50f40f1` to `17e6b4f` |
 
 ## 1. Description of change
 
@@ -411,12 +411,12 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Check | Result |
 |---|---|
 | `make analyze` / `make bloc-lint` | Pass — no issues |
-| `make test` (`TZ=UTC`) | Pass — 3,912 after patch 40 (the desk tests, 17, pass with patch 41) |
-| `make functions-test` | Pass — 671, with the photo URL check and the Storage copy (patch 4), the alert loop dry run and the advice check (patch 31), the walk-in order and patient id (patch 37), one open consult per case and the named invitation (patch 39), the tile abort, retries and call log (patch 40), the output cap and Unclear tiles (patch 42): 691 |
+| `make test` (`TZ=UTC`) | Pass — 3,912 after patch 40 (the desk tests, 17, pass with patch 41); 3,932 on the merged branch |
+| `make functions-test` | Pass — 671, with the photo URL check and the Storage copy (patch 4), the alert loop dry run and the advice check (patch 31), the walk-in order and patient id (patch 37), one open consult per case and the named invitation (patch 39), the tile abort, retries and call log (patch 40), the output cap and Unclear tiles (patch 42): 691; 703 on the merged branch, which also type-checks the tests and scripts as CI does |
 | `make rules-test` | Pass — 250, with RT-203 (patch 14), RT-5's care-team query (patch 37) and the server-only `openMdtUid` (patch 39) |
 | `make spell` | Pass — 0 issues |
 | Red proofs | Patch 1: the disabled row, the requested state and Back instead of Retry each fail with the fix removed. Patch 2: the one-line test fails against the old wrap. Patch 6: each lock guard (enrolled check, cancel, off prompt, PIN check, prompt before the PIN hash goes, older store, passcode fallback, the permission's end), the PIN-set return and the reachable Forgot PIN panel fail with their fix removed. Patch 23: the refresh on open and the busy field and button. Patch 24: the kept failed language, the `requestReportText` call, the refused retry, the failed line and the loading colour. Patch 25: the WAV name and type, each debug log, the WAV check and the `sw` code. Patch 26: the names and the gap |
-| Manual run | Patches 1 to 42 certified on the iPhone 14, 17–19 Nov, but for the Mark as discussed loading (36) and the desk (41), pending. 19 Nov: the histopathology pre-read Ready live (patch 42), and the outbreak alert loop end to end on the device: NAATs for Ebola ordered, a confirmed finding signed, the alert drafted, approved and delivered to the county's demo accounts (patches 30 and 32) |
+| Manual run | Patches 1 to 42 certified on the iPhone 14, 17–19 Nov, but for the Mark as discussed loading (36) and the desk (41), pending. 19 Nov: the histopathology pre-read Ready live (patch 42), and the outbreak alert loop end to end on the device: NAATs for Ebola ordered, a confirmed finding signed, the alert drafted, approved and delivered to the county's demo accounts (patches 30 and 32). Patches 43 to 47, pending |
 | Certification | Pending the end of the run |
 
 ## 8. Approval
@@ -424,7 +424,7 @@ says why something is unavailable, and when it will be, replaces a generic failu
 | Role | Required when | Name | Date | Decision |
 |---|---|---|---|---|
 | Author | Always | Theo | 2026-11-17 | — |
-| Engineering reviewer | Always, on the pull request | Greptile — pending | — | — |
+| Engineering reviewer | Always, on the pull request | Greptile — [PR #18](https://github.com/Wauguzi/tabibu-firebase/pull/18) | 2026-11-23 | 5/5 — Approved after three rounds |
 | Clinical Reviewer | §4 flags clinical-safety impact or changes clinical wording | Covered by CTO | 2026-11-18 | Approved: the AI draft is framed as AI until edited, starts only after the score, never replaces the pathologist's text, and reaches the doctor only when signed; Ask AI stays unsaved and pathologist-only |
 | Security Analyst | §4 flags security impact | Covered by CTO | 2026-11-17 | Approved: photos move into the owner's Storage folder, the rules stay strict; the lock's fallback is the phone's passcode, by decision, and every change of method needs the current one first; the score rule answers missing only to the case's own pathologist |
 | Compliance Officer | §4 flags data protection impact | N/A | — | — |
@@ -432,7 +432,43 @@ says why something is unavailable, and when it will be, replaces a generic failu
 
 ## 9. Post-implementation review
 
-Filled in after the run.
+**Greptile round 1 (PR #18, 0/5).** Ten findings, each fixed with a test that fails without the
+fix:
+
+- **P1: one doctor's patients could return after sign-out.** A drain still running at sign-out
+  wrote them back into the wiped cache. The patients bloc now keeps a session generation, checked
+  before every emit and cache write, and its handlers run in turn.
+- **P1: a failed lock switch could leave the PIN set with no credential.** Switching to biometric
+  now writes the method before it deletes the PIN keys.
+- **P1: an upgrade wiped the case cache.** The new case field had no default, so older rows failed
+  to read; it now defaults to empty, proved with a row written by the old adapter.
+- **P1: the AI fill replaced saved comments.** It now fills only an empty report.
+- **P1: an order for a new patient kept the pending row.** The order screen takes the saved record
+  once it syncs.
+- **P1: opening another report during a release hung.** The guard is per case, and the other
+  case's open is replayed when the release ends.
+- **P2:** a report unlocked by share code downloads at once; the consult backfill never sets and
+  clears the same case; no pre-read tile call starts after the run's deadline; and adding a
+  patient, retrying an explanation and downloading a report each log their analytics event.
+
+**CI after round 1.** The functions job failed: the backfill's new test imported from `scripts/`,
+outside the type-check's root, which the local build and test run never compile. The planner moved
+into `src/`, and `make functions-test` now runs the same type-checks as CI.
+
+**Greptile round 2 (0/5).** Two new findings, each fixed with a test that fails without the fix:
+
+- **P1: a booking could be answered before it was on the phone,** and the error then cancelled the
+  row for good. The inbox always syncs the appointments, offers an answer only for a loaded booking
+  still waiting, and keeps the row answerable when the booking is not found.
+- **P1: unread areas read as negative.** With some areas Unknown, the findings still said no area
+  shows tumour. A negative finding now covers only the areas read, and the unread ones are named.
+
+The round also restated two round-1 findings. The report open was already fixed; for the patients,
+the order picker now also shows only the signed-in doctor's rows.
+
+**Greptile round 3: 5/5,** no new finding.
+
+The device run of patches 43 to 47 follows.
 
 ## 10. Related records
 
