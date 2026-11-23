@@ -28,7 +28,10 @@ read on the way. Each entry is filled in as its patch lands.
    The statutory reminder (forms MOH 502 and 505) is Kenyan, so it keeps the handbook, linked at
    its archived copy (the same PDF, 3 to 6 s).
 2. **"Order a test" stayed beside "End appointment" after the order went to a pathologist.**
-   Pending.
+   It read as if nothing had been ordered while the pathologist's answer was awaited. Once this
+   visit's order is sent and not cancelled, End appointment is the bar's only button, full width,
+   in its own style. Unsent or refused still offers Attach pathologist; no order, a cancelled one
+   or an earlier visit's case still offers Order a test.
 3. **The approver had to replace `{disease}` and the other placeholders by hand, and a long box
    marked the demo.** Pending.
 4. **The patient read "Demo: Demo: …", a county chip the title repeats, and guidance credited to a

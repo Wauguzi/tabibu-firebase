@@ -621,6 +621,122 @@ void main() {
         }
       });
 
+      testWidgets('a sent order shows only a full-width End', (tester) async {
+        const stages = [
+          'PathologistRequested',
+          'PathologistAccepted',
+          'ReportInProgress',
+          'ReportSigned',
+        ];
+        _useTallSurface(tester);
+
+        for (final stage in stages) {
+          register(
+            appointments: AppointmentsLoadSuccess(
+              appointments: [_appointment()],
+            ),
+            cases: CasesLoadSuccess(
+              cases: [_case(stage: stage, appointmentUid: 'a1')],
+            ),
+          );
+          await tester.pumpWidget(const SizedBox());
+          await pumpScreen(tester);
+
+          expect(find.byType(TabibuButton), findsOneWidget);
+          expect(orderButton(), findsNothing);
+          expect(buttonLabelled(en.doctorCaseAttachPathologist), findsNothing);
+          final end = endButton();
+          expect(end, findsOneWidget);
+          expect(tester.widget<TabibuButton>(end).onTap, isNotNull);
+          final scheme = Theme.of(tester.element(end)).colorScheme;
+          final fill = tester.widget<Material>(
+            find.descendant(of: end, matching: find.byType(Material)),
+          );
+          expect(fill.color, scheme.surfaceContainerHigh);
+          expect(
+            tester.getSize(end).width,
+            greaterThan(tester.getSize(find.byType(BottomActionBar)).width / 2),
+          );
+        }
+      });
+
+      testWidgets('a cancelled order at this visit offers Order a test', (
+        tester,
+      ) async {
+        register(
+          appointments: AppointmentsLoadSuccess(appointments: [_appointment()]),
+          cases: CasesLoadSuccess(
+            cases: [_case(stage: 'Cancelled', appointmentUid: 'a1')],
+          ),
+        );
+        _useTallSurface(tester);
+        await pumpScreen(tester);
+
+        expect(orderButton(), findsOneWidget);
+        expect(endButton(), findsOneWidget);
+        expect(buttonLabelled(en.doctorCaseAttachPathologist), findsNothing);
+      });
+
+      testWidgets("an earlier visit's case still offers Order a test", (
+        tester,
+      ) async {
+        register(
+          appointments: AppointmentsLoadSuccess(appointments: [_appointment()]),
+          cases: CasesLoadSuccess(
+            cases: [
+              _case(stage: 'PathologistRequested', appointmentUid: 'earlier'),
+            ],
+          ),
+        );
+        _useTallSurface(tester);
+        await pumpScreen(tester);
+
+        expect(orderButton(), findsOneWidget);
+        expect(endButton(), findsOneWidget);
+      });
+
+      testWidgets('End stays disabled before the slot when the order is sent', (
+        tester,
+      ) async {
+        register(
+          appointments: AppointmentsLoadSuccess(
+            appointments: [
+              _appointment(
+                startsIn: const Duration(hours: 2),
+                endsIn: const Duration(hours: 3),
+              ),
+            ],
+          ),
+          cases: CasesLoadSuccess(
+            cases: [_case(stage: 'PathologistRequested', appointmentUid: 'a1')],
+          ),
+        );
+        _useTallSurface(tester);
+        await pumpScreen(tester);
+
+        expect(tester.widget<TabibuButton>(endButton()).onTap, isNull);
+        expect(find.text(en.doctorAppointmentEndDisabled), findsOneWidget);
+        expect(orderButton(), findsNothing);
+      });
+
+      testWidgets('a sent order at 2.0x in Kiswahili on 360 dp does not '
+          'overflow', (tester) async {
+        register(
+          appointments: AppointmentsLoadSuccess(appointments: [_appointment()]),
+          cases: CasesLoadSuccess(
+            cases: [_case(stage: 'PathologistRequested', appointmentUid: 'a1')],
+          ),
+        );
+        _useTallSurface(tester, width: 360 * 3);
+        _useTextScale(tester, 2);
+        final l10n = lookupAppLocalizations(const Locale('sw'));
+        await pumpScreen(tester, locale: const Locale('sw'));
+
+        expect(buttonLabelled(l10n.doctorAppointmentEnd), findsOneWidget);
+        expect(buttonLabelled(l10n.doctorAppointmentOrderTest), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+
       testWidgets('the end hint sits in the body under the notes', (
         tester,
       ) async {
