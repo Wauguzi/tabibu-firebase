@@ -86,6 +86,11 @@ class AlertReviewBloc extends Bloc<AlertReviewEvent, AlertReviewState> {
         return;
       }
       emit(AlertReviewLoadSuccess(queue: state.queue, current: alert));
+      // Redrafted elsewhere (another approver, the script) or left by an
+      // earlier poll: follow it here too until its draft is in.
+      if (alert.statusValue == .drafting) {
+        await _followDraft(alert, emit, readFirst: false);
+      }
     } on Object catch (e) {
       emit(
         AlertReviewLoadFailure(
@@ -141,13 +146,22 @@ class AlertReviewBloc extends Bloc<AlertReviewEvent, AlertReviewState> {
       emit(_decisionFailure(_toAppError(e)));
       return;
     }
+    await _followDraft(seen, emit, readFirst: true);
+  }
+
+  /// Reads the alert every [redraftPollEvery] until it leaves `Drafting`,
+  /// for at most [redraftPollFor]. The bloc is shared: once another alert is
+  /// open, this one's poll must not put it back on screen.
+  Future<void> _followDraft(
+    AlertModel seen,
+    Emitter<AlertReviewState> emit, {
+    required bool readFirst,
+  }) async {
     try {
       final ticks =
           redraftPollFor.inMilliseconds ~/ redraftPollEvery.inMilliseconds;
-      for (var tick = 0; tick <= ticks; tick++) {
+      for (var tick = readFirst ? 0 : 1; tick <= ticks; tick++) {
         if (tick > 0) await _delay(redraftPollEvery);
-        // The bloc is shared: once another alert is open, this one's poll
-        // must not put it back on screen.
         if (emit.isDone || state.current?.uid != seen.uid) return;
         final next = await _alerts.fetchAlert(seen.uid);
         if (state.current?.uid != seen.uid) return;

@@ -397,6 +397,29 @@ void main() {
       },
     );
 
+    blocTest<AlertReviewBloc, AlertReviewState>(
+      'an alert opened while drafting is followed until its draft is in',
+      setUp: () {
+        var reads = 0;
+        when(
+          () => alerts.fetchAlert('a1'),
+        ).thenAnswer((_) async => reads++ == 0 ? drafting : redrafted);
+      },
+      build: build,
+      act: (bloc) => bloc.add(const AlertReviewOpened(alertUid: 'a1')),
+      expect: () => [
+        const AlertReviewLoadInProgress(),
+        AlertReviewLoadSuccess(current: drafting),
+        AlertReviewLoadSuccess(current: redrafted),
+      ],
+      verify: (_) {
+        verify(() => alerts.fetchAlert('a1')).called(2);
+        verifyNever(
+          () => alerts.requestAlertDraft(alertUid: any(named: 'alertUid')),
+        );
+      },
+    );
+
     test(
       'opening another alert while the redraft is awaited stops its poll',
       () async {

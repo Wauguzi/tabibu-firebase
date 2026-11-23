@@ -171,6 +171,9 @@ without the fix:
 - **P2: a demo alert looked real on the patient's home.** The home notice strip showed the stored
   headline with no mark once the text lost its prefix. It now carries the Demo pill, and a screen
   reader hears "Demo alert, not a real alert" first.
+- **P2: an alert opened while drafting stayed on its spinner.** Only a redraft asked from this
+  screen polled. Opening an alert that is `Drafting`, whoever started the redraft, now follows it
+  the same way until its draft is in.
 
 ## 10. Related records
 
