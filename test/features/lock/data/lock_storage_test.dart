@@ -84,6 +84,50 @@ void main() {
       expect(await storage.isEnabled(), isTrue);
     });
 
+    test(
+      'a switch to fingerprint that fails part-way still leaves a lock',
+      () async {
+        for (final failing in [
+          'tabibu.lock.method',
+          'tabibu.lock.pinHash',
+          'tabibu.lock.pinSalt',
+          'tabibu.lock.enabled',
+        ]) {
+          store.clear();
+          await storage.setPin('4829');
+          await storage.setMethod(LockMethod.pin);
+          when(
+            () => secure.write(
+              key: failing,
+              value: any(named: 'value'),
+            ),
+          ).thenThrow(Exception('write failed'));
+          when(
+            () => secure.delete(key: failing),
+          ).thenThrow(Exception('delete failed'));
+
+          await expectLater(
+            storage.setMethod(LockMethod.biometric),
+            throwsException,
+            reason: failing,
+          );
+          expect(await storage.isEnabled(), isTrue, reason: failing);
+
+          when(
+            () => secure.write(
+              key: failing,
+              value: any(named: 'value'),
+            ),
+          ).thenAnswer((inv) async {
+            store[failing] = inv.namedArguments[#value] as String;
+          });
+          when(() => secure.delete(key: failing)).thenAnswer((_) async {
+            store.remove(failing);
+          });
+        }
+      },
+    );
+
     test('refuses a PIN that is not four digits', () async {
       expect(() => storage.setPin('12'), throwsArgumentError);
       expect(() => storage.setPin('abcd'), throwsArgumentError);

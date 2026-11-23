@@ -90,11 +90,13 @@ class LockStorage {
   Future<void> setMethod(LockMethod value) async {
     await _storage.delete(key: _biometricsEnabled);
     if (value == .biometric) {
+      // The new method first: a switch that dies part-way leaves a lock,
+      // never a PIN method whose hash is already gone.
+      await _storage.write(key: _method, value: value.name);
       await _storage.delete(key: _pinHash);
       await _storage.delete(key: _pinSalt);
       await _storage.delete(key: _iterations);
       await resetFailures();
-      await _storage.write(key: _method, value: value.name);
       await _storage.write(key: _lockEnabled, value: 'false');
       return;
     }
