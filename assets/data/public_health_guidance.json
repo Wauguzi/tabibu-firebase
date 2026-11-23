@@ -521,17 +521,17 @@
         "textEn": "Report a suspected or confirmed case to the medical officer of health: weekly, on MOH 505",
         "textSw": "Ripoti kesi inayoshukiwa au iliyothibitishwa kwa afisa wa afya: kila wiki, kwa fomu MOH 505",
         "swIsOfficial": false,
-        "sourceId": "who-afro-idsr-2019"
+        "sourceId": "S1"
       }
     ],
     "sources": [
       {
-        "sourceId": "who-afro-idsr-2019",
-        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
-        "publisher": "World Health Organization, Regional Office for Africa",
-        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "sourceId": "S1",
+        "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
+        "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
-        "accessedOn": "2026-11-23"
+        "accessedOn": "2026-10-30"
       },
       {
         "sourceId": "who-chikungunya-2025-04-14",
@@ -1265,17 +1265,17 @@
         "textEn": "Report a suspected or confirmed case to the medical officer of health: immediately for this disease, on form MOH 502",
         "textSw": "Ripoti kesi inayoshukiwa au iliyothibitishwa kwa afisa wa afya: mara moja kwa ugonjwa huu, kwa fomu MOH 502",
         "swIsOfficial": false,
-        "sourceId": "who-afro-idsr-2019"
+        "sourceId": "S1"
       }
     ],
     "sources": [
       {
-        "sourceId": "who-afro-idsr-2019",
-        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
-        "publisher": "World Health Organization, Regional Office for Africa",
-        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "sourceId": "S1",
+        "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
+        "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
-        "accessedOn": "2026-11-23"
+        "accessedOn": "2026-10-30"
       },
       {
         "sourceId": "who-covid-2025-11-27",
@@ -1329,17 +1329,17 @@
         "textEn": "Report a suspected or confirmed case to the medical officer of health: immediately for this disease, on form MOH 502",
         "textSw": "Ripoti kesi inayoshukiwa au iliyothibitishwa kwa afisa wa afya: mara moja kwa ugonjwa huu, kwa fomu MOH 502",
         "swIsOfficial": false,
-        "sourceId": "who-afro-idsr-2019"
+        "sourceId": "S1"
       }
     ],
     "sources": [
       {
-        "sourceId": "who-afro-idsr-2019",
-        "title": "Technical Guidelines for Integrated Disease Surveillance and Response in the African Region, third edition: standard case definitions (Booklet Two)",
-        "publisher": "World Health Organization, Regional Office for Africa",
-        "url": "https://www.afro.who.int/publications/technical-guidelines-integrated-disease-surveillance-and-response-african-region-third",
+        "sourceId": "S1",
+        "title": "Clinician's Handbook for IDSR Priority Diseases, Conditions and Events (reporting requirements, standard and lay case definitions, reporting forms MOH 502/503/504/505)",
+        "publisher": "Ministry of Health, Disease Surveillance and Response Unit (foreword by the unit head); now hosted by the Kenya National Public Health Institute (KNPHI)",
+        "url": "https://web.archive.org/web/20260523034420/https://www.nphi.go.ke/sites/default/files/2024-02/IDSR%20Clinicians%20Handbook.pdf",
         "publishedOn": "",
-        "accessedOn": "2026-11-23"
+        "accessedOn": "2026-10-30"
       },
       {
         "sourceId": "S18",

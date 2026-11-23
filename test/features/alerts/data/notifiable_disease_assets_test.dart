@@ -78,6 +78,34 @@ void main() {
     }
   });
 
+  // The reporting reminder is Kenya's own procedure (MOH 502/505), which
+  // only the Ministry handbook states; case definitions follow WHO AFRO.
+  test('a reporting reminder cites the Kenyan handbook, a case definition '
+      'WHO', () {
+    for (final entry in guidance) {
+      final byId = {for (final s in entry.sources) s.sourceId: s};
+      for (final bullet in entry.bullets.where(
+        (b) => b.audienceValue == .clinician,
+      )) {
+        final source = byId[bullet.sourceId]!;
+        final reason = '${entry.diseaseId} ${bullet.bulletId}';
+        if (bullet.textEn.startsWith('Report a suspected or confirmed case')) {
+          expect(
+            source.title,
+            contains("Clinician's Handbook"),
+            reason: reason,
+          );
+        } else {
+          expect(
+            source.publisher,
+            startsWith('World Health Organization'),
+            reason: reason,
+          );
+        }
+      }
+    }
+  });
+
   test('every mapped test exists in the lab catalogue', () {
     final catalogue = {
       for (final row in _readAsset('lab_tests.json'))

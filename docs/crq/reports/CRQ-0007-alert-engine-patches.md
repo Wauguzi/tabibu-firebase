@@ -174,6 +174,10 @@ without the fix:
 - **P2: an alert opened while drafting stayed on its spinner.** Only a redraft asked from this
   screen polled. Opening an alert that is `Drafting`, whoever started the redraft, now follows it
   the same way until its draft is in.
+- **P2: three reporting reminders lost the Kenyan handbook.** Chikungunya, COVID-19 and mpox have
+  no case definition, so their `-c1` bullet is the MOH 502/505 reminder, which had moved to the
+  WHO source with the case definitions. They cite the handbook again, and a test holds both
+  rules.
 
 ## 10. Related records
 
