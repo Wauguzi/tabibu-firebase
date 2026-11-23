@@ -42,7 +42,7 @@ Numbers are zero-padded and sequential from `0001`, separately for each type.
 
 | Report | Date | CRQ | Status |
 |---|---|---|---|
-| — | — | — | None yet |
+| [UAT-ITR-0001](./UAT-ITR-0001-three-roles-end-to-end-2026-11-23.md) | 2026-11-23 | CRQ-0003 to CRQ-0007 | ✅ Pass |
 
 ## Evaluation reports
 

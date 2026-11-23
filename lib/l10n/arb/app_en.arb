@@ -764,6 +764,14 @@
     "@updateStoreUnavailable": {
         "description": "Shown when the store link fails to open"
     },
+    "updateWhereIos": "Get it from the App Store.",
+    "@updateWhereIos": {
+        "description": "Update screen on iOS when no store link is set; follows the update message"
+    },
+    "updateWhereAndroid": "Get it from Google Play.",
+    "@updateWhereAndroid": {
+        "description": "Update screen on Android when no store link is set; follows the update message"
+    },
     "commonDismiss": "Dismiss",
     "@commonDismiss": {
         "description": "Screen-reader hint on dismissable notifications"
@@ -5733,13 +5741,13 @@
     "@alertReviewBackToToday": {
         "description": "Alert sent button"
     },
-    "alertReviewDemoPrefix": "Demo:",
-    "@alertReviewDemoPrefix": {
-        "description": "Prefix on demo alert text; also the patient notice"
+    "alertDemoPill": "Demo",
+    "@alertDemoPill": {
+        "description": "Pill on a demo alert: review, sent and the patient notice"
     },
-    "alertReviewDemoBanner": "Demonstration only, not a real alert.",
-    "@alertReviewDemoBanner": {
-        "description": "Demo alert banner; also the patient notice"
+    "alertDemoPillSemantics": "Demo alert, not a real alert",
+    "@alertDemoPillSemantics": {
+        "description": "Screen reader label of the demo pill"
     },
     "alertReviewWhyThisAlert": "Why this alert",
     "@alertReviewWhyThisAlert": {
@@ -5877,6 +5885,22 @@
     "alertReviewRejectSub": "Say why it shouldn't go out",
     "@alertReviewRejectSub": {
         "description": "Reject options row subtitle"
+    },
+    "alertReviewAskNewDraft": "Ask for a new draft",
+    "@alertReviewAskNewDraft": {
+        "description": "Review screen More menu: asks the server for a fresh draft"
+    },
+    "alertReviewAskNewDraftSub": "Replaces both languages. Up to 3 per alert.",
+    "@alertReviewAskNewDraftSub": {
+        "description": "Supporting line under Ask for a new draft"
+    },
+    "errorAlertRedraftLimit": "This alert has had its 3 new drafts.",
+    "@errorAlertRedraftLimit": {
+        "description": "Refusal: the alert has used its redrafts"
+    },
+    "errorAlertRedraftClosed": "This alert can no longer be redrafted.",
+    "@errorAlertRedraftClosed": {
+        "description": "Refusal: the alert is no longer in a state that can be redrafted"
     },
     "alertReviewSettings": "Alert settings",
     "@alertReviewSettings": {

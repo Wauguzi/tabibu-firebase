@@ -224,7 +224,7 @@ describe('seed-cases', function () {
     const malaria = alerts.find((a) => a.diseaseId === 'malaria');
     assert.equal(malaria?.status, 'Draft', 'awaiting the approver');
     assert.equal(malaria?.synthetic, true);
-    assert.match(String(malaria?.machineText.patient_en.headline), /^Demo: /);
+    assert.doesNotMatch(String(malaria?.machineText.patient_en.headline), /Demo|Majaribio/);
     assert.equal(malaria?.evidence.confirmedCount, 5);
     const measles = alerts.find((a) => a.diseaseId === 'measles');
     assert.equal(measles?.status, 'Delivered');
@@ -232,7 +232,7 @@ describe('seed-cases', function () {
     const published = (await db().collection('publicAlerts').doc(String(measles?.uid)).get()).data();
     assert.equal(published?.patientsReleased, true);
     assert.equal(published?.synthetic, true);
-    assert.match(String(published?.patientText.en.headline), /^Demo: /);
+    assert.doesNotMatch(String(published?.patientText.en.headline), /Demo|Majaribio/);
   });
 
   it('is idempotent: a second run makes and changes nothing', async () => {

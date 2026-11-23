@@ -21,9 +21,11 @@ class AlertReviewBloc extends Bloc<AlertReviewEvent, AlertReviewState> {
     AlertFirebase? alerts,
     InternetService? internet,
     AnalyticsService? analytics,
+    Future<void> Function(Duration)? delay,
   }) : _alerts = alerts ?? getIt<AlertFirebase>(),
        _internet = internet ?? getIt<InternetService>(),
        _analytics = analytics ?? getIt<AnalyticsService>(),
+       _delay = delay ?? Future<void>.delayed,
        super(const AlertReviewInitial()) {
     // Reads are idempotent; a second open while loading is pointless.
     on<AlertQueueRequested>(_onQueue, transformer: droppable());
@@ -32,10 +34,18 @@ class AlertReviewBloc extends Bloc<AlertReviewEvent, AlertReviewState> {
     // One decision at a time; a double tap must not decide twice.
     on<AlertApproveRequested>(_onApprove, transformer: droppable());
     on<AlertRejectRequested>(_onReject, transformer: droppable());
+    // A second tap must not ask for two drafts.
+    on<AlertRedraftRequested>(_onRedraft, transformer: droppable());
     on<AlertReviewReset>((_, emit) => emit(const AlertReviewInitial()));
   }
 
   final AlertFirebase _alerts;
+  final Future<void> Function(Duration) _delay;
+
+  /// A redraft is written in seconds (the template) or within a minute (the
+  /// model); the screen waits this long before leaving it to the next open.
+  static const redraftPollEvery = Duration(seconds: 3);
+  static const redraftPollFor = Duration(seconds: 90);
   final InternetService _internet;
   final AnalyticsService _analytics;
 
@@ -76,6 +86,11 @@ class AlertReviewBloc extends Bloc<AlertReviewEvent, AlertReviewState> {
         return;
       }
       emit(AlertReviewLoadSuccess(queue: state.queue, current: alert));
+      // Redrafted elsewhere (another approver, the script) or left by an
+      // earlier poll: follow it here too until its draft is in.
+      if (alert.statusValue == .drafting) {
+        await _followDraft(alert, emit, readFirst: false);
+      }
     } on Object catch (e) {
       emit(
         AlertReviewLoadFailure(
@@ -108,6 +123,70 @@ class AlertReviewBloc extends Bloc<AlertReviewEvent, AlertReviewState> {
       audience: event.audience,
       editedText: unchanged ? null : edited,
     );
+  }
+
+  Future<void> _onRedraft(
+    AlertRedraftRequested event,
+    Emitter<AlertReviewState> emit,
+  ) async {
+    final seen = _reviewed(event.alertUid);
+    if (seen == null) {
+      emit(_decisionFailure(.dataNotFound));
+      return;
+    }
+    if (!await _internet.check()) {
+      emit(_decisionFailure(.noInternet));
+      return;
+    }
+    emit(AlertDecisionInProgress(queue: state.queue, current: seen));
+    try {
+      await _alerts.requestAlertDraft(alertUid: seen.uid);
+      unawaited(_analytics.logAlertRedraftRequested());
+    } on Object catch (e) {
+      emit(_decisionFailure(_toAppError(e)));
+      return;
+    }
+    await _followDraft(seen, emit, readFirst: true);
+  }
+
+  /// Reads the alert every [redraftPollEvery] until it leaves `Drafting`,
+  /// for at most [redraftPollFor]. The bloc is shared: once another alert is
+  /// open, this one's poll must not put it back on screen.
+  Future<void> _followDraft(
+    AlertModel seen,
+    Emitter<AlertReviewState> emit, {
+    required bool readFirst,
+  }) async {
+    try {
+      final ticks =
+          redraftPollFor.inMilliseconds ~/ redraftPollEvery.inMilliseconds;
+      for (var tick = readFirst ? 0 : 1; tick <= ticks; tick++) {
+        if (tick > 0) await _delay(redraftPollEvery);
+        if (emit.isDone || state.current?.uid != seen.uid) return;
+        final next = await _alerts.fetchAlert(seen.uid);
+        if (state.current?.uid != seen.uid) return;
+        if (next == null) {
+          emit(
+            AlertReviewLoadFailure(
+              error: .dataNotFound,
+              queue: state.queue,
+              current: seen,
+            ),
+          );
+          return;
+        }
+        emit(AlertReviewLoadSuccess(queue: state.queue, current: next));
+        if (next.statusValue != .drafting) return;
+      }
+    } on Object catch (e) {
+      emit(
+        AlertReviewLoadFailure(
+          error: _toAppError(e),
+          queue: state.queue,
+          current: seen,
+        ),
+      );
+    }
   }
 
   Future<void> _onReject(

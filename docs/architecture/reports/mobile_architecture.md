@@ -15,7 +15,7 @@
 | Platform | Flutter: iOS (the entry) and Android; 3 build flavors. The code also builds for the web, which this submission does not ship |
 | Owner | Theo — CTO, Mobile Engineer |
 | Status | Draft — the target architecture; §4 and §16 say what exists today |
-| Last reviewed | 2026-11-18 |
+| Last reviewed | 2026-11-23 |
 | Reviewed by | Theo |
 
 ## 1. Purpose
@@ -316,7 +316,10 @@ ahead stops two agents working in parallel from taking the same id. Some
 models deliberately have **no** Hive mirror: the working report text, the
 report provenance, the pre-read and its values, and the working alert records,
 because unapproved model text is never cached (S-1); the PDF input, because it
-lives in memory only; and the bundled reference models.
+lives in memory only; and the bundled reference models. The report reader keeps the
+explanation drafts it has read in memory for the session, so reopening a
+report shows them at once and a Ready draft is not fetched again; an approval
+found on the server replaces its draft.
 
 **Adapters register in one hand-maintained cascade in `hive_helper.dart`**,
 and `test/core/helpers/hive_adapter_registration_test.dart` asserts that
@@ -1003,8 +1006,11 @@ to see. Greptile is pointed at this section.
    (`firestore.indexes.json` `fieldOverrides`), deploys with
    `make deploy-indexes`, and `make smoke-indexes` checks every app and
    functions query against it. The domain callables and triggers deploy with
-   `make deploy-functions`, and the flow from order to a signed report has
-   run end to end against them and the rules on the live project.
+   `make deploy-functions`. All three roles have run end to end against them
+   and the rules on the live project: from booking and order to a live
+   pre-read, a signed report and an approved explanation, and from a signed
+   notifiable finding to a delivered alert
+   ([UAT-ITR-0001](../../testing/reports/UAT-ITR-0001-three-roles-end-to-end-2026-11-23.md)).
 6. **Cache wipe on sign-out costs a full re-download on sign-in.** Acceptable
    at demo volumes; a pilot with real caseloads needs delta sync that
    survives sign-out, which in turn needs a policy decision on health data
@@ -1040,13 +1046,13 @@ to see. Greptile is pointed at this section.
     | The encrypted boxes and the feature cache helpers (§6.3) | Built |
     | The Firebase data sources and the query registry | Built |
     | Rules, indexes and TTL for the §6.3 collections | Live (item 5) |
-    | The case, share-code, report, appointment, conversation, notification and alert functions, with the signed-report PDF | Built, with emulator tests |
-    | The eight client kill-switch defaults (§10) | Built (`remote_config_defaults.dart`) |
+    | The case, share-code, report, appointment, conversation, notification and alert functions, with the signed-report PDF | Live, with emulator tests |
+    | The twelve client switch defaults: eight for the server's AI jobs, four for the in-app ones (§10) | Built (`remote_config_defaults.dart`) |
     | The AI jobs (pre-read, risk check and notes translation, symptom intake, report translation, explanation, alert drafting) | Live in Cloud Functions on `gemini-3.8-flash` through the Agent Platform |
     | The in-app AI Logic calls (symptom transcription and the region read through server prompt templates, Listen to this summary on `gemini-3.8-flash-tts`) | Live |
     | The in-app hybrid tasks (symptom tidy, notes summary) | Built on Dart, iOS and Android |
     | Voice recording and playback | Built (`record`, `just_audio`) |
-    | The blocs and the feature screens | Built |
+    | The blocs and the feature screens | Built, certified on an iPhone 14 (UAT-ITR-0001) |
 
     The deploy order is fixed: indexes (once `READY`), the index smoke check,
     functions, the availability backfill, Firestore rules, Storage rules, the
@@ -1064,3 +1070,4 @@ to see. Greptile is pointed at this section.
 |---|---|---|
 | 2026-11-15 | Crafted for this repository. | Theo |
 | 2026-11-18 | The entry is iOS with an Android APK, the web build out of scope; the in-app AI calls and the server's model are live (§10, §16). | Theo |
+| 2026-11-23 | §6: the report reader keeps explanation drafts in memory for the session. §16: every role has run end to end on the live project ([UAT-ITR-0001](../../testing/reports/UAT-ITR-0001-three-roles-end-to-end-2026-11-23.md)); the twelve client switches; the functions live. | Theo |

@@ -1,11 +1,13 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/core/services/app_update_service.dart';
 import 'package:tabibu/features/onboarding/presentation/update_required_screen.dart';
+import 'package:tabibu/l10n/l10n.dart';
 
 import '../../../helpers/helpers.dart';
 
@@ -91,6 +93,45 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    for (final language in ['en', 'sw']) {
+      for (final scale in [1.0, 2.0]) {
+        for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+          testWidgets('without a store, the message names the '
+              '${platform.name} store in $language at ${scale}x on 360 dp', (
+            tester,
+          ) async {
+            when(
+              () => updateService.storeUrl(isIos: any(named: 'isIos')),
+            ).thenReturn(null);
+            tester.view.physicalSize = const Size(360 * 3, 2400);
+            tester.view.devicePixelRatio = 3;
+            addTearDown(tester.view.reset);
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(
+              tester.platformDispatcher.clearTextScaleFactorTestValue,
+            );
+            final l10n = lookupAppLocalizations(Locale(language));
+            final where = platform == TargetPlatform.iOS
+                ? l10n.updateWhereIos
+                : l10n.updateWhereAndroid;
+            debugDefaultTargetPlatformOverride = platform;
+            try {
+              await tester.pumpApp(
+                const UpdateRequiredScreen(),
+                locale: Locale(language),
+              );
+              await tester.pumpAndSettle();
+
+              expect(find.text('${l10n.updateMessage} $where'), findsOneWidget);
+              expect(tester.takeException(), isNull);
+            } finally {
+              debugDefaultTargetPlatformOverride = null;
+            }
+          });
+        }
+      }
+    }
+
     testWidgets('asks the service for the iOS store on iOS', (tester) async {
       // Reset before the test ends: the binding verifies foundation
       // debug variables are unset.
@@ -114,6 +155,66 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Update now'), findsNothing);
+      // Without a store link, the message names this device's store.
+      expect(
+        find.text(
+          'This version is no longer supported. Update to keep using Tabibu. '
+          'Get it from Google Play.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('on iOS it names the App Store', (tester) async {
+      when(
+        () => updateService.storeUrl(isIos: any(named: 'isIos')),
+      ).thenReturn(null);
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        await tester.pumpApp(const UpdateRequiredScreen());
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('Get it from the App Store.'),
+          findsOneWidget,
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('a store button replaces the where-to line', (tester) async {
+      await tester.pumpApp(const UpdateRequiredScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Update now'), findsOneWidget);
+      expect(find.textContaining('Get it from'), findsNothing);
+    });
+
+    testWidgets('without a store, the logo, title and message sit at the '
+        'centre', (tester) async {
+      // No full-width button to widen the column, as on the phone, and a
+      // wide screen so no line of the test font fills it on its own.
+      when(
+        () => updateService.storeUrl(isIos: any(named: 'isIos')),
+      ).thenReturn(null);
+      tester.view.physicalSize = const Size(2400, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpApp(const UpdateRequiredScreen());
+      await tester.pumpAndSettle();
+
+      final screen = tester.getCenter(find.byType(UpdateRequiredScreen)).dx;
+      for (final finder in [
+        find.byType(SvgPicture),
+        find.text('Please update Tabibu'),
+        find.textContaining('Get it from'),
+      ]) {
+        expect(
+          tester.getCenter(finder).dx,
+          moreOrLessEquals(screen, epsilon: 1),
+          reason: '$finder',
+        );
+      }
     });
 
     testWidgets('a failed launch shows its message', (tester) async {

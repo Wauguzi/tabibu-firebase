@@ -54,6 +54,14 @@ final class HybridAiPlugin: NSObject, FlutterPlugin {
     "State only what the notes state; do not diagnose, do not suggest treatment, " +
     "do not advise."
 
+  /// Both tasks only rewrite text the person typed, so the on-device model runs
+  /// with Apple's guardrails for content transformations: the default set
+  /// refuses ordinary clinical notes (bleeding, fever) before any answer.
+  @available(iOS 26.0, *)
+  static func onDeviceModel() -> FirebaseAI.SystemLanguageModel {
+    .systemModel(guardrails: .permissiveContentTransformations)
+  }
+
   private static let log = Logger(
     subsystem: "com.tabibukenya.tabibu", category: "hybrid-ai")
 
@@ -152,7 +160,7 @@ final class HybridAiPlugin: NSObject, FlutterPlugin {
       throw HybridAiFailure.unavailable
     }
     let session = firebaseAI.generativeModelSession(
-      model: FirebaseAI.SystemLanguageModel.default, instructions: instructions)
+      model: Self.onDeviceModel(), instructions: instructions)
     let text = try await respondText(session: session, input: input)
     // Structurally on-device: no cloud leg exists on this path.
     return ["text": text, "source": HybridAiSource.onDevice]
@@ -164,7 +172,7 @@ final class HybridAiPlugin: NSObject, FlutterPlugin {
                                          cloudModel: String) async throws -> Any {
     if #available(iOS 26.0, *) {
       let hybrid = HybridModel(
-        primary: FirebaseAI.SystemLanguageModel.default,
+        primary: Self.onDeviceModel(),
         secondary: firebaseAI.geminiModel(name: cloudModel))
       let session = firebaseAI.generativeModelSession(
         model: hybrid, instructions: instructions)
@@ -201,6 +209,9 @@ final class HybridAiPlugin: NSObject, FlutterPlugin {
     do {
       response = try await session.respond(to: input)
     } catch {
+      // The case name only, never the input: enough to tell a refusal from
+      // a missing model or a network fault.
+      Self.log.error("respond failed: \(HybridAiFailureMapper.kind(of: error), privacy: .public)")
       throw HybridAiFailureMapper.map(error)
     }
     let text = response.content.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -325,6 +336,21 @@ private enum HybridAiFailureMapper {
       }
     }
     return isNetwork(error) ? .network : .unknown
+  }
+
+  /// A short, content-free name for the log.
+  static func kind(of error: Error) -> String {
+    if let generation = error as? GenerativeModelSession.GenerationError {
+      switch generation {
+      case .assetsUnavailable: return "assetsUnavailable"
+      case .decodingFailure: return "decodingFailure"
+      case .concurrentRequests: return "concurrentRequests"
+      case .unsupportedPromptContent: return "unsupportedPromptContent"
+      case let .internalError(_, underlying): return "internalError(\(type(of: underlying)))"
+      @unknown default: return "generationError"
+      }
+    }
+    return String(describing: type(of: error))
   }
 
   private static func isNetwork(_ error: Error) -> Bool {

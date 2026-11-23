@@ -400,6 +400,13 @@ class _DoctorAppointmentScreenState extends State<DoctorAppointmentScreen> {
         (linkedCase.currentStageValue == .orderCreated ||
             linkedCase.currentStageValue == .pathologistRejected) &&
         linkedCase.appointmentUid == appointment.uid;
+    // Sent and still in flight. A cancelled order left nothing in flight,
+    // and a case from an earlier visit is not this visit's order.
+    final sent =
+        linkedCase != null &&
+        linkedCase.appointmentUid == appointment.uid &&
+        !unsent &&
+        linkedCase.currentStageValue != .cancelled;
     final nairobiStart = nairobiTimeOf(appointment.scheduledStart);
     final firstName = appointment.patientName.trim().split(' ').first;
 
@@ -470,6 +477,12 @@ class _DoctorAppointmentScreenState extends State<DoctorAppointmentScreen> {
       ],
     ];
 
+    final endAppointment = TabibuButton.secondary(
+      label: l10n.doctorAppointmentEnd,
+      isLoading: busy,
+      onTap: started && !busy ? () => _complete('Completed') : null,
+    );
+
     return _Shell(
       topBar: TopBar(
         backLabel: l10n.commonBack,
@@ -514,24 +527,25 @@ class _DoctorAppointmentScreenState extends State<DoctorAppointmentScreen> {
             )
           : showActions
           ? BottomActionBar(
-              secondary: TabibuButton.secondary(
-                label: l10n.doctorAppointmentEnd,
-                isLoading: busy,
-                onTap: started && !busy ? () => _complete('Completed') : null,
-              ),
-              primary: TabibuButton.primary(
-                label: unsent
-                    ? l10n.doctorCaseAttachPathologist
-                    : l10n.doctorAppointmentOrderTest,
-                onTap: busy
-                    ? null
-                    : () => unawaited(
-                        OrderRoute(
-                          appointmentUid: appointment.uid,
-                          caseUid: unsent ? linkedCase.uid : '',
-                        ).push<void>(context),
-                      ),
-              ),
+              // The bar requires a primary slot. Once the order is with
+              // the pathologist, End is the only action, so it fills that
+              // slot and keeps its secondary style.
+              secondary: sent ? null : endAppointment,
+              primary: sent
+                  ? endAppointment
+                  : TabibuButton.primary(
+                      label: unsent
+                          ? l10n.doctorCaseAttachPathologist
+                          : l10n.doctorAppointmentOrderTest,
+                      onTap: busy
+                          ? null
+                          : () => unawaited(
+                              OrderRoute(
+                                appointmentUid: appointment.uid,
+                                caseUid: unsent ? linkedCase.uid : '',
+                              ).push<void>(context),
+                            ),
+                    ),
             )
           : null,
     );

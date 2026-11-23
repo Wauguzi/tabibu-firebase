@@ -53,6 +53,11 @@ closed `#E4E8E9` / `#5C6466` / `#2B3133`; neutral `#E3E9EA` / `#5F696B` /
 `#1A626A` / `#00363C`; error container `#F9DEDC` with `#B3261E` text and
 field borders.
 
+**Attention marks what is happening now or is not real.** The timeline's
+"Now" step and the "Demo" pill on a synthetic alert share the attention
+tone; the pill sits at the start of its row at the width of its word, and a
+screen reader hears "Demo alert, not a real alert".
+
 **Draft versus signed without colour.** The sheet's pair is nearly equal
 in grayscale: the text colours sit 0.066 apart in light, the dark
 containers 0.002 apart. The colours stay as the sheet sets them, so the

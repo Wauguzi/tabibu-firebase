@@ -91,6 +91,9 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
     final generation = _releaseGeneration;
     // Never show another case's report while this one loads.
     final same = state.caseUid == event.caseUid;
+    // Drafts already read this session. Unapproved text stays in memory
+    // only, never on disk (architecture §6).
+    final held = same ? state.explanations : const <String, ReportTextModel>{};
     emit(
       ReportReaderLoadInProgress(
         uid: event.uid,
@@ -107,7 +110,7 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
       ),
     );
     try {
-      await _emitCached(event, emit, generation);
+      await _emitCached(event, emit, generation, held: held);
       if (emit.isDone || _releaseSupersedes(generation)) return;
       var offline = false;
       List<PathologyReportModel> all;
@@ -134,15 +137,29 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
       if (report != null && report.releasedToPatient) {
         for (final language in _languages) {
           final id = reportTextId(report.uid, .explanation, language);
-          if (event.role == .doctor && !offline) {
-            ReportTextModel? draft;
-            try {
-              draft = await _remote.fetchReportText(
-                caseUid: event.caseUid,
-                textUid: id,
-              );
-            } on Object catch (_) {
-              // The signed report still opens: no draft to read.
+          final text = offline
+              ? await _reports.getApprovedText(event.caseUid, id)
+              : await _reports.syncApprovedText(
+                  caseUid: event.caseUid,
+                  textUid: id,
+                );
+          if (text != null) approved[language] = text;
+          if (event.role == .doctor && !offline && text == null) {
+            // A Ready draft read this session is still the one to decide:
+            // it changes only by this doctor's decision or retry, both of
+            // which update the state. An approval elsewhere shows above.
+            var draft = held[language];
+            if (draft?.statusValue != .ready ||
+                draft?.reportUid != report.uid) {
+              draft = null;
+              try {
+                draft = await _remote.fetchReportText(
+                  caseUid: event.caseUid,
+                  textUid: id,
+                );
+              } on Object catch (_) {
+                // The signed report still opens: no draft to read.
+              }
             }
             _collect(
               draft,
@@ -154,13 +171,6 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
               writing: writing,
             );
           }
-          final text = offline
-              ? await _reports.getApprovedText(event.caseUid, id)
-              : await _reports.syncApprovedText(
-                  caseUid: event.caseUid,
-                  textUid: id,
-                );
-          if (text != null) approved[language] = text;
         }
       }
 
@@ -186,15 +196,17 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
   }
 
   /// Shows what the phone has before the sync finishes: the cached report
-  /// with its cached approved texts, when there is one. Drafts stay
-  /// network-only; evictions and changes still emit from the sync, and an
-  /// unchanged refresh emits nothing new (Equatable state). Never throws:
+  /// with its cached approved texts, when there is one, and the drafts this
+  /// session already read. Drafts are never read from disk; evictions and
+  /// changes still emit from the sync, and an unchanged refresh emits
+  /// nothing new (Equatable state). Never throws:
   /// an unreadable cache falls through to the sync.
   Future<void> _emitCached(
     ReportReaderOpened event,
     Emitter<ReportReaderState> emit,
-    int generation,
-  ) async {
+    int generation, {
+    required Map<String, ReportTextModel> held,
+  }) async {
     try {
       final all = await _reports.getReports(event.uid, role: event.role);
       final report = reportForCase(
@@ -221,6 +233,12 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
           caseUid: event.caseUid,
           report: report,
           approved: approved,
+          // Reopening never blanks drafts the doctor was already reading.
+          explanations: {
+            for (final MapEntry(:key, :value) in held.entries)
+              if (!approved.containsKey(key) && value.reportUid == report.uid)
+                key: value,
+          },
         ),
       );
     } on Object catch (_) {

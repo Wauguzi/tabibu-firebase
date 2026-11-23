@@ -22,6 +22,7 @@ import 'package:tabibu/features/alerts/data/models/alert_text_model.dart';
 import 'package:tabibu/features/alerts/data/models/notifiable_disease_model.dart';
 import 'package:tabibu/features/alerts/data/models/notifiable_lab_test_model.dart';
 import 'package:tabibu/features/alerts/presentation/alert_review_screen.dart';
+import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_state.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
@@ -259,7 +260,8 @@ void main() {
     group('rules', () {
       testWidgets(
         'English and Kiswahili drafts each sit in their own AI frame, '
-        'verbatim, with the evidence outside the frames',
+        'worded as drafted with the facts filled in, with the evidence '
+        'outside the frames',
         (tester) async {
           mockState(AlertReviewLoadSuccess(current: _alert()));
           await pumpScreen(tester);
@@ -271,9 +273,12 @@ void main() {
           }
           final english = frames.at(0);
           final swahili = frames.at(1);
+          final sw = lookupAppLocalizations(const Locale('sw'));
           for (final text in [
             l10n.languageEn,
-            'Malaria rise in {county}',
+            l10n.alertReviewForDoctors('Embakasi'),
+            l10n.alertReviewForPatients('Embakasi'),
+            'Malaria rise in Embakasi',
             'Test every febrile patient.',
             'More malaria than usual',
             'Sleep under a treated net.',
@@ -291,6 +296,8 @@ void main() {
           }
           for (final text in [
             l10n.languageSw,
+            sw.alertReviewForDoctors('Embakasi'),
+            sw.alertReviewForPatients('Embakasi'),
             'Ongezeko la malaria',
             'Pima kila mgonjwa mwenye homa.',
             'Malaria zaidi ya kawaida',
@@ -333,8 +340,69 @@ void main() {
           await settleSheet(tester);
           expect(find.text(l10n.alertReviewReject), findsOneWidget);
           expect(find.text(l10n.alertReviewRejectSub), findsOneWidget);
+          expect(find.text(l10n.alertReviewAskNewDraft), findsOneWidget);
+          expect(find.text(l10n.alertReviewAskNewDraftSub), findsOneWidget);
+          expect(
+            tester.getTopLeft(find.text(l10n.alertReviewAskNewDraft)).dy,
+            lessThan(tester.getTopLeft(find.text(l10n.alertReviewReject)).dy),
+          );
         },
       );
+
+      testWidgets('Ask for a new draft asks the bloc once', (tester) async {
+        mockState(AlertReviewLoadSuccess(current: _alert()));
+        await pumpScreen(tester);
+        clearInteractions(mockBloc);
+
+        await tester.tap(find.byType(MoreButton));
+        await settleSheet(tester);
+        await tester.tap(find.text(l10n.alertReviewAskNewDraft));
+        await settleSheet(tester);
+
+        verify(
+          () => mockBloc.add(const AlertRedraftRequested(alertUid: 'a1')),
+        ).called(1);
+      });
+
+      testWidgets('a redraft limit shows its message and keeps the draft', (
+        tester,
+      ) async {
+        when(() => alerts.fetchAlert('a1')).thenAnswer((_) async => _alert());
+        when(
+          () => alerts.requestAlertDraft(alertUid: any(named: 'alertUid')),
+        ).thenThrow(AppError.alertRedraftLimit);
+        await pumpScreen(tester, bloc: realBloc());
+
+        await tester.tap(find.byType(MoreButton));
+        await settleSheet(tester);
+        await tester.tap(find.text(l10n.alertReviewAskNewDraft));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(
+          find.text(AppError.alertRedraftLimit.description(l10n)),
+          findsOneWidget,
+        );
+        expect(find.text('More malaria than usual'), findsOneWidget);
+        // Opened once. The refusal does not read the alert again.
+        verify(() => alerts.fetchAlert('a1')).called(1);
+        await drainNotification(tester);
+      });
+
+      testWidgets('while a decision is in flight Ask for a new draft does '
+          'not fire', (tester) async {
+        mockState(AlertDecisionInProgress(current: _alert()));
+        await pumpScreen(tester);
+        clearInteractions(mockBloc);
+
+        await tester.tap(find.byType(MoreButton), warnIfMissed: false);
+        await settleSheet(tester);
+
+        expect(find.text(l10n.alertReviewAskNewDraft), findsNothing);
+        verifyNever(
+          () => mockBloc.add(const AlertRedraftRequested(alertUid: 'a1')),
+        );
+      });
 
       testWidgets('Approve as is asks the bloc to approve this alert and '
           'nothing else', (tester) async {
@@ -429,6 +497,14 @@ void main() {
         ).called(1);
       });
 
+      testWidgets('the drafts read with their facts filled in', (tester) async {
+        mockState(AlertReviewLoadSuccess(current: _alert()));
+        await pumpScreen(tester);
+
+        expect(find.text('Malaria rise in Embakasi'), findsOneWidget);
+        expect(find.textContaining('{county}'), findsNothing);
+      });
+
       testWidgets('the English sheet carries the English drafts', (
         tester,
       ) async {
@@ -443,7 +519,8 @@ void main() {
               .widgetList<TextField>(find.byType(TextField))
               .map((f) => f.controller?.text),
           [
-            'Malaria rise in {county}',
+            // Filled in as the readers will see it.
+            'Malaria rise in Embakasi',
             'Test every febrile patient.',
             'More malaria than usual',
             'Sleep under a treated net.',
@@ -512,10 +589,12 @@ void main() {
                 ).captured.single
                 as Map<String, dynamic>;
         expect(sent.keys, unorderedEquals(_texts.keys));
+        // The edited key goes as typed; the untouched ones as drafted.
         expect(sent['clinician_en'], {
-          'headline': 'Malaria rise in {county}',
+          'headline': 'Malaria rise in Embakasi',
           'body': 'Test all fevers.',
         });
+        expect(sent['patient_en'], _texts['patient_en']!.toJson());
         expect(find.text('stub sent a1'), findsOneWidget);
         await releaseRouter(tester);
       });
@@ -755,7 +834,7 @@ void main() {
         await pumpScreen(tester, themeMode: ThemeMode.dark);
 
         expect(find.byType(AiDraftFrame), findsNWidgets(2));
-        expect(find.text(l10n.alertReviewDemoBanner), findsOneWidget);
+        expect(find.byType(AlertDemoPill), findsOneWidget);
         expect(approveButton(), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
@@ -812,6 +891,7 @@ void main() {
         expect(find.byType(TabibuButton), findsNothing);
         expect(find.byType(TopBar), findsNothing);
         expect(allText(tester).trim(), isEmpty);
+        expect(find.text(l10n.alertReviewAskNewDraft), findsNothing);
         verifyNever(() => mockBloc.add(any()));
       });
 
@@ -866,6 +946,17 @@ void main() {
         ).called(1);
       });
 
+      testWidgets('a drafting alert shows the loading view, not a draft', (
+        tester,
+      ) async {
+        mockState(AlertReviewLoadSuccess(current: _alert(status: 'Drafting')));
+        await pumpScreen(tester);
+
+        expect(find.byType(LoadingView), findsOneWidget);
+        expect(find.byType(AiDraftFrame), findsNothing);
+        expect(find.text('More malaria than usual'), findsNothing);
+      });
+
       for (final status in ['Approved', 'Rejected', 'Withdrawn', 'Expired']) {
         testWidgets('a $status alert offers nothing to approve and no '
             '"not sent" drafts', (tester) async {
@@ -891,17 +982,17 @@ void main() {
         expect(tester.widget<TabibuButton>(approveButton()).onTap, isNull);
       });
 
-      testWidgets('a demo alert carries the banner; a real one does not', (
+      testWidgets('a demo alert carries the pill; a real one does not', (
         tester,
       ) async {
         mockState(AlertReviewLoadSuccess(current: _alert(synthetic: true)));
         await pumpScreen(tester);
-        expect(find.text(l10n.alertReviewDemoBanner), findsOneWidget);
+        expect(find.byType(AlertDemoPill), findsOneWidget);
 
         mockState(AlertReviewLoadSuccess(current: _alert()));
         await tester.pumpWidget(const SizedBox());
         await pumpScreen(tester);
-        expect(find.text(l10n.alertReviewDemoBanner), findsNothing);
+        expect(find.byType(AlertDemoPill), findsNothing);
       });
 
       testWidgets('the disease register failing does not stop the review', (

@@ -12,6 +12,7 @@ import 'package:tabibu/features/alerts/blocs/public_alerts_bloc/public_alerts_ev
 import 'package:tabibu/features/alerts/blocs/public_alerts_bloc/public_alerts_state.dart';
 import 'package:tabibu/features/alerts/data/models/alert_text_model.dart';
 import 'package:tabibu/features/alerts/data/models/public_alert_model.dart';
+import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_bloc.dart';
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_event.dart';
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_state.dart';
@@ -394,6 +395,65 @@ void main() {
         findsOneWidget,
       );
     });
+
+    testWidgets('a demo notice carries the Demo pill; a real one does not', (
+      tester,
+    ) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      stubDefault(
+        appointments: appointments(),
+        cases: [_case(uid: 'case-1')],
+        alerts: [_alert().copyWith(synthetic: true)],
+      );
+      await tester.pumpApp(screen());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDemoPill), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(RegExp('^${l10n.alertDemoPillSemantics}, ')),
+        findsOneWidget,
+      );
+
+      stubDefault(
+        appointments: appointments(),
+        cases: [_case(uid: 'case-1')],
+        alerts: [_alert()],
+      );
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpApp(screen());
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDemoPill), findsNothing);
+    });
+
+    for (final language in ['en', 'sw']) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets('a demo notice strip lays out in $language at ${scale}x '
+            'on 360 dp', (tester) async {
+          tester.view.physicalSize = const Size(360 * 3, 6000);
+          tester.view.devicePixelRatio = 3;
+          addTearDown(tester.view.resetPhysicalSize);
+          addTearDown(tester.view.resetDevicePixelRatio);
+          tester.platformDispatcher.textScaleFactorTestValue = scale;
+          addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+          final l10n = lookupAppLocalizations(Locale(language));
+          // No visit or result card: this case is about the strip.
+          stubDefault(
+            appointments: const [],
+            cases: const [],
+            alerts: [_alert().copyWith(synthetic: true)],
+          );
+          await tester.pumpApp(screen(), locale: Locale(language));
+          await tester.pumpAndSettle();
+
+          expect(find.text(l10n.alertDemoPill), findsOneWidget);
+          expect(
+            find.text(l10n.patientHomeNoticeLabel('Embakasi')),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        });
+      }
+    }
 
     testWidgets('hides the notice when no alert exists', (tester) async {
       stubDefault(

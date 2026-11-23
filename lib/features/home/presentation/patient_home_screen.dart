@@ -16,6 +16,7 @@ import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/alerts/blocs/public_alerts_bloc/public_alerts_bloc.dart';
 import 'package:tabibu/features/alerts/blocs/public_alerts_bloc/public_alerts_event.dart';
 import 'package:tabibu/features/alerts/data/models/public_alert_model.dart';
+import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_bloc.dart';
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_event.dart';
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_state.dart';
@@ -232,6 +233,7 @@ class _PatientHomeScreenState extends State<PatientHomeScreen> {
           _NoticeStrip(
             label: l10n.patientHomeNoticeLabel(notice.countyName),
             headline: _headlineOf(notice, language),
+            demo: notice.synthetic,
             onTap: () =>
                 HealthNoticeRoute(alertUid: notice.uid).push<void>(context),
           ),
@@ -434,11 +436,15 @@ class _NoticeStrip extends StatelessWidget {
     required this.label,
     required this.headline,
     required this.onTap,
+    this.demo = false,
   });
 
   final String label;
   final String headline;
   final VoidCallback? onTap;
+
+  /// A synthetic alert: its text carries no prefix, so the pill marks it.
+  final bool demo;
 
   @override
   Widget build(BuildContext context) {
@@ -448,7 +454,9 @@ class _NoticeStrip extends StatelessWidget {
     return MergeSemantics(
       child: Semantics(
         button: true,
-        label: '$label, $headline',
+        label: demo
+            ? '${context.l10n.alertDemoPillSemantics}, $label, $headline'
+            : '$label, $headline',
         onTap: onTap,
         child: Tappable(
           onTap: onTap,
@@ -467,6 +475,10 @@ class _NoticeStrip extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: .start,
                       children: [
+                        if (demo) ...[
+                          const AlertDemoPill(),
+                          const SizedBox(height: AppSpacing.xs),
+                        ],
                         Text(
                           label,
                           style: textTheme.bodySmall?.copyWith(

@@ -111,8 +111,8 @@ deploy to roll back, which restores the defects they fixed.
 | Red proofs | Each new guard fails with its fix removed |
 | Live calls | The risk check with and without notes returns `inputLanguage` `en` and `''` |
 | iOS simulator build | Pass, with the App Check registration order |
-| Manual run | Pending: the iPhone 14 again, App Check verified in the function logs |
-| Certification | Pending |
+| Manual run | Pass — the iPhone 14 through CRQ-0006's device run (17–23 Nov), App Check tokens verified in the function logs ([UAT-ITR-0001](../../testing/reports/UAT-ITR-0001-three-roles-end-to-end-2026-11-23.md)) |
+| Certification | 2026-11-23, Theo |
 
 ## 8. Approval
 

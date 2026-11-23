@@ -23,11 +23,16 @@ final List<String> alertDraftKeys = [
 String alertDraftLanguageName(AppLocalizations l10n, String language) =>
     language == 'sw' ? l10n.languageSw : l10n.languageEn;
 
-/// Who a draft is for, named with [area].
-String alertDraftAudience(AppLocalizations l10n, String key, String area) =>
-    key.startsWith('clinician')
-    ? l10n.alertReviewForDoctors(area)
-    : l10n.alertReviewForPatients(area);
+/// Who a draft is for, named with [area], in the language the key names.
+/// The approver's own language would put English labels on the Kiswahili card.
+String alertDraftAudience(String key, String area) {
+  final copy = lookupAppLocalizations(
+    Locale(key.endsWith('_sw') ? 'sw' : 'en'),
+  );
+  return key.startsWith('clinician')
+      ? copy.alertReviewForDoctors(area)
+      : copy.alertReviewForPatients(area);
+}
 
 /// One language's AI drafts, waiting for the approver: the doctors' and the
 /// patients' text verbatim inside [AiDraftFrame], then Edit. The approval is
@@ -78,7 +83,7 @@ class AlertDraftCard extends StatelessWidget {
               for (final key in keys) ...[
                 const SizedBox(height: AppSpacing.sm),
                 Text(
-                  alertDraftAudience(l10n, key, area),
+                  alertDraftAudience(key, area),
                   style: textTheme.labelMedium?.copyWith(
                     color: scheme.onSurfaceVariant,
                   ),

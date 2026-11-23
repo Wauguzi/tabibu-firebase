@@ -55,6 +55,14 @@ class UpdateRequiredScreen extends StatelessWidget {
     final storeUrl = kIsWeb
         ? null
         : updates.storeUrl(isIos: defaultTargetPlatform == .iOS);
+    // Without a store link, the message itself names this device's store.
+    final where = storeUrl != null || kIsWeb
+        ? null
+        : switch (defaultTargetPlatform) {
+            .iOS => l10n.updateWhereIos,
+            .android => l10n.updateWhereAndroid,
+            _ => null,
+          };
 
     return PopScope(
       canPop: false,
@@ -65,15 +73,20 @@ class UpdateRequiredScreen extends StatelessWidget {
             child: LayoutBuilder(
               builder: (context, constraints) => SingleChildScrollView(
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  // Full width as well as height, so the column centres.
+                  constraints: BoxConstraints(
+                    minWidth: constraints.maxWidth,
+                    minHeight: constraints.maxHeight,
+                  ),
                   child: IntrinsicHeight(
                     child: Column(
                       mainAxisAlignment: .center,
                       children: [
-                        IconTile(
-                          icon: Assets.icons.shieldIcon,
-                          tone: .sky,
-                          size: .l,
+                        ExcludeSemantics(
+                          child: Assets.icons.logoTransparentPrimary.svg(
+                            width: 56,
+                            height: 56,
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.lg),
                         Text(
@@ -83,7 +96,7 @@ class UpdateRequiredScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: AppSpacing.xs),
                         Text(
-                          message,
+                          where == null ? message : '$message $where',
                           style: textTheme.bodyLarge,
                           textAlign: .center,
                         ),

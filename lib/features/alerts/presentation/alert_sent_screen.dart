@@ -5,13 +5,18 @@ import 'package:tabibu/core/constants/app_radii.dart';
 import 'package:tabibu/core/constants/app_shadows.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/constants/app_styles.dart';
+import 'package:tabibu/core/helpers/get_it_helper.dart';
+import 'package:tabibu/core/helpers/reference_data_helper.dart';
 import 'package:tabibu/core/routing/app_routes.dart';
 import 'package:tabibu/core/utils/nairobi_time.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_bloc.dart';
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_event.dart';
+import 'package:tabibu/features/alerts/data/alert_text_render.dart';
 import 'package:tabibu/features/alerts/data/models/alert_model.dart';
-import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_banner.dart';
+import 'package:tabibu/features/alerts/data/models/alert_text_model.dart';
+import 'package:tabibu/features/alerts/data/models/notifiable_disease_model.dart';
+import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
 import 'package:tabibu/features/alerts/presentation/widgets/alert_draft_card.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
@@ -33,6 +38,17 @@ class AlertSentScreen extends StatefulWidget {
 
 class _AlertSentScreenState extends State<AlertSentScreen> {
   late final bool _canApprove;
+
+  late final Future<List<NotifiableDiseaseModel>> _register = _loadRegister();
+
+  Future<List<NotifiableDiseaseModel>> _loadRegister() async {
+    try {
+      return await getIt<ReferenceDataHelper>().notifiableDiseases();
+    } on Object {
+      // The register only names the disease; the text still shows without it.
+      return const [];
+    }
+  }
 
   @override
   void initState() {
@@ -64,7 +80,9 @@ class _AlertSentScreenState extends State<AlertSentScreen> {
               : Column(
                   crossAxisAlignment: .stretch,
                   children: [
-                    Expanded(child: _Sent(alert: alert)),
+                    Expanded(
+                      child: _Sent(alert: alert, register: _register),
+                    ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(
                         AppSpacing.screenMargin,
@@ -86,9 +104,10 @@ class _AlertSentScreenState extends State<AlertSentScreen> {
 }
 
 class _Sent extends StatelessWidget {
-  const _Sent({required this.alert});
+  const _Sent({required this.alert, required this.register});
 
   final AlertModel alert;
+  final Future<List<NotifiableDiseaseModel>> register;
 
   @override
   Widget build(BuildContext context) {
@@ -125,10 +144,22 @@ class _Sent extends StatelessWidget {
         ),
         if (alert.synthetic) ...[
           const SizedBox(height: AppSpacing.lg),
-          const AlertDemoBanner(),
+          const AlertDemoPill(),
         ],
         const SizedBox(height: AppSpacing.lg),
-        _SentText(alert: alert, language: language, when: when),
+        FutureBuilder<List<NotifiableDiseaseModel>>(
+          future: register,
+          builder: (context, snapshot) => _SentText(
+            alert: alert,
+            // As delivery rendered it: the facts filled from the approval.
+            texts: renderAlertApproved(
+              alert,
+              snapshot.data ?? const <NotifiableDiseaseModel>[],
+            ),
+            language: language,
+            when: when,
+          ),
+        ),
       ],
     );
   }
@@ -139,11 +170,13 @@ class _Sent extends StatelessWidget {
 class _SentText extends StatelessWidget {
   const _SentText({
     required this.alert,
+    required this.texts,
     required this.language,
     required this.when,
   });
 
   final AlertModel alert;
+  final Map<String, AlertTextModel> texts;
   final String language;
   final String when;
 
@@ -153,13 +186,10 @@ class _SentText extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final isDark = scheme.brightness == .dark;
-    final prefix = l10n.alertReviewDemoPrefix;
-    final shown = alert.approvedText.containsKey('patient_$language')
-        ? language
-        : 'en';
+    final shown = texts.containsKey('patient_$language') ? language : 'en';
     final keys = [
       for (final clinician in [true, false])
-        if (alert.approvedText.containsKey(
+        if (texts.containsKey(
           alertDraftKey(clinician: clinician, language: shown),
         ))
           alertDraftKey(clinician: clinician, language: shown),
@@ -189,23 +219,15 @@ class _SentText extends StatelessWidget {
           for (final key in keys) ...[
             const SizedBox(height: AppSpacing.md),
             Text(
-              alertDraftAudience(l10n, key, alert.countyName),
+              alertDraftAudience(key, alert.countyName),
               style: textTheme.labelMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: AppSpacing.xxs),
-            Text(
-              // The server prefixes a demo alert's text itself; add the
-              // prefix only where an edit has removed it.
-              alert.synthetic &&
-                      !alert.approvedText[key]!.headline.startsWith(prefix)
-                  ? '$prefix ${alert.approvedText[key]!.headline}'
-                  : alert.approvedText[key]!.headline,
-              style: textTheme.titleSmall,
-            ),
+            Text(texts[key]!.headline, style: textTheme.titleSmall),
             const SizedBox(height: AppSpacing.xxs),
-            Text(alert.approvedText[key]!.body, style: textTheme.bodyLarge),
+            Text(texts[key]!.body, style: textTheme.bodyLarge),
           ],
         ],
       ),

@@ -9,8 +9,8 @@
 | Field | Value |
 |---|---|
 | Owner | Theo — CTO, Mobile Engineer |
-| Status | Draft |
-| Last reviewed | 2026-11-15 |
+| Status | Live: the inbox and the foreground banner on both platforms; pushes on Android (the iPhone build's free signing team cannot receive pushes, [CRQ-0006 §3](../../crq/reports/CRQ-0006-ui-ux-patches.md#3-scope)) |
+| Last reviewed | 2026-11-23 |
 | Collection | `notifications` (top level) |
 | Packages | `firebase_messaging`, `flutter_local_notifications` |
 
@@ -73,7 +73,7 @@ body, and a second sentence after `·` on rows 33-34 is the collapsed form.
 | 27 | `appointmentExpired` | `expireAppointments`, `respondToAppointment` | patient | Appointment | Acknowledge → rebook | Appointment request expired · Your request had no reply in time. You can choose another time. |
 | 28 | `appointmentCancelledByPatient` | `cancelAppointment` | doctor | Appointment |  | Appointment cancelled · A patient cancelled an appointment. |
 | 29 | `appointmentCancelledByDoctor` | `cancelAppointment` | patient | Appointment | Acknowledge → rebook | Appointment cancelled · Your doctor cancelled your appointment. You can book another time. |
-| 30 | `mdtInvited` | `openMdt`, `inviteToMdt` | invitee | Mdt | Approval (7 d) | You have been invited to an MDT discussion. |
+| 30 | `mdtInvited` | `openMdt`, `inviteToMdt` | invitee | Mdt | Approval (7 d) | {name} invited you to discuss a case. |
 | 31 | `mdtInviteAccepted` | `respondToMdtInvite` | owner | Mdt |  | A colleague has joined your MDT discussion. |
 | 32 | `mdtInviteDeclined` | `respondToMdtInvite` | owner | Mdt |  | (inbox only) A colleague declined your MDT invitation. |
 | 33 | `messageReceived` | `onMessageCreated` | the other direct participant | Message | (collapsed; push ≤ 1 per 60 s) | You have a new message in Tabibu. · You have {newCount} new messages in Tabibu. |

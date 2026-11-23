@@ -136,6 +136,20 @@ void main() {
     expect(captured, isNull);
   });
 
+  test('an alert redraft carries nothing about the alert', () async {
+    await analytics.logAlertRedraftRequested();
+
+    final captured =
+        verify(
+              () => firebase.logEvent(
+                name: 'alert_redraft_requested',
+                parameters: captureAny(named: 'parameters'),
+              ),
+            ).captured.single
+            as Map<String, Object?>?;
+    expect(captured, isNull);
+  });
+
   test('an explanation retry carries its language only', () async {
     await analytics.logExplanationRetried(language: 'sw');
 

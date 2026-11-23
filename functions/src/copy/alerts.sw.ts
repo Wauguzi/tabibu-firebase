@@ -1,4 +1,4 @@
-/** Kiswahili alert copy: the template segments, the demo prefix and the banned phrases. */
+/** Kiswahili alert copy: the template segments and the banned phrases. */
 export const ALERT_TEMPLATE_SW = {
   headline: 'Tahadhari ya afya: {disease} katika Kaunti ya {county}',
   patientBody:
@@ -9,8 +9,6 @@ export const ALERT_TEMPLATE_SW = {
     '{count}. Kuwa macho kwa wanaoshukiwa kuwa na ugonjwa huu na ufuate mwongozo wa Wizara ya ' +
     'Afya hapa chini.',
 } as const;
-
-export const DEMO_PREFIX_SW = 'Majaribio: ';
 
 /** Lowercase fragments that diagnose, reassure or predict; any of them fails the draft. */
 export const BANNED_SW: readonly string[] = [
