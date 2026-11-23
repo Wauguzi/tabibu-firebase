@@ -195,6 +195,12 @@ without the fix:
   pill sat in an `UnconstrainedBox`, so "Majaribio" ran 80 pixels past the narrow column. It now
   aligns to the start, keeping its own width and wrapping where room runs out.
 
+**Greptile round 3 (PR #30, 4/5).** One finding, fixed with tests that fail without the fix:
+
+- **P2: the update screen's store sentence had no large-text tests.** The no-store message is now
+  covered in `en` and `sw`, at 1.0x and 2.0x, on Android and iOS, on a 360 dp screen; each case
+  checks the message names its store and lays out without overflow.
+
 ## 10. Related records
 
 - [CRQ-0006](./CRQ-0006-ui-ux-patches.md): the device run that first took the alert loop end to end.

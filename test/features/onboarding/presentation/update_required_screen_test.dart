@@ -7,6 +7,7 @@ import 'package:mocktail/mocktail.dart';
 import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/core/services/app_update_service.dart';
 import 'package:tabibu/features/onboarding/presentation/update_required_screen.dart';
+import 'package:tabibu/l10n/l10n.dart';
 
 import '../../../helpers/helpers.dart';
 
@@ -91,6 +92,45 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
     });
+
+    for (final language in ['en', 'sw']) {
+      for (final scale in [1.0, 2.0]) {
+        for (final platform in [TargetPlatform.android, TargetPlatform.iOS]) {
+          testWidgets('without a store, the message names the '
+              '${platform.name} store in $language at ${scale}x on 360 dp', (
+            tester,
+          ) async {
+            when(
+              () => updateService.storeUrl(isIos: any(named: 'isIos')),
+            ).thenReturn(null);
+            tester.view.physicalSize = const Size(360 * 3, 2400);
+            tester.view.devicePixelRatio = 3;
+            addTearDown(tester.view.reset);
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            addTearDown(
+              tester.platformDispatcher.clearTextScaleFactorTestValue,
+            );
+            final l10n = lookupAppLocalizations(Locale(language));
+            final where = platform == TargetPlatform.iOS
+                ? l10n.updateWhereIos
+                : l10n.updateWhereAndroid;
+            debugDefaultTargetPlatformOverride = platform;
+            try {
+              await tester.pumpApp(
+                const UpdateRequiredScreen(),
+                locale: Locale(language),
+              );
+              await tester.pumpAndSettle();
+
+              expect(find.text('${l10n.updateMessage} $where'), findsOneWidget);
+              expect(tester.takeException(), isNull);
+            } finally {
+              debugDefaultTargetPlatformOverride = null;
+            }
+          });
+        }
+      }
+    }
 
     testWidgets('asks the service for the iOS store on iOS', (tester) async {
       // Reset before the test ends: the binding verifies foundation
