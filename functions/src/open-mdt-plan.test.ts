@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-import { planOpenMdt } from '../scripts/backfill-open-mdt';
+import { planOpenMdt } from './open-mdt-plan';
 
 describe('planOpenMdt', () => {
   it('repairs one different open consult and does not clear it', () => {
