@@ -316,7 +316,10 @@ ahead stops two agents working in parallel from taking the same id. Some
 models deliberately have **no** Hive mirror: the working report text, the
 report provenance, the pre-read and its values, and the working alert records,
 because unapproved model text is never cached (S-1); the PDF input, because it
-lives in memory only; and the bundled reference models.
+lives in memory only; and the bundled reference models. The report reader keeps the
+explanation drafts it has read in memory for the session, so reopening a
+report shows them at once and a Ready draft is not fetched again; an approval
+found on the server replaces its draft.
 
 **Adapters register in one hand-maintained cascade in `hive_helper.dart`**,
 and `test/core/helpers/hive_adapter_registration_test.dart` asserts that

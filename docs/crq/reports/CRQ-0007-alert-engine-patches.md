@@ -52,6 +52,12 @@ read on the way. Each entry is filled in as its patch lands.
    anything; a synthetic alert carries a "Demo" pill instead (the timeline's Now tone) on the
    review, sent and notice screens, and its pushes keep "Demo:" since a lock screen has no pill.
    The "Health notice · {county}" chip above the title is gone: the title names the county.
+5. **Reopening a report blanked the explanation drafts and fetched them again.** The reader's
+   quick first paint replaced the state with no drafts, so the doctor saw "Waiting for the AI
+   draft" until both were read from Firestore once more. The drafts read in this session now
+   survive the reopen, a Ready one is not fetched again, and an approval found on the server
+   replaces its draft. They stay in memory only: unapproved model text is still never written to
+   the phone (Theo, 23 Nov, keeping the architecture's rule).
 
 ## 2. Business justification
 

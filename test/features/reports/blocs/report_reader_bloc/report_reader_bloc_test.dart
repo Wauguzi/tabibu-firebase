@@ -805,6 +805,115 @@ void main() {
     );
   });
 
+  group('reopen', () {
+    final held = _draft.copyWith(reportUid: 'v1', language: 'en');
+    ReportReaderLoadSuccess reading() => ReportReaderLoadSuccess(
+      uid: 'd1',
+      role: Role.doctor,
+      caseUid: _case,
+      report: _report(released: true),
+      explanations: {'en': held},
+    );
+
+    void stubReports() {
+      when(
+        () => reports.getReports('d1', role: Role.doctor),
+      ).thenAnswer((_) async => [_report(released: true)]);
+      when(
+        () => reports.getApprovedText(any(), any()),
+      ).thenAnswer((_) async => null);
+      when(
+        () => reports.syncReports('d1', role: Role.doctor),
+      ).thenAnswer((_) async => [_report(released: true)]);
+    }
+
+    void verifyNoFetch(String textUid) => verifyNever(
+      () => remote.fetchReportText(caseUid: _case, textUid: textUid),
+    );
+
+    blocTest<ReportReaderBloc, ReportReaderState>(
+      'keeps the drafts it read, never blank, and asks for no Ready one again',
+      setUp: stubReports,
+      build: build,
+      seed: reading,
+      act: (bloc) => bloc.add(
+        const ReportReaderOpened(uid: 'd1', role: Role.doctor, caseUid: _case),
+      ),
+      verify: (bloc) {
+        expect(bloc.state.explanations, {'en': held});
+        verifyNoFetch('v1_Explanation_en');
+      },
+      expect: () => [
+        isA<ReportReaderLoadInProgress>().having(
+          (s) => s.explanations,
+          'explanations',
+          {'en': held},
+        ),
+        isA<ReportReaderLoadSuccess>().having(
+          (s) => s.explanations,
+          'explanations',
+          {'en': held},
+        ),
+      ],
+    );
+
+    blocTest<ReportReaderBloc, ReportReaderState>(
+      'a draft approved elsewhere gives way to the approval',
+      setUp: () {
+        stubReports();
+        when(
+          () => reports.syncApprovedText(
+            caseUid: _case,
+            textUid: 'v1_Explanation_en',
+          ),
+        ).thenAnswer((_) async => _approved);
+      },
+      build: build,
+      seed: reading,
+      act: (bloc) => bloc.add(
+        const ReportReaderOpened(uid: 'd1', role: Role.doctor, caseUid: _case),
+      ),
+      verify: (bloc) {
+        expect(bloc.state.explanations, isEmpty);
+        expect(bloc.state.approved, {'en': _approved});
+        verifyNoFetch('v1_Explanation_en');
+      },
+    );
+
+    blocTest<ReportReaderBloc, ReportReaderState>(
+      'a draft still being written is asked for again',
+      setUp: () {
+        stubReports();
+        when(
+          () => remote.fetchReportText(
+            caseUid: _case,
+            textUid: 'v1_Explanation_en',
+          ),
+        ).thenAnswer((_) async => held);
+      },
+      build: build,
+      seed: () => ReportReaderLoadSuccess(
+        uid: 'd1',
+        role: Role.doctor,
+        caseUid: _case,
+        report: _report(released: true),
+        explanations: {'en': held.copyWith(status: 'Running')},
+      ),
+      act: (bloc) => bloc.add(
+        const ReportReaderOpened(uid: 'd1', role: Role.doctor, caseUid: _case),
+      ),
+      verify: (bloc) {
+        expect(bloc.state.explanations, {'en': held});
+        verify(
+          () => remote.fetchReportText(
+            caseUid: _case,
+            textUid: 'v1_Explanation_en',
+          ),
+        ).called(1);
+      },
+    );
+  });
+
   group('explanation decision', () {
     ReportReaderLoadSuccess withDraft() => ReportReaderLoadSuccess(
       uid: 'd1',
