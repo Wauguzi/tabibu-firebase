@@ -33,6 +33,8 @@ describe('preread-measure draft wording', () => {
       Array<string>(10).fill('Normal'),
       [...Array<string>(6).fill('Tumour'), ...Array<string>(4).fill('Normal')],
       Array<string>(4).fill('Unknown'),
+      [...Array<string>(8).fill('Normal'), 'Unknown', 'Unknown'],
+      ['Tumour', 'Normal', 'Unknown'],
     ]) {
       const tiles = tilesOf(labels);
       const draft = histologyDraft(tiles, histologyMeasurements(tiles, GRID, 0.25));
@@ -46,6 +48,39 @@ describe('preread-measure draft wording', () => {
     const m = histologyMeasurements(tiles, GRID, 0.25);
     const draft = histologyDraft(tiles, m);
     assert.equal(draft.findings[0].text, `Tumour in 3 of 4 areas examined (${m.tumourAreaPercent}%).`);
+  });
+
+  it('a section with no Unknown area is cleared in one finding', () => {
+    const tiles = tilesOf(Array<string>(10).fill('Normal'));
+    const draft = histologyDraft(tiles, histologyMeasurements(tiles, GRID, 0.25));
+    assert.deepEqual(
+      draft.findings.map((f) => f.text),
+      ['No area examined shows tumour.'],
+    );
+  });
+
+  it('unread areas are never reported as negative', () => {
+    const tiles = tilesOf([...Array<string>(8).fill('Normal'), 'Unknown', 'Unknown']);
+    const draft = histologyDraft(tiles, histologyMeasurements(tiles, GRID, 0.25));
+    assert.deepEqual(
+      draft.findings.map((f) => f.text),
+      ['No tumour in the 8 areas that could be read.', '2 of 10 areas could not be read.'],
+    );
+  });
+
+  it('a section with no area read makes no negative claim', () => {
+    const tiles = tilesOf(Array<string>(4).fill('Unknown'));
+    const draft = histologyDraft(tiles, histologyMeasurements(tiles, GRID, 0.25));
+    assert.deepEqual(
+      draft.findings.map((f) => f.text),
+      ['4 of 4 areas could not be read.'],
+    );
+  });
+
+  it('a tumour finding names the unread areas too', () => {
+    const tiles = tilesOf(['Tumour', 'Normal', 'Unknown']);
+    const draft = histologyDraft(tiles, histologyMeasurements(tiles, GRID, 0.25));
+    assert.equal(draft.findings.at(-1)?.text, '1 of 3 areas could not be read.');
   });
 });
 
