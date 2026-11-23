@@ -2628,6 +2628,10 @@
     "@reportPdfSignature": {
         "description": "PDF report signed block: signature caption"
     },
+    "reportPdfSignatureUnavailable": "Signature could not be shown",
+    "@reportPdfSignatureUnavailable": {
+        "description": "Report PDF: in the signature box when the stored signature image cannot be fetched or does not match the signed report"
+    },
     "reportPdfEndOfReport": "End of report",
     "@reportPdfEndOfReport": {
         "description": "PDF report closing line"

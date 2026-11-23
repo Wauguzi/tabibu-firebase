@@ -586,6 +586,7 @@
     "reportPdfSignedAt": "Imetiwa sahihi {date} EAT",
     "reportPdfContentRef": "Kumbukumbu ya maudhui {ref}",
     "reportPdfSignature": "Sahihi",
+    "reportPdfSignatureUnavailable": "Sahihi haikuweza kuonyeshwa",
     "reportPdfEndOfReport": "Mwisho wa ripoti",
     "reportPdfAccession": "Usajili {no}",
     "reportPdfPage": "Ukurasa {page} kati ya {pages}",

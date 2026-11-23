@@ -720,4 +720,21 @@ void main() {
     ).join('\n');
     expect(words, contains(reportPdfSignatureUnavailable));
   });
+
+  test('a missing signature says so in the report language', () async {
+    final base = pdfInput();
+    final words = _pageTexts(
+      await builder.build(
+        base.copyWith(
+          signature: base.signature.copyWith(
+            png: const [],
+            unavailable: reportPdfSignatureUnavailable,
+          ),
+        ),
+        sw,
+      ),
+    ).join('\n');
+    expect(words, contains(sw.reportPdfSignatureUnavailable));
+    expect(words, isNot(contains(reportPdfSignatureUnavailable)));
+  });
 }

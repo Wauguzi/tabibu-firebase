@@ -14,8 +14,8 @@ import 'package:tabibu/features/reports/data/services/report_labels.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
-/// Shown in the signature box when the stored image cannot be drawn.
-/// Not in the ARB yet: the reviewer adds it for English and Swahili.
+/// Marks a signature whose stored image cannot be drawn. The PDF prints
+/// `reportPdfSignatureUnavailable` in the report's language in its place.
 const String reportPdfSignatureUnavailable = 'Signature could not be shown';
 
 /// Builds the signed-report PDF (05-plan §8 step 1j) from [ReportPdfInput].
@@ -1094,8 +1094,8 @@ class _Page {
       );
     }
     // A failed fetch or a hash that does not match must not look unsigned.
-    final note = input.signature.unavailable;
-    if (note.isNotEmpty) {
+    if (input.signature.unavailable.isNotEmpty) {
+      final note = l10n.reportPdfSignatureUnavailable;
       return pw.SizedBox(
         height: 54,
         child: pw.Align(
