@@ -34,6 +34,12 @@ abstract class PatientModel with _$PatientModel {
     @JsonKey(includeFromJson: false, includeToJson: false)
     @Default(true)
     bool synced,
+
+    /// Another clinic already holds this phone and birth date. The row stays
+    /// on the phone and cannot be ordered for (T-16).
+    @JsonKey(includeFromJson: false, includeToJson: false)
+    @Default(false)
+    bool held,
   }) = _PatientModel;
 
   const PatientModel._();

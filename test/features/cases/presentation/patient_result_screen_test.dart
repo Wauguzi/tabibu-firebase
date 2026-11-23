@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:tabibu/core/constants/enums.dart';
+import 'package:tabibu/core/helpers/db_helper.dart';
+import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/core/utils/nairobi_time.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_event.dart';
@@ -126,7 +128,10 @@ void main() {
       authBloc = MockAuthBloc();
       download = _MockDownload();
       player = FakeAudioPlayerService();
+      // The listen card resolves its audio store from getIt.
+      getIt.registerSingleton<DBHelper>(FakeDbHelper());
       addTearDown(player.dispose);
+      addTearDown(getIt.reset);
       when(() => blocs.cases.add(any())).thenReturn(null);
       when(() => blocs.appointments.add(any())).thenReturn(null);
       when(
@@ -418,6 +423,9 @@ void main() {
       expect(find.byType(ListenCard), findsNothing);
       expect(find.byType(VerificationTimeline), findsNothing);
       expect(find.text(l10n.resultDetailDownload), findsOneWidget);
+      // The PDF is built on demand: its line names the type once, no size.
+      expect(find.textContaining('PDF · PDF'), findsNothing);
+      expect(find.textContaining('PDF · from '), findsOneWidget);
       expect(
         tester.widget<ReportFileCard>(find.byType(ReportFileCard)).onDownload,
         isNotNull,
@@ -839,12 +847,13 @@ void main() {
         ]);
       });
 
-      testWidgets('does not reopen a case the reader already holds', (
-        tester,
-      ) async {
+      testWidgets('reopens a case the reader already holds, so a release '
+          'since shows', (tester) async {
         await pumpWith(tester, state: reader(approved: approved));
 
-        verifyNever(() => blocs.reportReader.add(any()));
+        verify(
+          () => blocs.reportReader.add(any(that: isA<ReportReaderOpened>())),
+        ).called(1);
       });
 
       testWidgets('tapping the row opens the explained result', (tester) async {

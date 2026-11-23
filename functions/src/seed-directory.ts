@@ -89,7 +89,7 @@ async function main(): Promise<void> {
         kmpdcNumber: entry.kmpdcNumber,
       },
     });
-    await setDemoPhoto(deps.db, uid, photos.get(entry.key) ?? '');
+    await setDemoPhoto(deps.db, uid, photos.get(entry.key) ?? '', deps.bucket);
     await markDemo(uid);
     await writeDemoAccount(uid, entry.isPathologist ? 'pathologist' : 'doctor');
     if (entry.isPathologist) pathologists += 1;

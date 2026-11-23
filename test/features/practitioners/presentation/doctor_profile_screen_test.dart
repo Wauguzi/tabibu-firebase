@@ -122,7 +122,7 @@ void main() {
       );
     });
 
-    Widget screen() => MultiBlocProvider(
+    Widget screen({bool Function()? voiceInputEnabled}) => MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>.value(value: authBloc),
         BlocProvider<DirectoryBloc>.value(value: directory),
@@ -134,6 +134,7 @@ void main() {
         // Unsupported: booking tests stay on typing; voice has its own suite.
         recorder: FakeAudioRecorderService(supported: false),
         cues: FakeRecordingCueService(),
+        voiceInputEnabled: voiceInputEnabled,
       ),
     );
 
@@ -272,7 +273,7 @@ void main() {
 
     testWidgets('the voice flag off hides the mic', (tester) async {
       _useTallSurface(tester);
-      await tester.pumpApp(screen());
+      await tester.pumpApp(screen(voiceInputEnabled: () => false));
       await tester.pumpAndSettle();
 
       final l10n = lookupAppLocalizations(const Locale('en'));

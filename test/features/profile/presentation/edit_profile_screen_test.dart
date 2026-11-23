@@ -184,13 +184,13 @@ void main() {
       verifyNever(() => bloc.add(any()));
     });
 
-    testWidgets('a saved edit returns to the details', (tester) async {
+    testWidgets('a saved edit returns to the profile tab', (tester) async {
       tallView(tester);
       final answers = StreamController<AuthState>();
       addTearDown(answers.close);
       await tester.pumpRoleApp(
         fullSession(),
-        '/patient/profile/details',
+        '/patient/profile',
         answers: answers,
       );
       await tester.pumpAndSettle();
@@ -208,7 +208,12 @@ void main() {
       answers.add(ProfileSaveSuccess(session: fullSession()));
       await tester.pumpAndSettle();
 
-      expect(find.text('About me'), findsOneWidget);
+      expect(find.text('Your profile'), findsOneWidget);
+      expect(find.text('Save changes'), findsNothing);
+      expect(find.text('Profile updated'), findsOneWidget);
+      // The notice closes itself after 4 s.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('a failed save says why and stays', (tester) async {

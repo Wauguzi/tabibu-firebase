@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { randomUUID } from 'node:crypto';
 
 import { DOCTORS, PATIENTS, PRACTITIONERS } from './common';
 import {
@@ -183,6 +184,15 @@ describe('identity', () => {
       const first = await addPatientHandler(deps, doctor, patientInput());
       const again = await addPatientHandler(deps, doctor, patientInput());
       assert.deepEqual(again, { status: 'alreadyInCare', patientId: first.patientId });
+    });
+
+    it('keeps a client-minted id and returns that same patient on retry', async () => {
+      const doctor = await account(deps, 'doc@example.com', { role: 'doctor' });
+      const patientId = randomUUID();
+      const input = patientInput({ patientId });
+      assert.deepEqual(await addPatientHandler(deps, doctor, input), { status: 'created', patientId });
+      assert.deepEqual(await addPatientHandler(deps, doctor, input), { status: 'created', patientId });
+      assert.equal((await deps.db.collection(PATIENTS).doc(patientId).get()).exists, true);
     });
 
     it("does not let a doctor join another doctor's patient (T-16)", async () => {

@@ -35,6 +35,9 @@ void main() {
       'CaseFirebase',
       'ShareCodeFirebase',
       'ReportFirebase',
+      'PatientFirebase',
+      'PatientSync',
+      'PatientsBloc',
     ]) {
       expect(
         registeredNames,

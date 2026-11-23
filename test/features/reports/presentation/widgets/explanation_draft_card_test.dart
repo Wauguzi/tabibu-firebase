@@ -1,6 +1,8 @@
 // cspell:ignore maelezo Maelezo
+import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:tabibu/core/constants/app_status_colors.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/reports/presentation/widgets/explanation_draft_card.dart';
 import 'package:tabibu/l10n/l10n.dart';
@@ -13,6 +15,7 @@ void main() {
 
     ExplanationDraftCard card({
       bool busy = false,
+      bool approving = false,
       List<String> segments = const ['First segment', 'Second segment'],
       VoidCallback? onApprove,
       VoidCallback? onEdit,
@@ -22,6 +25,7 @@ void main() {
       title: title,
       segments: segments,
       busy: busy,
+      approving: approving,
       onApprove: onApprove ?? () {},
       onEdit: onEdit ?? () {},
       onMore: onMore ?? () {},
@@ -86,6 +90,55 @@ void main() {
       await tester.pumpApp(card());
 
       expect(find.text(l10n.alertReviewReject), findsNothing);
+    });
+
+    testWidgets('approving keeps the primary colour, shows the dots, and '
+        'does not take a second tap', (tester) async {
+      var taps = 0;
+      await tester.pumpApp(
+        card(
+          approving: true,
+          onApprove: () => taps++,
+          onEdit: () => taps++,
+          onMore: () => taps++,
+        ),
+      );
+
+      final approve = tester.widget<TabibuButton>(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is TabibuButton &&
+              widget.label == l10n.alertReviewApproveAsIs,
+        ),
+      );
+      final edit = tester.widget<TabibuButton>(
+        find.byWidgetPredicate(
+          (widget) => widget is TabibuButton && widget.label == l10n.reviewEdit,
+        ),
+      );
+      final theme = Theme.of(tester.element(find.byType(ExplanationDraftCard)));
+      final fill = tester.widget<Material>(
+        find.descendant(
+          of: find.byWidgetPredicate(
+            (widget) => widget is TabibuButton && widget.isLoading,
+          ),
+          matching: find.byType(Material),
+        ),
+      );
+
+      expect(approve.isLoading, isTrue);
+      expect(fill.color, theme.extension<AppStatusColors>()!.ink);
+      expect(find.byType(SpinKitCircle), findsOneWidget);
+      expect(edit.onTap, isNull);
+
+      await tester.tap(
+        find.byWidgetPredicate(
+          (widget) => widget is TabibuButton && widget.isLoading,
+        ),
+      );
+      await tester.tap(find.text(l10n.reviewEdit));
+      await tester.tap(find.byType(MoreButton), warnIfMissed: false);
+      expect(taps, 0);
     });
 
     testWidgets('busy turns all three controls off', (tester) async {

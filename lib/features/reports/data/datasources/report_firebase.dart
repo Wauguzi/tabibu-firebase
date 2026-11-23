@@ -325,12 +325,15 @@ class ReportFirebase {
     required String caseUid,
     required String reportUid,
     required String kind,
+    String? language,
   }) => _guard(
     'Request report text',
     () => _call('requestReportText', {
       'caseUid': caseUid,
       'reportUid': reportUid,
       'kind': kind,
+      // An explanation has one row per language; a translation may omit it.
+      'language': ?language,
     }),
   );
 }

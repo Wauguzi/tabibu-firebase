@@ -2,11 +2,13 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:logger/logger.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:tabibu/core/services/analytics_service.dart';
 import 'package:tabibu/core/services/audio_service_contract.dart';
 import 'package:tabibu/core/widgets/asset_icon.dart';
+import 'package:tabibu/features/cases/data/explanation_audio_store.dart';
 import 'package:tabibu/features/cases/data/speech_client.dart';
 import 'package:tabibu/features/cases/data/speech_request.dart';
 import 'package:tabibu/features/cases/presentation/widgets/explanation_listen_card.dart';
@@ -17,6 +19,8 @@ import 'package:tabibu/l10n/l10n.dart';
 import '../../../../helpers/helpers.dart';
 
 class _MockAnalytics extends Mock implements AnalyticsService {}
+
+class _MockLogger extends Mock implements Logger {}
 
 /// Holds speak open until the gated answer completes.
 class _GatedSpeechClient implements SpeechClient {
@@ -61,6 +65,36 @@ class _GatedPlayer implements AudioPlayerService {
   Future<void> dispose() => _player.dispose();
 }
 
+/// Throws from playBytes, delegating the rest to the fake.
+class _ThrowingPlayer implements AudioPlayerService {
+  _ThrowingPlayer(this._player);
+
+  final FakeAudioPlayerService _player;
+
+  @override
+  Stream<AudioPlayback> get playback => _player.playback;
+
+  @override
+  Future<void> playBytes(Uint8List bytes, {required String id}) =>
+      Future.error(StateError('unplayable'));
+
+  @override
+  Future<void> playUrl(Uri url, {required String id}) =>
+      _player.playUrl(url, id: id);
+
+  @override
+  Future<bool> resume(String id) => _player.resume(id);
+
+  @override
+  Future<void> pause() => _player.pause();
+
+  @override
+  Future<void> stop() => _player.stop();
+
+  @override
+  Future<void> dispose() => _player.dispose();
+}
+
 /// Fails the first speak, then answers.
 class _FailOnceSpeechClient implements SpeechClient {
   _FailOnceSpeechClient([Uint8List? audio])
@@ -73,6 +107,31 @@ class _FailOnceSpeechClient implements SpeechClient {
   Future<Uint8List> speak(SpeechRequest request) async {
     if (_calls++ == 0) throw Exception('down');
     return audio;
+  }
+}
+
+/// Counts fetches and replays reaching the store.
+class _SpyAudioStore implements ExplanationAudioStore {
+  _SpyAudioStore(this._inner);
+
+  final ExplanationAudioStore _inner;
+  int getCalls = 0;
+  int playedCalls = 0;
+
+  @override
+  Future<Uint8List?> get(SpeechRequest request) {
+    getCalls++;
+    return _inner.get(request);
+  }
+
+  @override
+  Future<void> put(SpeechRequest request, Uint8List bytes) =>
+      _inner.put(request, bytes);
+
+  @override
+  Future<void> played(SpeechRequest request) {
+    playedCalls++;
+    return _inner.played(request);
   }
 }
 
@@ -100,6 +159,8 @@ void main() {
     bool online = true,
     SpeechClient? speechClient,
     AudioPlayerService? audioPlayer,
+    Logger? logger,
+    ExplanationAudioStore? audioStore,
   }) {
     return ExplanationListenCard(
       text: text,
@@ -109,6 +170,9 @@ void main() {
       player: audioPlayer ?? player,
       analytics: analytics,
       settings: settings,
+      logger: logger,
+      // A fresh store per card: disk never leaks between tests.
+      audioStore: audioStore ?? ExplanationAudioStore(FakeDbHelper()),
     );
   }
 
@@ -198,6 +262,7 @@ void main() {
         player: player,
         analytics: analytics,
         settings: settings,
+        audioStore: ExplanationAudioStore(FakeDbHelper()),
       );
       await tester.pumpApp(gated('Your test found no cancer.'));
       await tester.tap(find.bySemanticsLabel(l10n.resultDetailListenPlay));
@@ -340,6 +405,7 @@ void main() {
           player: player,
           analytics: analytics,
           settings: settings,
+          audioStore: ExplanationAudioStore(FakeDbHelper()),
         ),
       );
 
@@ -352,6 +418,56 @@ void main() {
 
       expect(find.text(l10n.resultDetailListenFailed), findsNothing);
       expect(player.playBytesCalls, hasLength(1));
+    });
+
+    testWidgets('a speak failure is logged without text or audio', (
+      tester,
+    ) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final logger = _MockLogger();
+      await tester.pumpApp(
+        card(
+          speechClient: FakeSpeechClient(error: Exception('down')),
+          logger: logger,
+        ),
+      );
+      await tapPlay(tester, l10n);
+
+      expect(find.text(l10n.resultDetailListenFailed), findsOneWidget);
+      final messages = verify(() => logger.e(captureAny<String>())).captured;
+      final logged = messages.join(' ');
+      expect(logged, contains('speak failed'));
+      expect(logged, contains('TestVoice'));
+      expect(logged, isNot(contains('Your test found no cancer.')));
+    });
+
+    testWidgets('a play failure is logged without text or audio', (
+      tester,
+    ) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final logger = _MockLogger();
+      await tester.pumpApp(
+        card(audioPlayer: _ThrowingPlayer(player), logger: logger),
+      );
+      await tapPlay(tester, l10n);
+
+      expect(find.text(l10n.resultDetailListenFailed), findsOneWidget);
+      final messages = verify(() => logger.e(captureAny<String>())).captured;
+      final logged = messages.join(' ');
+      expect(logged, contains('play failed'));
+      expect(logged, contains('3 bytes'));
+      expect(logged, isNot(contains('Your test found no cancer.')));
+    });
+
+    testWidgets('a valid response plays through the player', (tester) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final wav = Uint8List.fromList([0x52, 0x49, 0x46, 0x46, 9, 9]);
+      await tester.pumpApp(card(speechClient: FakeSpeechClient(audio: wav)));
+      await tapPlay(tester, l10n);
+
+      expect(player.playBytesCalls, hasLength(1));
+      expect(player.playBytesCalls.single, wav);
+      expect(find.text(l10n.resultDetailListenFailed), findsNothing);
     });
 
     testWidgets('offline without cache shows the offline line', (tester) async {
@@ -377,6 +493,106 @@ void main() {
       await tapPlay(tester, l10n);
 
       expect(speech.requests, hasLength(2));
+    });
+
+    testWidgets('a played clip persists for the next card', (tester) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final store = ExplanationAudioStore(FakeDbHelper());
+      await tester.pumpApp(card(audioStore: store));
+      await tapPlay(tester, l10n);
+
+      expect(speech.requests, hasLength(1));
+      expect(await store.get(speech.requests.single), isNotNull);
+    });
+
+    testWidgets('a new card replays from disk offline, no model call', (
+      tester,
+    ) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final store = ExplanationAudioStore(FakeDbHelper());
+      await tester.pumpApp(card(audioStore: store));
+      await tapPlay(tester, l10n);
+      await tester.pumpWidget(Container());
+
+      final failing = FakeSpeechClient(error: Exception('offline'));
+      await tester.pumpApp(
+        card(audioStore: store, speechClient: failing, online: false),
+      );
+      await tester.pumpAndSettle();
+
+      // Hydrated: play, not the offline line.
+      expect(find.text(l10n.resultDetailListenOffline), findsNothing);
+      await tapPlay(tester, l10n);
+
+      expect(failing.requests, isEmpty);
+      expect(player.playBytesCalls, hasLength(2));
+      expect(find.text(l10n.resultDetailListenFailed), findsNothing);
+    });
+
+    testWidgets('a replay refreshes the clip on disk', (tester) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final store = _SpyAudioStore(ExplanationAudioStore(FakeDbHelper()));
+      await tester.pumpApp(card(audioStore: store));
+      await tapPlay(tester, l10n);
+      player.completeCurrent();
+      await tester.pumpAndSettle();
+      await tapPlay(tester, l10n);
+
+      expect(speech.requests, hasLength(1));
+      expect(store.playedCalls, 1);
+    });
+
+    testWidgets('memory is tried before disk', (tester) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final store = _SpyAudioStore(ExplanationAudioStore(FakeDbHelper()));
+      await tester.pumpApp(card(audioStore: store));
+      await tapPlay(tester, l10n);
+      player.completeCurrent();
+      await tester.pumpAndSettle();
+      final fetches = store.getCalls;
+      await tapPlay(tester, l10n);
+
+      // The replay comes from memory, while still refreshing its age.
+      expect(store.getCalls, fetches);
+      expect(store.playedCalls, 1);
+    });
+
+    testWidgets('a disk read failure logs and falls back to the model', (
+      tester,
+    ) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final logger = _MockLogger();
+      final db = FakeDbHelper()..failReads = true;
+      await tester.pumpApp(
+        card(audioStore: ExplanationAudioStore(db), logger: logger),
+      );
+      await tapPlay(tester, l10n);
+
+      expect(speech.requests, hasLength(1));
+      expect(player.playBytesCalls, hasLength(1));
+      final logged = verify(
+        () => logger.e(captureAny<String>()),
+      ).captured.join(' ');
+      expect(logged, contains('store read failed'));
+      expect(logged, isNot(contains('Your test found no cancer.')));
+    });
+
+    testWidgets('a disk write failure logs and still plays', (tester) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final logger = _MockLogger();
+      final db = FakeDbHelper()..failWrites = true;
+      await tester.pumpApp(
+        card(audioStore: ExplanationAudioStore(db), logger: logger),
+      );
+      await tapPlay(tester, l10n);
+
+      expect(player.playBytesCalls, hasLength(1));
+      expect(find.text(l10n.resultDetailListenFailed), findsNothing);
+      final logged = verify(
+        () => logger.e(captureAny<String>()),
+      ).captured.join(' ');
+      expect(logged, contains('store write failed'));
+      expect(logged, isNot(contains('Your test found no cancer.')));
     });
 
     for (final locale in const [Locale('en'), Locale('sw')]) {

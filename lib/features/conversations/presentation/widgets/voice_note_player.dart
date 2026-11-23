@@ -314,77 +314,7 @@ class _VoiceNotePlayerState extends State<VoiceNotePlayer>
             ),
           ),
         ],
-        _TranscriptLine(message: widget.message, foreground: widget.foreground),
       ],
-    );
-  }
-}
-
-class _TranscriptLine extends StatefulWidget {
-  const _TranscriptLine({required this.message, required this.foreground});
-
-  final MessageModel message;
-  final Color foreground;
-
-  @override
-  State<_TranscriptLine> createState() => _TranscriptLineState();
-}
-
-class _TranscriptLineState extends State<_TranscriptLine> {
-  Timer? _queuedHold;
-  var _showUnavailable = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _schedule();
-  }
-
-  @override
-  void didUpdateWidget(covariant _TranscriptLine oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.message.transcriptStatus != widget.message.transcriptStatus) {
-      _schedule();
-    }
-  }
-
-  void _schedule() {
-    _queuedHold?.cancel();
-    final status = widget.message.transcriptStatusValue;
-    if (status == .failed) {
-      _showUnavailable = true;
-      return;
-    }
-    if (status == .queued) {
-      _showUnavailable = false;
-      _queuedHold = Timer(const Duration(seconds: 4), () {
-        if (mounted) setState(() => _showUnavailable = true);
-      });
-      return;
-    }
-    _showUnavailable = false;
-  }
-
-  @override
-  void dispose() {
-    _queuedHold?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!_showUnavailable && widget.message.transcriptStatusValue != .failed) {
-      return const SizedBox.shrink();
-    }
-    final l10n = context.l10n;
-    return Padding(
-      padding: const EdgeInsets.only(top: AppSpacing.xxs),
-      child: Text(
-        l10n.chatVoiceTranscriptUnavailable,
-        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-          color: widget.foreground.withValues(alpha: 0.85),
-        ),
-      ),
     );
   }
 }

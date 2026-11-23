@@ -41,13 +41,14 @@ class PatientHiveAdapter extends TypeAdapter<PatientHive> {
       createdAt: fields[21] as String,
       lastUpdatedAt: fields[22] as String,
       synced: fields[23] as bool,
+      held: fields[24] as bool?,
     );
   }
 
   @override
   void write(BinaryWriter writer, PatientHive obj) {
     writer
-      ..writeByte(24)
+      ..writeByte(25)
       ..writeByte(0)
       ..write(obj.patientId)
       ..writeByte(1)
@@ -95,7 +96,9 @@ class PatientHiveAdapter extends TypeAdapter<PatientHive> {
       ..writeByte(22)
       ..write(obj.lastUpdatedAt)
       ..writeByte(23)
-      ..write(obj.synced);
+      ..write(obj.synced)
+      ..writeByte(24)
+      ..write(obj.held);
   }
 
   @override

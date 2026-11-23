@@ -302,7 +302,11 @@ void main() {
           reader: _loaded(approved: {'en': _approved('en', _english)}),
         );
 
-        verifyNever(() => blocs.reportReader.add(any()));
+        verifyNever(
+          () => blocs.reportReader.add(
+            any(that: isNot(isA<ReportReaderOpened>())),
+          ),
+        );
       });
 
       testWidgets('the report link opens the released report', (tester) async {

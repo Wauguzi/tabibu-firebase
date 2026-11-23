@@ -149,14 +149,17 @@ void main() {
         stub();
         await pumpScreen(tester);
 
-        await tester.tap(find.text('Waiting 4h+ · 3'));
-        await tester.pump();
-        await tester.tap(find.text('Notifiable · 1'));
-        await tester.pump();
-        await tester.tap(find.text('Low confidence · 2'));
-        await tester.pump();
-        await tester.tap(find.text('All 6'));
-        await tester.pump();
+        Future<void> tapChip(String label) async {
+          await tester.ensureVisible(find.text(label));
+          await tester.pump();
+          await tester.tap(find.text(label));
+          await tester.pump();
+        }
+
+        await tapChip('Waiting 4h+ · 3');
+        await tapChip('Notifiable · 1');
+        await tapChip('Low confidence · 2');
+        await tapChip('All 6');
 
         verifyInOrder([
           () => blocs.desk.add(
@@ -326,6 +329,37 @@ void main() {
           expect(rows(), findsNWidgets(6));
           expect(tester.takeException(), isNull);
         }
+      });
+
+      testWidgets('filters stay on one line and a case sits inside the list', (
+        tester,
+      ) async {
+        usePhoneSurface(tester);
+        stub();
+        await pumpScreen(tester);
+
+        final chips = find.byType(TabibuFilterChip);
+        expect(chips, findsNWidgets(4));
+        expect(
+          find.ancestor(
+            of: chips.first,
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is SingleChildScrollView &&
+                  widget.scrollDirection == .horizontal,
+            ),
+          ),
+          findsOneWidget,
+        );
+        final tops = [
+          for (var i = 0; i < 4; i++) tester.getTopLeft(chips.at(i)).dy,
+        ];
+        expect(tops.toSet(), hasLength(1));
+
+        final list = tester.getRect(find.byType(ListView));
+        final row = tester.getRect(rows().first);
+        expect(row.left, greaterThan(list.left));
+        expect(row.right, lessThan(list.right));
       });
 
       testWidgets('Swahili at 1.3x on 390 dp, dark, without overflow', (

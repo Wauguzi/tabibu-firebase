@@ -25,6 +25,7 @@ import 'package:tabibu/features/auth/data/models/onboarding_hive.dart';
 import 'package:tabibu/features/cases/data/models/case_hive.dart';
 import 'package:tabibu/features/cases/data/models/case_log_entry_hive.dart';
 import 'package:tabibu/features/cases/data/models/case_payment_hive.dart';
+import 'package:tabibu/features/cases/data/models/explanation_audio_hive.dart';
 import 'package:tabibu/features/cases/data/models/notes_translation_hive.dart';
 import 'package:tabibu/features/cases/data/models/ordered_test_hive.dart';
 import 'package:tabibu/features/cases/data/models/risk_check_hive.dart';
@@ -142,6 +143,8 @@ class HiveHelperImpl implements HiveHelper {
   static const shareCodesBox = 'shareCodes';
   static const riskChecksBox = 'riskChecks';
   static const notesTranslationsBox = 'notesTranslations';
+  static const explanationAudioBox = 'explanationAudio';
+  static const explanationAudioMetaBox = 'explanationAudioMeta';
 
   // Reports.
   static const pathologyReportsBox = 'pathologyReports';
@@ -184,6 +187,8 @@ class HiveHelperImpl implements HiveHelper {
     ShareCodeHive: shareCodesBox,
     RiskCheckHive: riskChecksBox,
     NotesTranslationHive: notesTranslationsBox,
+    ExplanationAudioHive: explanationAudioBox,
+    int: explanationAudioMetaBox,
     // Reports.
     PathologyReportHive: pathologyReportsBox,
     ReportDraftHive: reportDraftsBox,
@@ -364,6 +369,9 @@ class HiveHelperImpl implements HiveHelper {
     if (!Hive.isAdapterRegistered(24)) {
       Hive.registerAdapter(AppointmentHiveAdapter());
     }
+    if (!Hive.isAdapterRegistered(12)) {
+      Hive.registerAdapter(ExplanationAudioHiveAdapter());
+    }
   }
 
   Future<void> _openEncryptedBoxes(HiveAesCipher cipher) async {
@@ -387,6 +395,11 @@ class HiveHelperImpl implements HiveHelper {
       notesTranslationsBox,
       encryptionCipher: cipher,
     );
+    await Hive.openBox<ExplanationAudioHive>(
+      explanationAudioBox,
+      encryptionCipher: cipher,
+    );
+    await Hive.openBox<int>(explanationAudioMetaBox, encryptionCipher: cipher);
     // Reports.
     await Hive.openBox<PathologyReportHive>(
       pathologyReportsBox,

@@ -28,7 +28,6 @@ List<RouteBase> get $appRoutes => [
   $practitionerProfileRoute,
   $patientAppointmentRoute,
   $patientCalendarRoute,
-  $patientProfileDetailsRoute,
   $patientEditProfileRoute,
   $patientProfileAreaRoute,
   $patientProfileLanguageRoute,
@@ -42,7 +41,6 @@ List<RouteBase> get $appRoutes => [
   $explainedResultRoute,
   $patientCaseHistoryRoute,
   $shareReportRoute,
-  $shareDoneRoute,
   $whoCanSeeRoute,
   $sharedReportsRoute,
   $healthNoticeRoute,
@@ -1231,33 +1229,6 @@ mixin $PatientCalendarRoute on GoRouteData {
   void replace(BuildContext context) => context.replace(location);
 }
 
-RouteBase get $patientProfileDetailsRoute => GoRouteData.$route(
-  path: '/patient/profile/details',
-  hasOverriddenOnExit: false,
-  factory: $PatientProfileDetailsRoute._fromState,
-);
-
-mixin $PatientProfileDetailsRoute on GoRouteData {
-  static PatientProfileDetailsRoute _fromState(GoRouterState state) =>
-      const PatientProfileDetailsRoute();
-
-  @override
-  String get location => GoRouteData.$location('/patient/profile/details');
-
-  @override
-  void go(BuildContext context) => context.go(location);
-
-  @override
-  Future<T?> push<T>(BuildContext context) => context.push<T>(location);
-
-  @override
-  void pushReplacement(BuildContext context) =>
-      context.pushReplacement(location);
-
-  @override
-  void replace(BuildContext context) => context.replace(location);
-}
-
 RouteBase get $patientEditProfileRoute => GoRouteData.$route(
   path: '/patient/profile/edit',
   hasOverriddenOnExit: false,
@@ -1615,37 +1586,6 @@ mixin $ShareReportRoute on GoRouteData {
   @override
   String get location => GoRouteData.$location(
     '/patient/result/${Uri.encodeComponent(_self.caseUid)}/share',
-  );
-
-  @override
-  void go(BuildContext context) => context.go(location);
-
-  @override
-  Future<T?> push<T>(BuildContext context) => context.push<T>(location);
-
-  @override
-  void pushReplacement(BuildContext context) =>
-      context.pushReplacement(location);
-
-  @override
-  void replace(BuildContext context) => context.replace(location);
-}
-
-RouteBase get $shareDoneRoute => GoRouteData.$route(
-  path: '/patient/result/:caseUid/share/done',
-  hasOverriddenOnExit: false,
-  factory: $ShareDoneRoute._fromState,
-);
-
-mixin $ShareDoneRoute on GoRouteData {
-  static ShareDoneRoute _fromState(GoRouterState state) =>
-      ShareDoneRoute(caseUid: state.pathParameters['caseUid']!);
-
-  ShareDoneRoute get _self => this as ShareDoneRoute;
-
-  @override
-  String get location => GoRouteData.$location(
-    '/patient/result/${Uri.encodeComponent(_self.caseUid)}/share/done',
   );
 
   @override

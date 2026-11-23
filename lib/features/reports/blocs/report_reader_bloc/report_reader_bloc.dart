@@ -40,6 +40,8 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
     // One decision at a time; a double tap must not repeat a release.
     on<ReportDiscussedRequested>(_onDiscussed, transformer: droppable());
     on<ExplanationDecisionRequested>(_onDecision, transformer: droppable());
+    // One retry at a time; a second tap must not queue the language twice.
+    on<ExplanationRetryRequested>(_onRetry, transformer: droppable());
     on<ReportReaderReset>((_, emit) => emit(const ReportReaderInitial()));
   }
 
@@ -48,6 +50,20 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
   final InternetService _internet;
   final AnalyticsService _analytics;
   final Future<void> Function(Duration) _delay;
+
+  /// Bumped when a release starts. The cache shows the report before the
+  /// sync returns, so Mark as discussed can run while that open is still
+  /// in flight. Its later [ReportReaderLoadSuccess] would drop the spinner.
+  int _releaseGeneration = 0;
+  bool _releasing = false;
+
+  /// The case being released. Only its opens wait; another case's open is
+  /// kept and replayed when the release ends, never dropped.
+  String _releasingCase = '';
+  ReportReaderOpened? _deferredOpen;
+
+  bool _releaseSupersedes(int generation) =>
+      _releasing || generation != _releaseGeneration;
 
   /// After Mark as discussed the explanation drafts are written by a worker a
   /// few seconds later; the screen looks for them this often, for this long.
@@ -67,6 +83,12 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
     ReportReaderOpened event,
     Emitter<ReportReaderState> emit,
   ) async {
+    if (_releasing) {
+      // The released case keeps its spinner; another case opens after.
+      if (event.caseUid != _releasingCase) _deferredOpen = event;
+      return;
+    }
+    final generation = _releaseGeneration;
     // Never show another case's report while this one loads.
     final same = state.caseUid == event.caseUid;
     emit(
@@ -77,10 +99,16 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
         report: same ? state.report : null,
         explanations: same ? state.explanations : const {},
         approved: same ? state.approved : const {},
+        failedExplanations: same ? state.failedExplanations : const {},
+        writingLanguages: same ? state.writingLanguages : const {},
         explanationPhase: same ? state.explanationPhase : .none,
+        decidingLanguage: same ? state.decidingLanguage : '',
+        retryingLanguage: same ? state.retryingLanguage : '',
       ),
     );
     try {
+      await _emitCached(event, emit, generation);
+      if (emit.isDone || _releaseSupersedes(generation)) return;
       var offline = false;
       List<PathologyReportModel> all;
       try {
@@ -100,6 +128,8 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
 
       final explanations = <String, ReportTextModel>{};
       final approved = <String, ReportTextApprovedModel>{};
+      final failed = <String, ReportTextModel>{};
+      final writing = <String>{};
       final statuses = <ReportTextStatus>[];
       if (report != null && report.releasedToPatient) {
         for (final language in _languages) {
@@ -114,11 +144,15 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
             } on Object catch (_) {
               // The signed report still opens: no draft to read.
             }
-            if (draft != null) statuses.add(draft.statusValue);
-            // A text still queued or running has nothing to read yet.
-            if (draft != null && draft.statusValue == .ready) {
-              explanations[language] = draft;
-            }
+            _collect(
+              draft,
+              language,
+              missingIsQueued: false,
+              statuses: statuses,
+              ready: explanations,
+              failed: failed,
+              writing: writing,
+            );
           }
           final text = offline
               ? await _reports.getApprovedText(event.caseUid, id)
@@ -130,6 +164,7 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
         }
       }
 
+      if (emit.isDone || _releaseSupersedes(generation)) return;
       emit(
         ReportReaderLoadSuccess(
           uid: event.uid,
@@ -138,12 +173,58 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
           report: report,
           explanations: explanations,
           approved: approved,
+          failedExplanations: failed,
+          writingLanguages: writing,
           offline: offline,
           explanationPhase: _phaseOf(statuses),
         ),
       );
     } on Object catch (e) {
+      if (emit.isDone || _releaseSupersedes(generation)) return;
       emit(_failure(e, load: true));
+    }
+  }
+
+  /// Shows what the phone has before the sync finishes: the cached report
+  /// with its cached approved texts, when there is one. Drafts stay
+  /// network-only; evictions and changes still emit from the sync, and an
+  /// unchanged refresh emits nothing new (Equatable state). Never throws:
+  /// an unreadable cache falls through to the sync.
+  Future<void> _emitCached(
+    ReportReaderOpened event,
+    Emitter<ReportReaderState> emit,
+    int generation,
+  ) async {
+    try {
+      final all = await _reports.getReports(event.uid, role: event.role);
+      final report = reportForCase(
+        reports: all,
+        caseUid: event.caseUid,
+        role: event.role,
+      );
+      if (report == null) return;
+      if (emit.isDone || _releaseSupersedes(generation)) return;
+      final approved = <String, ReportTextApprovedModel>{};
+      if (report.releasedToPatient) {
+        for (final language in _languages) {
+          final text = await _reports.getApprovedText(
+            event.caseUid,
+            reportTextId(report.uid, .explanation, language),
+          );
+          if (text != null) approved[language] = text;
+        }
+      }
+      emit(
+        ReportReaderLoadSuccess(
+          uid: event.uid,
+          role: event.role,
+          caseUid: event.caseUid,
+          report: report,
+          approved: approved,
+        ),
+      );
+    } on Object catch (_) {
+      // Unreadable cache: the sync below still opens the report.
     }
   }
 
@@ -152,38 +233,51 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
     Emitter<ReportReaderState> emit,
   ) async {
     final report = state.report;
+    _releaseGeneration += 1;
+    _releasing = true;
+    _releasingCase = state.caseUid;
     // In progress first, so a repeated failure is a new state and shows.
     emit(_copy(ReportReaderWriteInProgress.new));
-    if (state.role != .doctor || report == null) {
-      emit(_failure(AppError.dataNotFound));
-      return;
-    }
-    if (!await _internet.check()) {
-      emit(_failure(AppError.noInternet));
-      return;
-    }
     try {
-      await _remote.markDiscussed(
-        caseUid: state.caseUid,
-        reportUid: report.uid,
-      );
-      unawaited(_analytics.logReportDiscussed());
-      emit(
-        _copy(
-          ReportDiscussedSuccess.new,
-          report: report.copyWith(releasedToPatient: true),
-        ),
-      );
-    } on Object catch (e) {
-      emit(_failure(e));
-      return;
+      if (state.role != .doctor || report == null) {
+        emit(_failure(AppError.dataNotFound));
+        return;
+      }
+      if (!await _internet.check()) {
+        emit(_failure(AppError.noInternet));
+        return;
+      }
+      try {
+        await _remote.markDiscussed(
+          caseUid: state.caseUid,
+          reportUid: report.uid,
+        );
+        unawaited(_analytics.logReportDiscussed());
+        emit(
+          _copy(
+            ReportDiscussedSuccess.new,
+            report: report.copyWith(releasedToPatient: true),
+          ),
+        );
+      } on Object catch (e) {
+        emit(_failure(e));
+        return;
+      }
+    } finally {
+      _releasing = false;
+      _releasingCase = '';
+      final next = _deferredOpen;
+      _deferredOpen = null;
+      if (next != null && !isClosed) add(next);
     }
+    if (state is! ReportDiscussedSuccess) return;
     await _awaitDrafts(emit, report.uid);
   }
 
   /// Looks for the explanation drafts until each language is Ready, Failed or
   /// [pollFor] has passed, so they appear without the doctor asking. A failed
-  /// read is retried at the next tick; nothing is shown that is not Ready.
+  /// read is retried at the next tick. A Ready text is the draft; a Failed
+  /// one is recorded on its own so the other language can still be read.
   Future<void> _awaitDrafts(
     Emitter<ReportReaderState> emit,
     String reportUid,
@@ -196,8 +290,9 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
         return;
       }
       final ready = <String, ReportTextModel>{};
+      final failed = <String, ReportTextModel>{};
+      final writing = <String>{};
       final statuses = <ReportTextStatus>[];
-      var pending = false;
       for (final language in _languages) {
         final id = reportTextId(reportUid, .explanation, language);
         ReportTextModel? text;
@@ -206,14 +301,15 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
         } on Object catch (_) {
           text = null;
         }
-        final status = text?.statusValue;
-        // A text not written yet is queued as far as the doctor can tell.
-        statuses.add(status ?? .queued);
-        if (text == null || status == .queued || status == .running) {
-          pending = true;
-        } else if (status == .ready) {
-          ready[language] = text;
-        }
+        _collect(
+          text,
+          language,
+          missingIsQueued: true,
+          statuses: statuses,
+          ready: ready,
+          failed: failed,
+          writing: writing,
+        );
       }
       if (emit.isDone || state.caseUid != caseUid) return;
       final changed =
@@ -222,17 +318,31 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
             ready,
             state.explanations,
           );
+      final failedChanged = !const MapEquality<String, ReportTextModel>()
+          .equals(failed, state.failedExplanations);
+      final writingChanged = !const SetEquality<String>().equals(
+        writing,
+        state.writingLanguages,
+      );
       final phase = _phaseOf(statuses);
-      if (changed || phase != state.explanationPhase) {
+      if (changed ||
+          failedChanged ||
+          writingChanged ||
+          phase != state.explanationPhase) {
         emit(
           _copy(
             ReportReaderLoadSuccess.new,
             explanations: changed ? ready : null,
+            failedExplanations: failed,
+            writingLanguages: writing,
             explanationPhase: phase,
+            decidingLanguage: '',
+            retryingLanguage: '',
           ),
         );
       }
-      if (!pending) return;
+      if (writing.isNotEmpty) continue;
+      return;
     }
   }
 
@@ -241,7 +351,9 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
     Emitter<ReportReaderState> emit,
   ) async {
     final draft = state.explanations[event.language];
-    emit(_copy(ReportReaderWriteInProgress.new));
+    emit(
+      _copy(ReportReaderWriteInProgress.new, decidingLanguage: event.language),
+    );
     if (state.role != .doctor || draft == null) {
       emit(_failure(AppError.dataNotFound));
       return;
@@ -286,10 +398,93 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
           explanationPhase: event.reject && explanations.isEmpty
               ? .rejected
               : null,
+          decidingLanguage: '',
         ),
       );
     } on Object catch (e) {
       emit(_failure(e));
+    }
+  }
+
+  /// Asks for one failed explanation again, then waits for that language the
+  /// same way a fresh draft is waited for. A refusal leaves the failure in
+  /// place and surfaces the error.
+  Future<void> _onRetry(
+    ExplanationRetryRequested event,
+    Emitter<ReportReaderState> emit,
+  ) async {
+    final report = state.report;
+    final caseUid = state.caseUid;
+    final failed = state.failedExplanations[event.language];
+    emit(
+      _copy(ReportReaderWriteInProgress.new, retryingLanguage: event.language),
+    );
+    if (state.role != .doctor || report == null || failed == null) {
+      emit(_failure(AppError.dataNotFound));
+      return;
+    }
+    if (!await _internet.check()) {
+      emit(_failure(AppError.noInternet));
+      return;
+    }
+    try {
+      await _remote.requestReportText(
+        caseUid: caseUid,
+        reportUid: report.uid,
+        kind: ReportTextKind.explanation.value,
+        language: event.language,
+      );
+      unawaited(_analytics.logExplanationRetried(language: event.language));
+    } on Object catch (e) {
+      emit(_failure(e));
+      return;
+    }
+    if (emit.isDone || state.caseUid != caseUid) return;
+    final remaining = Map<String, ReportTextModel>.of(state.failedExplanations)
+      ..remove(event.language);
+    emit(
+      _copy(
+        ReportReaderLoadSuccess.new,
+        failedExplanations: remaining,
+        writingLanguages: {...state.writingLanguages, event.language},
+        retryingLanguage: '',
+        explanationPhase: .pending,
+      ),
+    );
+    await _awaitDrafts(emit, report.uid);
+  }
+
+  /// Sorts one language into the draft, the failure, or still being written.
+  /// A missing row counts as queued only while waiting after a request;
+  /// opening a report leaves a missing row out.
+  void _collect(
+    ReportTextModel? text,
+    String language, {
+    required bool missingIsQueued,
+    required List<ReportTextStatus> statuses,
+    required Map<String, ReportTextModel> ready,
+    required Map<String, ReportTextModel> failed,
+    required Set<String> writing,
+  }) {
+    if (text == null) {
+      if (!missingIsQueued) return;
+      statuses.add(.queued);
+      writing.add(language);
+      return;
+    }
+    final status = text.statusValue;
+    statuses.add(status);
+    switch (status) {
+      case .ready:
+        ready[language] = text;
+      case .failed:
+        failed[language] = text;
+      case .queued:
+      case .running:
+        writing.add(language);
+      case .approved:
+      case .rejected:
+        break;
     }
   }
 
@@ -310,14 +505,22 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
       PathologyReportModel? report,
       Map<String, ReportTextModel> explanations,
       Map<String, ReportTextApprovedModel> approved,
+      Map<String, ReportTextModel> failedExplanations,
+      Set<String> writingLanguages,
       bool offline,
       ExplanationDraftPhase explanationPhase,
+      String decidingLanguage,
+      String retryingLanguage,
     })
     build, {
     PathologyReportModel? report,
     Map<String, ReportTextModel>? explanations,
     Map<String, ReportTextApprovedModel>? approved,
+    Map<String, ReportTextModel>? failedExplanations,
+    Set<String>? writingLanguages,
     ExplanationDraftPhase? explanationPhase,
+    String? decidingLanguage,
+    String? retryingLanguage,
   }) => build(
     uid: state.uid,
     role: state.role,
@@ -325,8 +528,12 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
     report: report ?? state.report,
     explanations: explanations ?? state.explanations,
     approved: approved ?? state.approved,
+    failedExplanations: failedExplanations ?? state.failedExplanations,
+    writingLanguages: writingLanguages ?? state.writingLanguages,
     offline: state.offline,
     explanationPhase: explanationPhase ?? state.explanationPhase,
+    decidingLanguage: decidingLanguage ?? state.decidingLanguage,
+    retryingLanguage: retryingLanguage ?? state.retryingLanguage,
   );
 
   ReportReaderState _failure(Object e, {bool load = false}) {
@@ -340,8 +547,12 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
             report: state.report,
             explanations: state.explanations,
             approved: state.approved,
+            failedExplanations: state.failedExplanations,
+            writingLanguages: state.writingLanguages,
             offline: state.offline,
             explanationPhase: state.explanationPhase,
+            decidingLanguage: state.decidingLanguage,
+            retryingLanguage: state.retryingLanguage,
           )
         : ReportReaderWriteFailure(
             error: error,
@@ -351,8 +562,12 @@ class ReportReaderBloc extends Bloc<ReportReaderEvent, ReportReaderState> {
             report: state.report,
             explanations: state.explanations,
             approved: state.approved,
+            failedExplanations: state.failedExplanations,
+            writingLanguages: state.writingLanguages,
             offline: state.offline,
             explanationPhase: state.explanationPhase,
+            decidingLanguage: state.decidingLanguage,
+            retryingLanguage: state.retryingLanguage,
           );
   }
 }

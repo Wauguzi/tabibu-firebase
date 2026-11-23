@@ -59,6 +59,7 @@ class CaseHive {
     required this.cancelReason,
     required this.createdAt,
     required this.lastUpdatedAt,
+    required this.openMdtUid,
     required this.synced,
   });
 
@@ -114,6 +115,7 @@ class CaseHive {
       cancelReason: model.cancelReason,
       createdAt: model.createdAt,
       lastUpdatedAt: model.lastUpdatedAt,
+      openMdtUid: model.openMdtUid,
       synced: model.synced,
     );
   }
@@ -170,6 +172,7 @@ class CaseHive {
       cancelReason: cancelReason,
       createdAt: createdAt,
       lastUpdatedAt: lastUpdatedAt,
+      openMdtUid: openMdtUid,
       synced: synced,
     );
   }
@@ -326,4 +329,8 @@ class CaseHive {
 
   @HiveField(50)
   final bool synced;
+
+  // A record cached before this field has none: it reads as no open consult.
+  @HiveField(51, defaultValue: '')
+  final String openMdtUid;
 }

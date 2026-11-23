@@ -14,12 +14,14 @@ import 'package:tabibu/core/constants/app_status_colors.dart';
 import 'package:tabibu/core/constants/enums.dart';
 import 'package:tabibu/core/constants/theme_builder.dart';
 import 'package:tabibu/core/helpers/reference_data_helper.dart';
+import 'package:tabibu/core/services/ai_logic_service.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/alerts/data/models/notifiable_disease_model.dart';
 import 'package:tabibu/features/alerts/data/models/notifiable_lab_test_model.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_state.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
+import 'package:tabibu/features/cases/blocs/cases_bloc/cases_event.dart';
 import 'package:tabibu/features/cases/data/models/case_model.dart';
 import 'package:tabibu/features/cases/data/models/ordered_test_model.dart';
 import 'package:tabibu/features/notifications/blocs/notifications_bloc/notifications_state.dart';
@@ -28,7 +30,11 @@ import 'package:tabibu/features/preread/data/datasources/preread_storage.dart';
 import 'package:tabibu/features/preread/data/models/preread_draft_model.dart';
 import 'package:tabibu/features/preread/data/models/preread_finding_model.dart';
 import 'package:tabibu/features/preread/data/models/preread_model.dart';
+import 'package:tabibu/features/preread/data/models/region_read_request.dart';
+import 'package:tabibu/features/preread/data/models/region_read_result.dart';
 import 'package:tabibu/features/preread/data/region_read_client.dart';
+import 'package:tabibu/features/preread/presentation/widgets/region_read_panel.dart';
+import 'package:tabibu/features/preread/presentation/widgets/region_read_sheet.dart';
 import 'package:tabibu/features/reports/blocs/case_workspace_bloc/case_workspace_event.dart';
 import 'package:tabibu/features/reports/blocs/case_workspace_bloc/case_workspace_state.dart';
 import 'package:tabibu/features/reports/data/models/notifiable_finding_model.dart';
@@ -40,10 +46,12 @@ import 'package:tabibu/features/reports/data/models/report_template_model.dart';
 import 'package:tabibu/features/reports/data/models/report_template_question_model.dart';
 import 'package:tabibu/features/reports/data/models/report_template_section_model.dart';
 import 'package:tabibu/features/reports/presentation/case_workspace_screen.dart';
+import 'package:tabibu/features/reports/presentation/widgets/report_flag_switch.dart';
 import 'package:tabibu/features/reports/presentation/widgets/signature_pad.dart';
 import 'package:tabibu/features/reports/presentation/widgets/signed_case_view.dart';
 import 'package:tabibu/features/reports/presentation/widgets/verdict_selector.dart';
 import 'package:tabibu/features/reports/presentation/widgets/workspace_score_card.dart';
+import 'package:tabibu/features/reports/presentation/widgets/workspace_step_section.dart';
 import 'package:tabibu/features/worklist/presentation/widgets/ai_mark.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
@@ -126,6 +134,39 @@ class _SlideHttpResponse extends Stream<List<int>>
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
+
+/// Answers region reads from a script, holding the last request.
+class _ScriptedRegionClient implements RegionReadClient {
+  _ScriptedRegionClient(this._script);
+
+  final List<RegionReadResult> _script;
+  RegionReadRequest? lastRequest;
+  var _calls = 0;
+
+  @override
+  Future<RegionReadResult> readRegion(RegionReadRequest request) async {
+    lastRequest = request;
+    final next =
+        _script[_calls < _script.length ? _calls++ : _script.length - 1];
+    return next;
+  }
+}
+
+final _regionBytes = Uint8List.fromList([9, 9, 9]);
+
+const _regionRead = RegionReadResult(
+  impression: 'Calm lymphocytes.',
+  features: ['Even spacing', 'Round nuclei'],
+  uncertainty: .medium,
+  caveat: 'One region, not a diagnosis.',
+);
+
+const _regionReadB = RegionReadResult(
+  impression: 'Crowded glands.',
+  features: ['Stacked nuclei'],
+  uncertainty: .high,
+  caveat: 'Still one region, not a diagnosis.',
+);
 
 const _caseUid = 'case-1';
 const _runUid = 'run-1';
@@ -297,6 +338,7 @@ void main() {
 
     setUpAll(() async {
       registerFallbackValue(const CaseWorkspaceReset());
+      registerFallbackValue(const CasesRequested(uid: '', role: .pathologist));
       l10n = await AppLocalizations.delegate.load(const Locale('en'));
       swL10n = await AppLocalizations.delegate.load(const Locale('sw'));
     });
@@ -324,6 +366,7 @@ void main() {
       double textScale = 1,
       bool Function()? regionReadEnabled,
       RegionReadClient? regionClient,
+      Future<Uint8List?> Function()? regionCapture,
     }) async {
       tester.view.physicalSize = surface;
       tester.view.devicePixelRatio = 3;
@@ -345,6 +388,7 @@ void main() {
               storage: storage,
               regionReadEnabled: regionReadEnabled,
               regionClient: regionClient,
+              regionCapture: regionCapture,
             ),
           ),
         ],
@@ -445,6 +489,12 @@ void main() {
         )
         .at(at);
 
+    /// A pill can sit past the edge of its row; bring it on screen first.
+    Future<void> chooseScore(WidgetTester tester, Finder option) async {
+      await tester.ensureVisible(option);
+      await tester.tap(option);
+    }
+
     // Every explicit colour painted under [root].
     List<Color> colours(WidgetTester tester, Finder root) {
       Iterable<Widget> under(Type type) => find
@@ -512,6 +562,29 @@ void main() {
         expect(find.text(l10n.workspaceRequestAccept), findsOneWidget);
         expect(find.text(l10n.workspaceRequestDecline), findsOneWidget);
         expect(find.byType(WorkspaceScoreCard), findsNothing);
+      });
+
+      testWidgets('Accept keeps its spinner through the reload that follows', (
+        tester,
+      ) async {
+        // After the write the case reloads; an idle button there reads as a
+        // frozen screen.
+        await pumpScreen(
+          tester,
+          CaseWorkspaceLoadInProgress(
+            caseUid: _caseUid,
+            caseModel: asked().caseModel,
+          ),
+        );
+
+        // A loading button shows its spinner in place of the label text.
+        final accept = tester.widget<TabibuButton>(
+          find.byWidgetPredicate(
+            (w) => w is TabibuButton && w.label == l10n.workspaceRequestAccept,
+          ),
+        );
+        expect(accept.isLoading, isTrue);
+        expect(accept.onTap, isNull);
       });
 
       testWidgets('Accept sends the acceptance', (tester) async {
@@ -994,7 +1067,7 @@ void main() {
           _aiNextStep,
           l10n.deskBandRow(l10n.deskBandHigh, '87%'),
           l10n.urgencyPriority,
-          'density · 2.5',
+          'Density · 2.50',
         ]) {
           expect(inFrame(find.text(value)), findsOneWidget, reason: value);
         }
@@ -1003,6 +1076,31 @@ void main() {
         expect(mark, findsOneWidget);
         expect(tester.widget<AiMark>(mark).label, l10n.deskAiDraftReady);
         expect(inFrame(mark), findsNothing);
+      });
+
+      testWidgets('the pre-read models stay shown after scrolling off', (
+        tester,
+      ) async {
+        await pumpScreen(tester, _chooser(), surface: const Size(1170, 1800));
+        expect(find.text('seg-model-v1'), findsOneWidget);
+
+        final list = find
+            .byWidgetPredicate(
+              (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+            )
+            .first;
+        final position = tester.state<ScrollableState>(list).position;
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pump();
+        if (position.pixels < position.maxScrollExtent) {
+          position.jumpTo(position.maxScrollExtent);
+          await tester.pump();
+        }
+        expect(find.text('seg-model-v1'), findsNothing);
+
+        position.jumpTo(0);
+        await tester.pump();
+        expect(find.text('seg-model-v1'), findsOneWidget);
       });
 
       testWidgets('the AI draft in the fields is framed too', (tester) async {
@@ -1056,30 +1154,37 @@ void main() {
           _locked(diagnosis: _ownDiagnosis, fromPreread: true),
         );
 
+        expect(find.text('1 · ${l10n.workspaceStepAiScore}'), findsOneWidget);
+        expect(find.text(l10n.workspaceStepToDo), findsOneWidget);
         expect(find.byType(WorkspaceScoreCard), findsOneWidget);
         expect(find.text(l10n.scoreLockLine), findsOneWidget);
-        expect(find.text(l10n.workspaceStartFromAiDraft), findsNothing);
+        expect(find.text(l10n.scoreAnswerEveryQuestion), findsOneWidget);
+        expect(find.text('2 · ${l10n.reportSectionDiagnosis}'), findsOneWidget);
+        expect(find.text(l10n.workspaceStepWaiting), findsOneWidget);
+        expect(find.text(l10n.workspaceDiagnosisWaiting), findsWidgets);
+        expect(
+          find.byWidgetPredicate(
+            (w) =>
+                w is TabibuTextField && w.label == l10n.reportSectionDiagnosis,
+          ),
+          findsNothing,
+        );
+        // Before a score the AI draft is never put in.
+        verifyNever(
+          () => blocs.caseWorkspace.add(const CaseDraftStartedFromPreread()),
+        );
         expect(enabled(tester, l10n.workspaceSignReport), isFalse);
         expect(enabled(tester, l10n.workspaceSaveDraft), isFalse);
-        expect(field(tester, l10n.reportSectionDiagnosis).readOnly, isTrue);
-        expect(field(tester, l10n.reportSectionComments).readOnly, isTrue);
+
+        await tester.tap(find.text('2 · ${l10n.reportSectionDiagnosis}'));
+        await tester.pump();
+
         expect(
-          tester
-              .widget<CheckRow>(
-                find.widgetWithText(CheckRow, l10n.workspaceCriticalFinding),
-              )
-              .onChanged,
-          isNull,
-        );
-        expect(
-          find
-              .widgetWithText(
-                TabibuFilterChip,
-                l10n.reportPdfDiagnosisTypeFinal,
-              )
-              .evaluate()
-              .map((e) => (e.widget as TabibuFilterChip).onTap),
-          everyElement(isNull),
+          find.byWidgetPredicate(
+            (w) =>
+                w is TabibuTextField && w.label == l10n.reportSectionDiagnosis,
+          ),
+          findsNothing,
         );
         verifyNever(() => blocs.caseWorkspace.add(any()));
       });
@@ -1101,9 +1206,73 @@ void main() {
 
         expect(find.byType(WorkspaceScoreCard), findsNothing);
         expect(find.text(l10n.scoreLockLine), findsNothing);
+        // Folded once saved: the one line waits behind the arrow.
+        expect(find.text(l10n.scoreSavedSummary(4)), findsNothing);
+        expect(find.text(l10n.workspaceStepDone), findsOneWidget);
         expect(enabled(tester, l10n.workspaceSignReport), isTrue);
         expect(enabled(tester, l10n.workspaceSaveDraft), isTrue);
         expect(field(tester, l10n.reportSectionDiagnosis).readOnly, isFalse);
+      });
+
+      testWidgets('saving the score scrolls the diagnosis into view', (
+        tester,
+      ) async {
+        await pumpScreen(
+          tester,
+          _locked(diagnosis: _ownDiagnosis, fromPreread: true),
+          surface: const Size(1170, 1800),
+        );
+
+        final heading = find.text('2 · ${l10n.reportSectionDiagnosis}');
+        final list = find
+            .byWidgetPredicate(
+              (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+            )
+            .first;
+        await tester.scrollUntilVisible(heading, 400, scrollable: list);
+        // Parked at the bottom of the short screen. Saving brings it up.
+        expect(tester.getTopLeft(heading).dy, greaterThan(200));
+
+        await emit(
+          tester,
+          CaseScoreSuccess(
+            caseUid: _caseUid,
+            caseModel: _case(),
+            draft: _draft(diagnosis: _ownDiagnosis, fromPreread: true),
+            preread: _preread(),
+            score: _score,
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 300));
+
+        final top = tester.getTopLeft(heading).dy;
+        expect(top, inInclusiveRange(0, 160));
+      });
+
+      testWidgets('a scored case reopens on the diagnosis', (tester) async {
+        await pumpScreen(tester, _chooser());
+
+        expect(find.byType(WorkspaceScoreCard), findsNothing);
+        expect(find.text('2 · ${l10n.reportSectionDiagnosis}'), findsOneWidget);
+        // The score's one line is behind its arrow: shut, then shown.
+        expect(find.text(l10n.scoreSavedSummary(4)), findsNothing);
+        await tester.tap(find.text('1 · ${l10n.workspaceStepAiScore}'));
+        await tester.pump();
+        expect(find.text(l10n.scoreSavedSummary(4)), findsOneWidget);
+        await tester.tap(find.text('1 · ${l10n.workspaceStepAiScore}'));
+        await tester.pump();
+        expect(find.text(l10n.scoreSavedSummary(4)), findsNothing);
+      });
+
+      testWidgets('the critical switch sends the flag', (tester) async {
+        await pumpScreen(tester, _signable());
+
+        await tester.tap(find.text(l10n.workspaceCriticalFinding));
+        await tester.pump();
+
+        expect(verify(() => blocs.caseWorkspace.add(captureAny())).captured, [
+          const CaseDraftEdited(fields: {'isCritical': true}),
+        ]);
       });
 
       testWidgets('a pre-read that is not ready never locks the '
@@ -1121,6 +1290,32 @@ void main() {
         expect(find.byType(AiDraftFrame), findsNothing);
         expect(find.byType(AiMark), findsNothing);
         expect(enabled(tester, l10n.workspaceSignReport), isTrue);
+        // No score to give, so Diagnosis is the first and only step.
+        final steps = tester
+            .widgetList<WorkspaceStepSection>(find.byType(WorkspaceStepSection))
+            .toList();
+        expect(steps.map((step) => step.number), [1]);
+      });
+
+      testWidgets('on a manual read the diagnosis is starred, and Sign waits '
+          'for it with the starred-fields line', (tester) async {
+        await pumpScreen(
+          tester,
+          _loaded(
+            draft: _draft(),
+            preread: _preread(status: 'Failed'),
+          ),
+        );
+
+        final diagnosisField = tester.widget<TabibuTextField>(
+          find.byWidgetPredicate(
+            (w) =>
+                w is TabibuTextField && w.label == l10n.reportSectionDiagnosis,
+          ),
+        );
+        expect(diagnosisField.required, isTrue);
+        expect(find.text(l10n.workspaceRequiredBeforeSign), findsOneWidget);
+        expect(enabled(tester, l10n.workspaceSignReport), isFalse);
       });
 
       testWidgets('nothing is preselected on the score card', (tester) async {
@@ -1146,11 +1341,11 @@ void main() {
       ) async {
         await pumpScreen(tester, _locked());
 
-        await tester.tap(scoreOption(l10n.scoreAgree));
-        await tester.tap(scoreOption(l10n.scorePartlyAgree, at: 1));
-        await tester.tap(scoreOption(l10n.scoreDisagree, at: 2));
-        await tester.tap(scoreOption(l10n.scoreCorrected));
-        await tester.tap(scoreOption(l10n.scorePoor));
+        await chooseScore(tester, scoreOption(l10n.scoreAgree));
+        await chooseScore(tester, scoreOption(l10n.scorePartlyAgree, at: 1));
+        await chooseScore(tester, scoreOption(l10n.scoreDisagree, at: 2));
+        await chooseScore(tester, scoreOption(l10n.scoreCorrected));
+        await chooseScore(tester, scoreOption(l10n.scorePoor));
         await tester.pump();
         expect(enabled(tester, l10n.scoreSave), isFalse);
         expect(
@@ -1158,12 +1353,12 @@ void main() {
           isNull,
         );
 
-        await tester.tap(
-          find.descendant(
-            of: find.byType(OverallScore),
-            matching: find.text('4'),
-          ),
+        final overall = find.descendant(
+          of: find.byType(OverallScore),
+          matching: find.text('4'),
         );
+        await tester.ensureVisible(overall);
+        await tester.tap(overall);
         await tester.pump();
         expect(enabled(tester, l10n.scoreSave), isTrue);
         expect(
@@ -1189,58 +1384,73 @@ void main() {
         ]);
       });
 
-      testWidgets('nothing is adopted or sent until a button is '
-          'tapped', (tester) async {
+      testWidgets('a scored, untouched draft takes the AI draft by itself, '
+          'once', (tester) async {
         await pumpScreen(tester, _chooser());
-
-        expect(find.text(l10n.workspaceStartFromAiDraft), findsOneWidget);
-        expect(find.text(l10n.workspaceWriteOwn), findsOneWidget);
-        // The fields stay in view under the buttons, empty: nothing of the AI
-        // draft is put in them until its own button is tapped.
-        expect(
-          field(tester, l10n.reportSectionDiagnosis).controller?.text,
-          isEmpty,
-        );
-        expect(
-          field(tester, l10n.reportSectionComments).controller?.text,
-          isEmpty,
-        );
-        expect(aiDraftFrames(), findsNothing);
-        verifyNever(() => blocs.caseWorkspace.add(any()));
-      });
-
-      testWidgets('Write my own sends nothing and opens empty '
-          'fields', (tester) async {
-        await pumpScreen(tester, _chooser());
-
-        await tester.tap(find.text(l10n.workspaceWriteOwn));
+        // The ask goes after the frame; a rebuild must not ask again.
         await tester.pump();
-
-        verifyNever(() => blocs.caseWorkspace.add(any()));
-        expect(find.text(l10n.workspaceStartFromAiDraft), findsNothing);
-        expect(
-          field(tester, l10n.reportSectionDiagnosis).controller?.text,
-          isEmpty,
-        );
-        expect(
-          field(tester, l10n.reportSectionComments).controller?.text,
-          isEmpty,
-        );
-        expect(aiDraftFrames(), findsNothing);
-        expect(find.text(l10n.workspaceYourEdit), findsNothing);
-      });
-
-      testWidgets('only the explicit button adopts the AI draft', (
-        tester,
-      ) async {
-        await pumpScreen(tester, _chooser());
-
-        await tester.tap(find.text(l10n.workspaceStartFromAiDraft));
         await tester.pump();
 
         expect(verify(() => blocs.caseWorkspace.add(captureAny())).captured, [
           const CaseDraftStartedFromPreread(),
         ]);
+        expect(find.text(l10n.workspaceAiFilledHint), findsNothing);
+      });
+
+      testWidgets("the pathologist's own diagnosis is never replaced", (
+        tester,
+      ) async {
+        await pumpScreen(
+          tester,
+          _loaded(
+            draft: _draft(diagnosis: _ownDiagnosis),
+            preread: _preread(),
+            score: _score,
+          ),
+        );
+        await tester.pump();
+
+        verifyNever(
+          () => blocs.caseWorkspace.add(const CaseDraftStartedFromPreread()),
+        );
+      });
+
+      testWidgets("the pathologist's saved comments are never replaced", (
+        tester,
+      ) async {
+        await pumpScreen(
+          tester,
+          _loaded(
+            draft: _draft(comments: 'My own note on the margins'),
+            preread: _preread(),
+            score: _score,
+          ),
+        );
+        await tester.pump();
+
+        verifyNever(
+          () => blocs.caseWorkspace.add(const CaseDraftStartedFromPreread()),
+        );
+        expect(find.text('My own note on the margins'), findsOneWidget);
+      });
+
+      testWidgets('AI-filled fields say they are there to be edited', (
+        tester,
+      ) async {
+        await pumpScreen(tester, _adopted());
+
+        expect(find.text(l10n.workspaceAiFilledHint), findsOneWidget);
+      });
+
+      testWidgets('once both are the pathologist own words, the hint goes', (
+        tester,
+      ) async {
+        await pumpScreen(
+          tester,
+          _adopted(diagnosis: _ownDiagnosis, comments: _ownComments),
+        );
+
+        expect(find.text(l10n.workspaceAiFilledHint), findsNothing);
       });
 
       testWidgets('text equal to the AI draft is framed as an AI '
@@ -1327,11 +1537,11 @@ void main() {
         await pumpScreen(tester, _signable());
 
         final row = find.widgetWithText(
-          CheckRow,
+          ReportFlagSwitch,
           l10n.workspacePositiveFor('Malaria'),
         );
         expect(row, findsOneWidget);
-        expect(tester.widget<CheckRow>(row).value, isFalse);
+        expect(tester.widget<ReportFlagSwitch>(row).value, isFalse);
         expect(find.text(l10n.workspaceNotifiableExplainer), findsOneWidget);
         expect(
           find.textContaining(l10n.workspacePositiveFor('Dengue')),
@@ -1344,7 +1554,7 @@ void main() {
         expect(
           find.byWidgetPredicate(
             (w) =>
-                w is CheckRow &&
+                w is ReportFlagSwitch &&
                 w.label.startsWith(l10n.workspacePositiveFor('')),
           ),
           findsOneWidget,
@@ -1366,13 +1576,13 @@ void main() {
         expect(
           find.byWidgetPredicate(
             (w) =>
-                w is CheckRow &&
+                w is ReportFlagSwitch &&
                 w.label.startsWith(l10n.workspacePositiveFor('')),
           ),
           findsNothing,
         );
         expect(
-          find.widgetWithText(CheckRow, l10n.workspaceCriticalFinding),
+          find.widgetWithText(ReportFlagSwitch, l10n.workspaceCriticalFinding),
           findsOneWidget,
         );
       });
@@ -1455,10 +1665,10 @@ void main() {
         );
 
         final row = find.widgetWithText(
-          CheckRow,
+          ReportFlagSwitch,
           l10n.workspacePositiveFor('Malaria'),
         );
-        expect(tester.widget<CheckRow>(row).value, isTrue);
+        expect(tester.widget<ReportFlagSwitch>(row).value, isTrue);
 
         await tester.tap(find.text(l10n.workspacePositiveFor('Malaria')));
         await tester.pump();
@@ -1787,7 +1997,7 @@ void main() {
         expect(find.byType(AiDraftFrame), findsOneWidget);
       });
 
-      testWidgets('labels the heatmap legend as AI pre-read, not a result', (
+      testWidgets('the pre-read card carries the disclaimer, not a row', (
         tester,
       ) async {
         when(
@@ -1807,8 +2017,14 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
-        expect(find.text(l10n.workspaceAiPreread), findsWidgets);
-        expect(find.text(l10n.workspaceAiPrereadNotResult), findsOneWidget);
+        expect(find.text(l10n.workspaceAiPrereadDisclaimer), findsOneWidget);
+        expect(
+          find.ancestor(
+            of: find.text(l10n.workspaceAiPrereadDisclaimer),
+            matching: find.byType(AiDraftFrame),
+          ),
+          findsOneWidget,
+        );
       });
 
       testWidgets('Save draft sends only what changed', (tester) async {
@@ -1904,10 +2120,14 @@ void main() {
           ),
         );
 
+        expect(find.text('1 · ${l10n.reportSectionDiagnosis}'), findsOneWidget);
+        expect(find.text(l10n.workspaceStepAiScore), findsNothing);
         expect(find.text(l10n.workspaceAmendmentReason), findsOneWidget);
         expect(find.text('Typo in site'), findsOneWidget);
         expect(find.text(_ownDiagnosis), findsOneWidget);
-        expect(find.text(l10n.workspaceStartFromAiDraft), findsNothing);
+        verifyNever(
+          () => blocs.caseWorkspace.add(const CaseDraftStartedFromPreread()),
+        );
         expect(find.text(l10n.workspaceAiDraft), findsNothing);
         expect(find.byType(AiMark), findsNothing);
         expect(find.text(l10n.scoreTitle), findsNothing);
@@ -1936,9 +2156,24 @@ void main() {
           ),
         );
 
+        expect(find.text('1 · ${l10n.reportSectionDiagnosis}'), findsOneWidget);
+        expect(find.text(l10n.workspaceStepAiScore), findsNothing);
+        expect(
+          tester
+              .widget<ReportFlagSwitch>(
+                find.widgetWithText(
+                  ReportFlagSwitch,
+                  l10n.workspaceCriticalFinding,
+                ),
+              )
+              .onChanged,
+          isNull,
+        );
         expect(find.textContaining(l10n.workspaceAddendumText), findsOneWidget);
         expect(find.text('Additional IHC pending.'), findsOneWidget);
-        expect(find.text(l10n.workspaceStartFromAiDraft), findsNothing);
+        verifyNever(
+          () => blocs.caseWorkspace.add(const CaseDraftStartedFromPreread()),
+        );
         expect(find.text(_ownDiagnosis), findsOneWidget);
       });
     });
@@ -2101,7 +2336,7 @@ void main() {
       });
     });
 
-    group('region read entry', () {
+    group('region read', () {
       CaseWorkspaceLoadSuccess accepted({required String pathologistUid}) =>
           _loaded(
             caseModel: _case().copyWith(pathologistUid: pathologistUid),
@@ -2123,6 +2358,8 @@ void main() {
       Future<void> pumpReady(
         WidgetTester tester, {
         bool Function()? regionReadEnabled,
+        RegionReadClient? regionClient,
+        Future<Uint8List?> Function()? regionCapture,
       }) async {
         // Before the first pump: a failed load never retries, so the
         // slide client must be in place before NetworkImage reads.
@@ -2136,7 +2373,8 @@ void main() {
           tester,
           accepted(pathologistUid: 'path-1'),
           regionReadEnabled: regionReadEnabled,
-          regionClient: FakeRegionReadClient(),
+          regionClient: regionClient ?? FakeRegionReadClient(),
+          regionCapture: regionCapture ?? () async => _regionBytes,
         );
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
@@ -2144,18 +2382,37 @@ void main() {
         await tester.pumpAndSettle();
       }
 
+      /// Taps the pill, asks with [question] through the open sheet, and
+      /// settles with the answer in the panel.
+      Future<void> ask(WidgetTester tester, {String question = ''}) async {
+        await tester.ensureVisible(find.text(l10n.regionAskButton));
+        await tester.tap(find.text(l10n.regionAskButton));
+        await tester.pumpAndSettle();
+        if (question.isNotEmpty) {
+          await tester.enterText(
+            find.descendant(
+              of: find.byType(RegionReadSheetBody),
+              matching: find.byType(TextField),
+            ),
+            question,
+          );
+        }
+        await tester.tap(find.text(l10n.regionAskSubmit));
+        await tester.pumpAndSettle();
+      }
+
       testWidgets('shows the ask pill when on', (tester) async {
         usePathologistSession('path-1');
         await pumpReady(tester, regionReadEnabled: () => true);
 
-        expect(find.text(l10n.regionAskAction), findsOneWidget);
+        expect(find.text(l10n.regionAskButton), findsOneWidget);
       });
 
       testWidgets('hides the ask pill when the switch is off', (tester) async {
         usePathologistSession('path-1');
         await pumpReady(tester, regionReadEnabled: () => false);
 
-        expect(find.text(l10n.regionAskAction), findsNothing);
+        expect(find.text(l10n.regionAskButton), findsNothing);
       });
 
       testWidgets('a doctor never sees the ask pill', (tester) async {
@@ -2179,18 +2436,213 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
-        expect(find.text(l10n.regionAskAction), findsNothing);
+        expect(find.text(l10n.regionAskButton), findsNothing);
       });
 
       testWidgets('tapping the pill opens the read sheet', (tester) async {
         usePathologistSession('path-1');
         await pumpReady(tester, regionReadEnabled: () => true);
 
-        await tester.ensureVisible(find.text(l10n.regionAskAction));
-        await tester.tap(find.text(l10n.regionAskAction));
+        await tester.ensureVisible(find.text(l10n.regionAskButton));
+        await tester.tap(find.text(l10n.regionAskButton));
         await tester.pumpAndSettle();
 
         expect(find.text(l10n.regionAskSubmit), findsOneWidget);
+      });
+
+      testWidgets('the guide shows before any ask', (tester) async {
+        usePathologistSession('path-1');
+        await pumpReady(tester, regionReadEnabled: () => true);
+
+        expect(find.byType(RegionReadPanel), findsOneWidget);
+        expect(find.text(l10n.regionReadGuide), findsOneWidget);
+      });
+
+      testWidgets('an ask shows the answer with the model arrow', (
+        tester,
+      ) async {
+        usePathologistSession('path-1');
+        await pumpReady(
+          tester,
+          regionReadEnabled: () => true,
+          regionClient: FakeRegionReadClient(result: _regionRead),
+        );
+        await ask(tester, question: 'Malignant?');
+
+        expect(find.text('Calm lymphocytes.'), findsOneWidget);
+        expect(find.text('• Even spacing'), findsOneWidget);
+        expect(
+          find.textContaining(AiLogicService.regionReadModel),
+          findsOneWidget,
+        );
+        expect(
+          find.textContaining(AiLogicService.defaultRegionTemplateId),
+          findsOneWidget,
+        );
+        expect(find.textContaining('Malignant?'), findsOneWidget);
+        expect(find.text(l10n.regionReadDraftLabel), findsOneWidget);
+        expect(find.text(l10n.regionReadDisclaimer), findsOneWidget);
+      });
+
+      testWidgets('a second ask overwrites the first', (tester) async {
+        usePathologistSession('path-1');
+        await pumpReady(
+          tester,
+          regionReadEnabled: () => true,
+          regionClient: _ScriptedRegionClient([_regionRead, _regionReadB]),
+        );
+        await ask(tester);
+        expect(find.text('Calm lymphocytes.'), findsOneWidget);
+
+        await ask(tester);
+
+        expect(find.text('Crowded glands.'), findsOneWidget);
+        expect(find.text('Calm lymphocytes.'), findsNothing);
+      });
+
+      testWidgets('an ask sends no answer text to the bloc', (tester) async {
+        final added = <String>[];
+        when(() => blocs.cases.add(any())).thenAnswer((invocation) {
+          added.add('${invocation.positionalArguments.single}');
+        });
+        usePathologistSession('path-1');
+        await pumpReady(
+          tester,
+          regionReadEnabled: () => true,
+          regionClient: FakeRegionReadClient(result: _regionRead),
+        );
+        await ask(tester, question: 'Malignant?');
+
+        final sent = added.join(' ');
+        expect(sent, isNot(contains('Calm lymphocytes.')));
+        expect(sent, isNot(contains('Even spacing')));
+        expect(sent, isNot(contains('Malignant?')));
+        expect(sent, isNot(contains('One region, not a diagnosis.')));
+      });
+
+      testWidgets('leaving and reopening shows the guide again', (
+        tester,
+      ) async {
+        usePathologistSession('path-1');
+        await pumpReady(
+          tester,
+          regionReadEnabled: () => true,
+          regionClient: FakeRegionReadClient(result: _regionRead),
+        );
+        await ask(tester);
+        expect(find.text('Calm lymphocytes.'), findsOneWidget);
+
+        await tester.pumpWidget(Container());
+        await pumpReady(
+          tester,
+          regionReadEnabled: () => true,
+          regionClient: FakeRegionReadClient(result: _regionRead),
+        );
+
+        expect(find.text(l10n.regionReadGuide), findsOneWidget);
+        expect(find.text('Calm lymphocytes.'), findsNothing);
+      });
+
+      testWidgets('changing case clears the answer', (tester) async {
+        usePathologistSession('path-1');
+        tester.view.physicalSize = const Size(1170, 12000);
+        tester.view.devicePixelRatio = 3;
+        addTearDown(tester.view.reset);
+        debugNetworkImageHttpClientProvider = _SlideHttpClient.new;
+        addTearDown(() => debugNetworkImageHttpClientProvider = null);
+        when(
+          () => storage.downloadUrl('slides/smear.png'),
+        ).thenAnswer((_) async => 'https://example.test/slide.png');
+        states = StreamController<CaseWorkspaceState>.broadcast();
+        addTearDown(states.close);
+        whenListen(
+          blocs.caseWorkspace,
+          states.stream,
+          initialState: accepted(pathologistUid: 'path-1'),
+        );
+        // One route with the case in its path: going case to case
+        // updates the screen in place, as in production.
+        final router = GoRouter(
+          initialLocation: '/case/case-1',
+          routes: [
+            GoRoute(
+              path: '/case/:caseUid',
+              builder: (_, state) => CaseWorkspaceScreen(
+                caseUid: state.pathParameters['caseUid']!,
+                reference: reference,
+                storage: storage,
+                regionReadEnabled: () => true,
+                regionClient: FakeRegionReadClient(result: _regionRead),
+                regionCapture: () async => _regionBytes,
+              ),
+            ),
+          ],
+        );
+        addTearDown(router.dispose);
+        await tester.pumpWidget(
+          MultiBlocProvider(
+            providers: [
+              BlocProvider<AuthBloc>.value(value: authBloc),
+              ...blocs.providers,
+            ],
+            child: MaterialApp.router(
+              theme: buildTheme(.light),
+              darkTheme: buildTheme(.dark),
+              localizationsDelegates: tabibuLocalizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              routerConfig: router,
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.runAsync(pumpEventQueue);
+        await tester.pumpAndSettle();
+        await ask(tester);
+        expect(find.text('Calm lymphocytes.'), findsOneWidget);
+
+        router.go('/case/case-2');
+        await tester.pumpAndSettle();
+
+        expect(find.text(l10n.regionReadGuide), findsOneWidget);
+        expect(find.text('Calm lymphocytes.'), findsNothing);
+      });
+
+      testWidgets('a doctor never sees the panel', (tester) async {
+        final base = RoleSessions.doctor();
+        when(() => authBloc.state).thenReturn(
+          SignInSuccess(
+            session: PractitionerSession(
+              doctor: base.doctor.copyWith(uid: 'doc-1'),
+              roles: base.roles,
+            ),
+          ),
+        );
+        await pumpReady(tester, regionReadEnabled: () => true);
+
+        expect(find.byType(RegionReadPanel), findsNothing);
+        expect(find.text(l10n.regionReadGuide), findsNothing);
+      });
+
+      testWidgets('dismissing the sheet keeps the previous answer', (
+        tester,
+      ) async {
+        usePathologistSession('path-1');
+        await pumpReady(
+          tester,
+          regionReadEnabled: () => true,
+          regionClient: FakeRegionReadClient(result: _regionRead),
+        );
+        await ask(tester);
+        expect(find.text('Calm lymphocytes.'), findsOneWidget);
+
+        await tester.ensureVisible(find.text(l10n.regionAskButton));
+        await tester.tap(find.text(l10n.regionAskButton));
+        await tester.pumpAndSettle();
+        Navigator.of(tester.element(find.text(l10n.regionAskSubmit))).pop();
+        await tester.pumpAndSettle();
+
+        expect(find.text('Calm lymphocytes.'), findsOneWidget);
       });
     });
   });

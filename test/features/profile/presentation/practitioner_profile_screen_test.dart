@@ -266,6 +266,10 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('My profile'), findsOneWidget);
+      expect(find.text('Profile updated'), findsOneWidget);
+      // The notice closes itself after 4 s.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('a failed save says why and stays', (tester) async {

@@ -107,6 +107,7 @@ _PdfSignature _$PdfSignatureFromJson(Map<String, dynamic> json) =>
               ?.map((e) => (e as num).toInt())
               .toList() ??
           const <int>[],
+      unavailable: json['unavailable'] as String? ?? '',
     );
 
 Map<String, dynamic> _$PdfSignatureToJson(_PdfSignature instance) =>
@@ -117,6 +118,7 @@ Map<String, dynamic> _$PdfSignatureToJson(_PdfSignature instance) =>
       'signedAtLabel': instance.signedAtLabel,
       'contentRef': instance.contentRef,
       'png': instance.png,
+      'unavailable': instance.unavailable,
     };
 
 _PdfFooter _$PdfFooterFromJson(Map<String, dynamic> json) => _PdfFooter(

@@ -53,14 +53,18 @@ class LockAfterScreen extends StatelessWidget {
                   SettingsGroup(
                     title: l10n.appLockAskPinWhen,
                     children: [
+                      // Switches, as on App lock: the one that is on is the
+                      // choice. One is always on, so off is not a choice.
                       for (final seconds in LockBloc.lockAfterOptions)
-                        SettingsRow(
+                        SettingsSwitchRow(
                           icon: Assets.icons.clockIcon,
                           title: _label(l10n, seconds),
                           supporting: seconds == current
                               ? l10n.appLockOnOpen
                               : null,
-                          onTap: () {
+                          value: seconds == current,
+                          onChanged: (on) {
+                            if (!on) return;
                             context.read<LockBloc>().add(
                               LockAfterChanged(seconds: seconds),
                             );

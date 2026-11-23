@@ -7,6 +7,32 @@ import '../../helpers/helpers.dart';
 
 void main() {
   group('TabibuBottomSheet', () {
+    Future<void> openWith(
+      WidgetTester tester,
+      Widget Function(BuildContext) builder,
+    ) async {
+      await tester.pumpApp(
+        Scaffold(
+          body: Center(
+            child: Builder(
+              builder: (context) => TextButton(
+                onPressed: () => TabibuBottomSheet.show<void>(
+                  context,
+                  title: 'Sheet title',
+                  builder: builder,
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      // A zero-duration pump does not return while this route is up.
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 600));
+    }
+
     // Results are captured, not awaited: awaiting a route's future inside a
     // widget test blocks until a pump that never comes.
     Future<List<String?>> openSheet(
@@ -144,6 +170,44 @@ void main() {
         subtitle: 'A subtitle long enough to wrap onto a second line',
       );
       expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the scroll view ends at the keyboard', (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetViewInsets);
+      await openWith(tester, (_) => const Text('Sheet body'));
+
+      final screen = tester.view.physicalSize.height;
+      final scroll = tester.getRect(find.byType(SingleChildScrollView));
+      expect(scroll.bottom, lessThanOrEqualTo(screen - 320));
+    });
+
+    testWidgets('a focused field under the keyboard scrolls into view', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetViewInsets);
+      await openWith(
+        tester,
+        (_) => const Column(
+          children: [
+            SizedBox(height: 520),
+            TextField(key: Key('low-field')),
+            SizedBox(height: 40),
+          ],
+        ),
+      );
+      tester.view.viewInsets = const FakeViewPadding(bottom: 320);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.showKeyboard(find.byKey(const Key('low-field')));
+      await tester.pump(const Duration(milliseconds: 600));
+
+      final screen = tester.view.physicalSize.height;
+      final field = tester.getRect(find.byKey(const Key('low-field')));
+      expect(field.bottom, lessThanOrEqualTo(screen - 320));
     });
 
     testWidgets('without a title the content opens the sheet', (tester) async {

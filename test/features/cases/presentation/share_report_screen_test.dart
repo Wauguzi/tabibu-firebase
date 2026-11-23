@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bloc_test/bloc_test.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -261,17 +263,63 @@ void main() {
       ).called(1);
     });
 
-    testWidgets('a created share replaces the screen with the done screen', (
+    testWidgets('a created share goes back to the report with a notice', (
       tester,
     ) async {
-      await pumpScreen(
-        tester,
-        visible: [_doctor()],
-        shareStates: [const ShareWriteInProgress(), const ShareCreateSuccess()],
+      tester.view.physicalSize = const Size(1170, 3000);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      when(() => blocs.directory.state).thenReturn(
+        DirectoryLoadSuccess(all: [_doctor()], visible: [_doctor()]),
       );
-      await tester.pumpAndSettle();
+      final states = StreamController<ShareState>.broadcast();
+      addTearDown(states.close);
+      whenListen(
+        blocs.share,
+        states.stream,
+        initialState: const ShareInitial(),
+      );
+      final router = GoRouter(
+        initialLocation: '/patient/result/c1',
+        routes: [
+          GoRoute(
+            path: '/patient/result/:caseUid',
+            builder: (_, state) =>
+                Text('stub result ${state.pathParameters['caseUid']}'),
+            routes: [
+              GoRoute(
+                path: 'share',
+                builder: (_, state) => MultiBlocProvider(
+                  providers: [
+                    BlocProvider<AuthBloc>.value(value: authBloc),
+                    ...blocs.providers,
+                  ],
+                  child: ShareReportScreen(
+                    caseUid: state.pathParameters['caseUid']!,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await tester.pumpRouterApp(router);
+      unawaited(router.push<void>('/patient/result/c1/share'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(find.byType(ShareReportScreen), findsOneWidget);
 
-      expect(find.text('stub done c1'), findsOneWidget);
+      states.add(const ShareCreateSuccess());
+      await tester.pump();
+      // The route's exit transition, then the notice on the report.
+      await tester.pump(const Duration(seconds: 1));
+
+      expect(find.byType(ShareReportScreen), findsNothing);
+      expect(find.text('stub result c1'), findsOneWidget);
+      expect(find.text(l10n.shareSharedWith(l10n.roleDoctor)), findsOneWidget);
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
       await releaseRouter(tester);
     });
 

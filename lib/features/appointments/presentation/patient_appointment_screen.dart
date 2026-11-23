@@ -181,6 +181,12 @@ class _PatientAppointmentScreenState extends State<PatientAppointmentScreen> {
         (appointment.statusValue == AppointmentStatus.accepted ||
             appointment.statusValue == AppointmentStatus.requested) &&
         start.isAfter(nairobiNow());
+    // The server opens the chat for an accepted or completed visit only.
+    final chat = switch (appointment.statusValue) {
+      .accepted || .completed => _ChatRow.open,
+      .requested => _ChatRow.waiting,
+      .declined || .expired || .cancelled || .noShow => _ChatRow.none,
+    };
     final caseUid = appointment.discussedCaseUid.isNotEmpty
         ? appointment.discussedCaseUid
         : appointment.caseUids.firstOrNull;
@@ -236,16 +242,21 @@ class _PatientAppointmentScreenState extends State<PatientAppointmentScreen> {
               tone: .lavender,
               title: appointment.symptomText,
             ),
-          GroupedRow(
-            icon: Assets.icons.chatIcon,
-            tone: .mint,
-            title: l10n.chatRowTitle,
-            onTap: () => unawaited(
-              PatientAppointmentChatRoute(
-                appointmentUid: appointment.uid,
-              ).push<void>(context),
+          if (chat != _ChatRow.none)
+            GroupedRow(
+              icon: Assets.icons.chatIcon,
+              tone: .mint,
+              title: l10n.chatRowTitle,
+              supporting: chat == _ChatRow.waiting
+                  ? l10n.chatRowWaitingCaption(appointment.doctorName)
+                  : null,
+              enabled: chat == _ChatRow.open,
+              onTap: () => unawaited(
+                PatientAppointmentChatRoute(
+                  appointmentUid: appointment.uid,
+                ).push<void>(context),
+              ),
             ),
-          ),
           if (!upcoming && caseUid != null)
             GroupedRow(
               icon: Assets.icons.testTubeIcon,
@@ -377,3 +388,5 @@ class _PatientAppointmentScreenState extends State<PatientAppointmentScreen> {
     return '$specialty · $facility';
   }
 }
+
+enum _ChatRow { open, waiting, none }

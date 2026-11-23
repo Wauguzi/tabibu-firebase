@@ -13,13 +13,19 @@ import 'package:tabibu/features/appointments/data/models/appointment_model.dart'
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
 import 'package:tabibu/features/cases/blocs/cases_bloc/cases_bloc.dart';
+import 'package:tabibu/features/cases/blocs/cases_bloc/cases_state.dart';
 import 'package:tabibu/features/orders/blocs/order_bloc/order_bloc.dart';
+import 'package:tabibu/features/orders/blocs/order_bloc/order_draft.dart';
 import 'package:tabibu/features/orders/blocs/order_bloc/order_event.dart';
 import 'package:tabibu/features/orders/blocs/order_bloc/order_state.dart';
 import 'package:tabibu/features/orders/presentation/widgets/order_details_step.dart';
 import 'package:tabibu/features/orders/presentation/widgets/order_patient_step.dart';
 import 'package:tabibu/features/orders/presentation/widgets/order_send_step.dart';
 import 'package:tabibu/features/orders/presentation/widgets/order_tests_step.dart';
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_bloc.dart';
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_state.dart';
+import 'package:tabibu/features/patients/data/models/patient_model.dart';
+import 'package:tabibu/features/profile/data/models/doctor_model.dart';
 import 'package:tabibu/features/reports/presentation/widgets/settled_sheet.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
@@ -43,6 +49,12 @@ class _OrderScreenState extends State<OrderScreen> {
   int _step = 0;
   bool _started = false;
   String _chosenUid = '';
+  String _walkInPatientId = '';
+
+  /// Phone and date of birth of the walk-in row, so a later sync can be
+  /// recognised after `alreadyInCare` replaces its id.
+  String _carePhone = '';
+  String _careDob = '';
 
   /// The "+" path: no visit fixed, so the wizard starts at Patient.
   bool get _pickPatient =>
@@ -54,10 +66,25 @@ class _OrderScreenState extends State<OrderScreen> {
   String get _effectiveUid =>
       widget.appointmentUid.isEmpty ? _chosenUid : widget.appointmentUid;
 
-  String get _doctorUid => switch (context.read<AuthBloc>().state.session) {
-    PractitionerSession(:final doctor) => doctor.uid,
-    _ => '',
+  String get _doctorUid => _doctor?.uid ?? '';
+
+  DoctorModel? get _doctor => switch (context.read<AuthBloc>().state.session) {
+    PractitionerSession(:final doctor) => doctor,
+    _ => null,
   };
+
+  bool get _canAdd {
+    final session = context.read<AuthBloc>().state.session;
+    return session is PractitionerSession && session.roles.canAddPatients;
+  }
+
+  bool _draftIsMine(OrderDraft draft) {
+    if (_walkInPatientId.isNotEmpty) {
+      return draft.appointmentUid.isEmpty &&
+          draft.patientId == _walkInPatientId;
+    }
+    return _effectiveUid.isNotEmpty && draft.appointmentUid == _effectiveUid;
+  }
 
   @override
   void initState() {
@@ -70,6 +97,27 @@ class _OrderScreenState extends State<OrderScreen> {
   void _start() {
     if (_started) return;
     final doctorUid = _doctorUid;
+    if (doctorUid.isEmpty) return;
+    if (widget.caseUid.isNotEmpty && widget.appointmentUid.isEmpty) {
+      final caseModel = context.read<CasesBloc>().state.cases.firstWhereOrNull(
+        (c) => c.uid == widget.caseUid,
+      );
+      if (caseModel == null) return;
+      _started = true;
+      _walkInPatientId = caseModel.patientId;
+      _step = _total - 1;
+      context.read<OrderBloc>().add(
+        OrderStarted(
+          appointmentUid: '',
+          patientId: caseModel.patientId,
+          patientName: caseModel.patientName,
+          doctorUid: doctorUid,
+          caseUid: widget.caseUid,
+          declinedPathologistUids: caseModel.declinedPathologistUids,
+        ),
+      );
+      return;
+    }
     final appointment = context
         .read<AppointmentsBloc>()
         .state
@@ -130,6 +178,7 @@ class _OrderScreenState extends State<OrderScreen> {
       );
       if (confirmed != true || !mounted) return;
     }
+    _walkInPatientId = '';
     _started = true;
     order.add(
       OrderStarted(
@@ -143,6 +192,63 @@ class _OrderScreenState extends State<OrderScreen> {
       _chosenUid = appointment.uid;
       _step = 1;
     });
+  }
+
+  void _choosePatient(PatientModel patient) {
+    _started = true;
+    _carePhone = patient.phoneNumber;
+    _careDob = patient.dateOfBirth;
+    context.read<OrderBloc>().add(
+      OrderStarted(
+        appointmentUid: '',
+        patientId: patient.patientId,
+        patientName: patient.fullName,
+        doctorUid: _doctorUid,
+        patientPending: !patient.synced && !patient.held,
+        patientHeld: patient.held,
+      ),
+    );
+    setState(() {
+      _walkInPatientId = patient.patientId;
+      _chosenUid = '';
+      _step = patient.held ? 0 : 1;
+    });
+  }
+
+  /// The patient step unmounts once the wizard advances, so a pending row
+  /// that syncs later (or comes back under the record's id) is applied here.
+  void _onCarePatients(PatientsState state) {
+    if (_walkInPatientId.isEmpty || _carePhone.isEmpty) return;
+    PatientModel? match;
+    for (final patient in state.patients) {
+      if (patient.phoneNumber == _carePhone &&
+          patient.dateOfBirth == _careDob &&
+          patient.doctorUids.contains(_doctorUid)) {
+        match = patient;
+        break;
+      }
+    }
+    if (match == null) return;
+    final pending = !match.synced && !match.held;
+    final draft = context.read<OrderBloc>().state.draft;
+    if (match.patientId == draft.patientId &&
+        match.fullName == draft.patientName &&
+        pending == draft.patientPending &&
+        match.held == draft.patientHeld) {
+      return;
+    }
+    context.read<OrderBloc>().add(
+      OrderPatientResolved(
+        patientId: match.patientId,
+        patientName: match.fullName,
+        patientPending: pending,
+        patientHeld: match.held,
+      ),
+    );
+    final resolvedId = match.patientId;
+    if (resolvedId != _walkInPatientId) {
+      setState(() => _walkInPatientId = resolvedId);
+    }
   }
 
   void _back() {
@@ -180,81 +286,98 @@ class _OrderScreenState extends State<OrderScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
-    return BlocListener<AppointmentsBloc, AppointmentsState>(
-      // The doctor's appointments may still be loading on a cold start.
-      listener: (_, _) => _start(),
-      child: BlocConsumer<OrderBloc, OrderState>(
-        listenWhen: (previous, current) =>
-            current.draft.appointmentUid == _effectiveUid &&
-            previous.runtimeType != current.runtimeType,
-        listener: _onState,
-        builder: (context, state) {
-          final mine = state.draft.appointmentUid == _effectiveUid;
-          final loading =
-              !mine || state is OrderInitial || state is OrderLoadInProgress;
-          return PopScope(
-            canPop: _step == 0 || state.draft.created,
-            onPopInvokedWithResult: (didPop, _) {
-              if (!didPop) _back();
-            },
-            // A tap on empty space drops the keyboard; fields and buttons
-            // keep their own taps.
-            child: GestureDetector(
-              behavior: .translucent,
-              onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-              child: Scaffold(
-                body: SafeArea(
-                  child: Column(
-                    crossAxisAlignment: .stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(
-                          AppSpacing.screenMargin,
-                          AppSpacing.sm,
-                          AppSpacing.screenMargin,
-                          0,
-                        ),
-                        child: StepHeader(
-                          step: _step + 1,
-                          total: _total,
-                          progressLabel: l10n.orderStepProgress(
-                            _step + 1,
-                            _total,
+    return BlocListener<PatientsBloc, PatientsState>(
+      listener: (_, state) => _onCarePatients(state),
+      child: BlocListener<CasesBloc, CasesState>(
+        listener: (_, _) => _start(),
+        child: BlocListener<AppointmentsBloc, AppointmentsState>(
+          // The doctor's appointments may still be loading on a cold start.
+          listener: (_, _) => _start(),
+          child: BlocConsumer<OrderBloc, OrderState>(
+            listenWhen: (previous, current) =>
+                _draftIsMine(current.draft) &&
+                previous.runtimeType != current.runtimeType,
+            listener: _onState,
+            builder: (context, state) {
+              final mine = _draftIsMine(state.draft);
+              final loading =
+                  !mine ||
+                  state is OrderInitial ||
+                  state is OrderLoadInProgress;
+              return PopScope(
+                canPop: _step == 0 || state.draft.created,
+                onPopInvokedWithResult: (didPop, _) {
+                  if (!didPop) _back();
+                },
+                // A tap on empty space drops the keyboard; fields and buttons
+                // keep their own taps.
+                child: GestureDetector(
+                  behavior: .translucent,
+                  onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+                  child: Scaffold(
+                    body: SafeArea(
+                      child: Column(
+                        crossAxisAlignment: .stretch,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(
+                              AppSpacing.screenMargin,
+                              AppSpacing.sm,
+                              AppSpacing.screenMargin,
+                              0,
+                            ),
+                            child: StepHeader(
+                              step: _step + 1,
+                              total: _total,
+                              progressLabel: l10n.orderStepProgress(
+                                _step + 1,
+                                _total,
+                              ),
+                              backLabel: l10n.commonBack,
+                              onBack: _back,
+                            ),
                           ),
-                          backLabel: l10n.commonBack,
-                          onBack: _back,
-                        ),
+                          Expanded(
+                            child: _pickPatient && _step == 0
+                                ? OrderPatientStep(
+                                    appointments: context
+                                        .watch<AppointmentsBloc>()
+                                        .state
+                                        .appointments,
+                                    doctorUid: _doctorUid,
+                                    now: DateTime.now(),
+                                    selectedAppointmentUid:
+                                        _walkInPatientId.isEmpty
+                                        ? _effectiveUid
+                                        : '',
+                                    selectedPatientId: _walkInPatientId,
+                                    onPick: (a) => unawaited(_choose(a)),
+                                    onPickAdded: _choosePatient,
+                                    canAdd: _canAdd,
+                                    county: _doctor?.county ?? '',
+                                    subCounty: _doctor?.subCounty ?? '',
+                                    language: _doctor?.language ?? '',
+                                  )
+                                : loading
+                                ? _waiting(context)
+                                : switch (_pickPatient ? _step - 1 : _step) {
+                                    0 => OrderTestsStep(
+                                      state: state,
+                                      onNext: _next,
+                                    ),
+                                    1 => OrderDetailsStep(state: state),
+                                    _ => OrderSendStep(state: state),
+                                  },
+                          ),
+                        ],
                       ),
-                      Expanded(
-                        child: _pickPatient && _step == 0
-                            ? OrderPatientStep(
-                                appointments: context
-                                    .watch<AppointmentsBloc>()
-                                    .state
-                                    .appointments,
-                                doctorUid: _doctorUid,
-                                now: DateTime.now(),
-                                selectedAppointmentUid: _effectiveUid,
-                                onPick: (a) => unawaited(_choose(a)),
-                              )
-                            : loading
-                            ? _waiting(context)
-                            : switch (_pickPatient ? _step - 1 : _step) {
-                                0 => OrderTestsStep(
-                                  state: state,
-                                  onNext: _next,
-                                ),
-                                1 => OrderDetailsStep(state: state),
-                                _ => OrderSendStep(state: state),
-                              },
-                      ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ),
-          );
-        },
+              );
+            },
+          ),
+        ),
       ),
     );
   }
@@ -264,6 +387,9 @@ class _OrderScreenState extends State<OrderScreen> {
   Widget _waiting(BuildContext context) {
     final l10n = context.l10n;
     final appointments = context.watch<AppointmentsBloc>().state;
+    if (_walkInPatientId.isNotEmpty) {
+      return Center(child: LoadingView(semanticLabel: l10n.orderLoadingLabel));
+    }
     final missing =
         appointments is AppointmentsLoadSuccess &&
         appointments.appointments.none((a) => a.uid == _effectiveUid);

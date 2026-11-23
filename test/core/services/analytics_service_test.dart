@@ -121,4 +121,46 @@ void main() {
             as Map<String, Object?>?;
     expect(captured, {'outcome': 'shown'});
   });
+
+  test('a walk-in patient added carries nothing about the patient', () async {
+    await analytics.logPatientAdded();
+
+    final captured =
+        verify(
+              () => firebase.logEvent(
+                name: 'patient_added',
+                parameters: captureAny(named: 'parameters'),
+              ),
+            ).captured.single
+            as Map<String, Object?>?;
+    expect(captured, isNull);
+  });
+
+  test('an explanation retry carries its language only', () async {
+    await analytics.logExplanationRetried(language: 'sw');
+
+    final captured =
+        verify(
+              () => firebase.logEvent(
+                name: 'explanation_retried',
+                parameters: captureAny(named: 'parameters'),
+              ),
+            ).captured.single
+            as Map<String, Object?>?;
+    expect(captured, {'language': 'sw'});
+  });
+
+  test('a report download carries the role only', () async {
+    await analytics.logReportDownloaded(role: 'doctor');
+
+    final captured =
+        verify(
+              () => firebase.logEvent(
+                name: 'report_downloaded',
+                parameters: captureAny(named: 'parameters'),
+              ),
+            ).captured.single
+            as Map<String, Object?>?;
+    expect(captured, {'role': 'doctor'});
+  });
 }

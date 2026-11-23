@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:tabibu/core/constants/enums.dart';
+import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/core/utils/nairobi_time.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_event.dart';
@@ -12,15 +14,21 @@ import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointment
 import 'package:tabibu/features/appointments/data/models/appointment_model.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_state.dart';
+import 'package:tabibu/features/auth/data/models/auth_session.dart';
 import 'package:tabibu/features/cases/blocs/cases_bloc/cases_event.dart';
 import 'package:tabibu/features/cases/blocs/cases_bloc/cases_state.dart';
 import 'package:tabibu/features/cases/data/models/case_log_entry_model.dart';
 import 'package:tabibu/features/cases/data/models/case_model.dart';
 import 'package:tabibu/features/cases/data/models/ordered_test_model.dart';
 import 'package:tabibu/features/cases/presentation/doctor_case_screen.dart';
+import 'package:tabibu/features/reports/data/cache/report_cache_helper.dart';
+import 'package:tabibu/features/reports/data/models/pathology_report_model.dart';
+import 'package:tabibu/features/reports/presentation/doctor_report_download.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
 import '../../../helpers/helpers.dart';
+import '../../reports/data/models/pathology_report_model_test.dart'
+    show reportJson;
 
 void _useTallSurface(WidgetTester tester) {
   tester.view.physicalSize = const Size(1170, 6000);
@@ -88,6 +96,7 @@ void main() {
     registerFallbackValue(const CasesRequested(uid: '', role: .doctor));
     registerFallbackValue(const CaseLogRequested(caseUid: '', role: .doctor));
     registerFallbackValue(const AppointmentsRequested(uid: '', role: .doctor));
+    registerFallbackValue(Role.doctor);
   });
 
   group('DoctorCaseScreen', () {
@@ -102,6 +111,7 @@ void main() {
       Locale? locale,
       String caseUid = 'case-1',
       List<CasesState>? then,
+      String doctorUid = '',
     }) async {
       if (then == null) {
         when(
@@ -117,9 +127,17 @@ void main() {
       when(() => blocs.appointments.state).thenReturn(
         AppointmentsLoadSuccess(appointments: appointments ?? [_appointment()]),
       );
-      when(
-        () => authBloc.state,
-      ).thenReturn(SignInSuccess(session: RoleSessions.doctor()));
+      final base = RoleSessions.doctor();
+      when(() => authBloc.state).thenReturn(
+        SignInSuccess(
+          session: doctorUid.isEmpty
+              ? base
+              : PractitionerSession(
+                  doctor: base.doctor.copyWith(uid: doctorUid),
+                  roles: base.roles,
+                ),
+        ),
+      );
       await tester.pumpApp(
         MultiBlocProvider(
           providers: [
@@ -454,6 +472,28 @@ void main() {
       expect(find.text(l10n.doctorCasesWithPathologist), findsOneWidget);
     });
 
+    testWidgets('an unsent walk-in still links to a pathologist', (
+      tester,
+    ) async {
+      _useTallSurface(tester);
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      await pumpScreen(
+        tester,
+        cases: CasesLoadSuccess(
+          cases: [
+            _case(
+              currentStage: 'OrderCreated',
+              appointmentUid: '',
+              pathologistName: '',
+            ),
+          ],
+        ),
+        appointments: const [],
+      );
+
+      expect(find.text(l10n.doctorCaseAttachPathologist), findsOneWidget);
+    });
+
     testWidgets('shows the name alone when the age is missing', (tester) async {
       _useTallSurface(tester);
       await pumpScreen(
@@ -488,6 +528,7 @@ void main() {
       expect(find.text(_stamp('2026-10-27T07:42:00Z', 'en')), findsOneWidget);
       expect(find.text(l10n.chipDone), findsNWidgets(4));
       expect(find.text(l10n.doctorReportOpenFull), findsOneWidget);
+      expect(find.text('Download report'), findsOneWidget);
     });
 
     testWidgets('names the report in progress while reporting', (tester) async {
@@ -739,5 +780,52 @@ void main() {
       expect(find.text(l10n.doctorCaseOrder), findsOneWidget);
       await tester.pump(const Duration(milliseconds: 300));
     });
+
+    testWidgets('an uncached report is synced before it can download', (
+      tester,
+    ) async {
+      _useTallSurface(tester);
+      final report = PathologyReportModel.fromJson(
+        reportJson(),
+      ).copyWith(caseUid: 'case-1');
+      final reports = _MockReports();
+      addTearDown(() async {
+        if (getIt.isRegistered<ReportCacheHelper>()) {
+          await getIt.unregister<ReportCacheHelper>();
+        }
+      });
+      getIt.registerSingleton<ReportCacheHelper>(reports);
+      when(
+        () => reports.syncReports('doc-1', role: .doctor),
+      ).thenAnswer((_) async => [report]);
+      when(
+        () => reports.getReports(any(), role: any(named: 'role')),
+      ).thenAnswer((_) async => <PathologyReportModel>[]);
+
+      await pumpScreen(
+        tester,
+        doctorUid: 'doc-1',
+        cases: CasesLoadSuccess(cases: [_case(currentStage: 'ReportSigned')]),
+      );
+      final button = tester.widget<DoctorReportDownloadButton>(
+        find.byType(DoctorReportDownloadButton),
+      );
+      final found = await button.report();
+
+      expect(found?.uid, report.uid);
+      verify(() => reports.syncReports('doc-1', role: .doctor)).called(1);
+      verifyNever(() => reports.getReports(any(), role: any(named: 'role')));
+
+      when(
+        () => reports.syncReports('doc-1', role: .doctor),
+      ).thenThrow(AppError.noInternet);
+      when(
+        () => reports.getReports('doc-1', role: .doctor),
+      ).thenAnswer((_) async => [report]);
+      expect((await button.report())?.uid, report.uid);
+      verify(() => reports.getReports('doc-1', role: .doctor)).called(1);
+    });
   });
 }
+
+class _MockReports extends Mock implements ReportCacheHelper {}

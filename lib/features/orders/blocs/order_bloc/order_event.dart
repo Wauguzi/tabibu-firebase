@@ -21,6 +21,8 @@ final class OrderStarted extends OrderEvent {
     this.testIds = const [],
     this.caseUid = '',
     this.declinedPathologistUids = const [],
+    this.patientPending = false,
+    this.patientHeld = false,
   });
 
   final String appointmentUid;
@@ -29,6 +31,12 @@ final class OrderStarted extends OrderEvent {
   final String doctorUid;
   final List<String> testIds;
   final String caseUid;
+
+  /// Saved on the phone and not yet on the record.
+  final bool patientPending;
+
+  /// Another clinic holds this patient.
+  final bool patientHeld;
 
   /// Pathologists who already refused this case, never offered again.
   final List<String> declinedPathologistUids;
@@ -42,6 +50,8 @@ final class OrderStarted extends OrderEvent {
     testIds,
     caseUid,
     declinedPathologistUids,
+    patientPending,
+    patientHeld,
   ];
 }
 
@@ -87,6 +97,30 @@ final class OrderPaymentChanged extends OrderEvent {
 
   @override
   List<Object?> get props => [insured, insurerId, insurerName, policyNumber];
+}
+
+/// The walk-in row settled after the wizard left the patient step.
+/// The case stays; only who it is for, and whether they are on file, changes.
+final class OrderPatientResolved extends OrderEvent {
+  const OrderPatientResolved({
+    required this.patientId,
+    required this.patientName,
+    required this.patientPending,
+    required this.patientHeld,
+  });
+
+  final String patientId;
+  final String patientName;
+  final bool patientPending;
+  final bool patientHeld;
+
+  @override
+  List<Object?> get props => [
+    patientId,
+    patientName,
+    patientPending,
+    patientHeld,
+  ];
 }
 
 /// Create the case (`createOrder`), then watch its risk check.

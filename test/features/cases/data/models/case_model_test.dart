@@ -72,6 +72,7 @@ Map<String, dynamic> caseJson() => {
   'cancelReason': '',
   'createdAt': '2030-05-01T07:00:00.000Z',
   'lastUpdatedAt': '2030-05-05T10:00:00.000Z',
+  'openMdtUid': 'uid-mdt-1',
 };
 
 void main() {
@@ -238,6 +239,7 @@ void main() {
       expect(hive.cancelReason, '');
       expect(hive.createdAt, '2030-05-01T07:00:00.000Z');
       expect(hive.lastUpdatedAt, '2030-05-05T10:00:00.000Z');
+      expect(hive.openMdtUid, 'uid-mdt-1');
       expect(hive.synced, isTrue);
     });
 

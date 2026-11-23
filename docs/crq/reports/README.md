@@ -12,3 +12,4 @@ patient reads, or the alert path.
 | [CRQ-0003](./CRQ-0003-gemini-thinking-level.md) | Server Gemini calls think at LOW, the lowest level the model accepts | 2026-11-16 | Implemented |
 | [CRQ-0004](./CRQ-0004-device-run-fixes.md) | Fixes from the first device run: the risk check, pre-read timing, audio controls and App Check on iOS | 2026-11-16 | In progress |
 | [CRQ-0005](./CRQ-0005-ai-logic-templates-and-speech.md) | Firebase AI Logic in the app: symptom transcription, the slide-region read and the narrated explanation | 2026-11-16 | In progress |
+| [CRQ-0006](./CRQ-0006-ui-ux-patches.md) | UI and UX patches from the end-to-end device run | 2026-11-17 | In progress |

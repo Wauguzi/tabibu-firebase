@@ -1,4 +1,4 @@
-# Tabibu — Mobile & Web Architecture
+# Tabibu — Mobile Architecture
 
 > **The single source of truth for how the Tabibu app is built.** It is
 > written for a new engineer's first 30 minutes on the code, for Greptile
@@ -12,10 +12,10 @@
 
 | Field | Value |
 |---|---|
-| Platform | Flutter: web demo, Android, iOS; 3 build flavors |
+| Platform | Flutter: iOS (the entry) and Android; 3 build flavors. The code also builds for the web, which this submission does not ship |
 | Owner | Theo — CTO, Mobile Engineer |
 | Status | Draft — the target architecture; §4 and §16 say what exists today |
-| Last reviewed | 2026-11-15 |
+| Last reviewed | 2026-11-18 |
 | Reviewed by | Theo |
 
 ## 1. Purpose
@@ -62,7 +62,7 @@ authoritative for what resolved.
 | Secure storage | `flutter_secure_storage 11.2.0` (exact pin) | Holds the Hive encryption key. On the cold-start path; see §15 rule 2. |
 | Auth providers | `firebase_auth`, `google_sign_in ^7.2.0`, `local_auth ^3.0.2` | Email/password for the seeded demo accounts; Google sign-in; biometric re-entry. |
 | Charts / PDF | `fl_chart ^1.3.0`, `pdf ^3.13.1`, `printing ^5.15.1` | Evaluation charts on the proof screen; the signed report as a PDF. |
-| File picking | `file_picker ^13.3.0`, `image_picker ^1.2.4` | Sign-up photo and licence files, read as bytes so one path serves mobile and the web demo; sizes checked before upload. |
+| File picking | `file_picker ^13.3.0`, `image_picker ^1.2.4` | Sign-up photo and licence files, read as bytes so one path serves every platform; sizes checked before upload. |
 | Asset/font codegen | `flutter_gen ^5.15.0` | Generates `Assets` and `FontFamily` into `lib/gen/`. No hand-written asset paths. |
 | Testing | `flutter_test`, `bloc_test ^10.0.0`, `mocktail ^1.0.5`, `fake_cloud_firestore ^4.4.0` | `fake_cloud_firestore` must track `cloud_firestore`'s minor version (§15 rule 9). |
 
@@ -277,7 +277,8 @@ The registry below is the record. Add a row in the same commit as the model.
 | 9 | `ShareCodeHive` | `cases` | In use |
 | 10 | `RiskCheckHive` | `cases` | In use |
 | 11 | `NotesTranslationHive` | `cases` | In use |
-| 12-15 | none | `cases` | Reserved, unused |
+| 12 | `ExplanationAudioHive` | `cases` | In use |
+| 13-15 | none | `cases` | Reserved, unused |
 | 16 | `PathologyReportHive` | `reports` | In use |
 | 17 | `ReportResponseHive` | `reports` | In use |
 | 18 | `ReportAddendumHive` | `reports` | In use |
@@ -587,7 +588,7 @@ its role reads nothing.
 
 | Path | Holds | Read by | Client writes |
 |---|---|---|---|
-| `cases/{caseUid}` | The order and case: tests, prices, priority, lab fields, stage, location and step | Role patient, doctor or pathologist, in `participantUids` | The doctor, before a pathologist accepts: the clinical and sample notes, and when the sample was collected |
+| `cases/{caseUid}` | The order and case: tests, prices, priority, lab fields, stage, location and step; `openMdtUid`, the case's one open consult, written only by the server and cleared when that consult closes | Role patient, doctor or pathologist, in `participantUids` | The doctor, before a pathologist accepts: the clinical and sample notes, and when the sample was collected |
 | `cases/{c}/log/{seq}` | The append-only stage log | The doctor and pathologist; others only rows marked `patientVisible` | None |
 | `cases/{c}/private/payment` | Payment method, insurer, policy number | The case's doctor and patient | None |
 | `cases/{c}/riskCheck/current` | The order risk check (AI, direct use) | The case's doctor | None |
@@ -636,9 +637,11 @@ stays `profilePictureUrl`.
 | `conversations/{cid}/voice/{m}.m4a` | A participant, once, before the message exists | Participants, as bytes through the SDK into a private cache wiped at sign-out | 512 KB (about 2 minutes) |
 | `speechAudio/**` | Nobody: denied to every client; the server accepts no audio | Nobody | — |
 
-**Boxes.** The data layer adds 21 encrypted boxes, wiped at sign-out with the
+**Boxes.** The data layer adds 23 encrypted boxes, wiped at sign-out with the
 cached audio and image files: `cases`, `caseLogs`, `casePayments`,
-`shareCodes`, `riskChecks`, `notesTranslations`, `pathologyReports`,
+`shareCodes`, `riskChecks`, `notesTranslations`, `explanationAudio` and
+`explanationAudioMeta` (the played narrations, their running total and play
+order), `pathologyReports`,
 `reportDrafts`, `prereadScores`, `worklist`, `reportTexts` (approved texts
 only), `appointments`, `appointmentIntakes`, `conversations`,
 `conversationCursors`, `messages` (a `LazyBox` pruned to the newest 200 per
@@ -693,7 +696,8 @@ leave memory.
 under its home path (`/patient`, `/doctor`, `/pathologist`), so the guard's
 role check covers every tab. Patients have Home, Appointments, Results and
 Profile; doctors Today, Cases, MDT and Profile; pathologists Desk, Signed,
-MDT and Profile. `HomeShell` draws the floating menu over the tabs, keeps
+MDT and Profile. Doctors and pathologists both start a consult from the MDT
+tab, one open consult per case. `HomeShell` draws the floating menu over the tabs, keeps
 each tab's state while another shows, and sends back from another tab to
 the first before it leaves the app. Profile signs out through `AuthBloc`
 after a confirmation sheet; the guard then moves the person to sign-in.
@@ -743,7 +747,7 @@ In summary:
   Firebase Auth custom claims**, set by an admin-only Cloud Function or seeding
   script. They are never a field a client can write.
 - **App Check**: Play Integrity on Android, App Attest on iOS, reCAPTCHA
-  Enterprise on the web demo. Enforced on Firebase AI Logic; Firestore,
+  Enterprise for a web build. Enforced on Firebase AI Logic; Firestore,
   Storage and Authentication are enforced once their metrics show the app's
   requests verified (threat model T-7), and the callables once they set
   `enforceAppCheck`.
@@ -793,7 +797,8 @@ In summary:
   in `bootstrap.dart`, with a test that lists all eight. The in-app AI calls
   have their own client switches, with no server job behind them:
   `hybrid_symptom_tidy_enabled`, `hybrid_notes_summary_enabled`,
-  `region_read_enabled` (off) and `explanation_listen_enabled`
+  `region_read_enabled` and `explanation_listen_enabled`, all on by default,
+  as in the live project
   ([AI service §7](./ai_preread_service.md#7-kill-switches)).
 - **Remote Config at startup**: `bootstrap` sets in-app defaults,
   then fetches and activates within the bootstrap timeout; on any failure
@@ -896,8 +901,8 @@ secret from the environment and leave none on disk. Install with
 Swift Package Manager; `Package.resolved` is committed so every machine
 builds the same Firebase SDK versions.
 
-Release builds use `--obfuscate --split-debug-info`. The web demo is
-deployed to Firebase Hosting. Rules, indexes and functions are deployed with
+Release builds use `--obfuscate --split-debug-info`. The Android APK for
+testing is shared from a Drive folder with the submission. Rules, indexes and functions are deployed with
 `make deploy-*` targets, and a commit that changes them is not finished
 until it is deployed.
 
@@ -916,7 +921,8 @@ until it is deployed.
   Each denial has a matching allowed write that differs only in the field
   under test, so a test cannot pass because of an unrelated failure.
 - **Function tests** in `functions/src/*.test.ts`, run by
-  `make functions-test`: lint and build as a deploy would, then the handlers
+  `make functions-test`: lint and build as a deploy would, type-check the tests
+  and scripts as CI does, then the handlers
   against the Firestore and Auth emulators, so transactions and queries
   behave as in production. Both suites run on the `demo-tabibu` project id,
   which cannot reach the live project.
@@ -1005,11 +1011,11 @@ to see. Greptile is pointed at this section.
    at rest on shared devices.
 7. **App Check is active but not enforced.** Play Integrity needs a Play
    Console app record with at least one upload; App Attest needs an Apple
-   Developer team registered in Firebase; the web demo needs a reCAPTCHA
+   Developer team registered in Firebase; a web build would need a reCAPTCHA
    Enterprise key. Until each exists, that platform's release build cannot
    attest, and enforcing would reject it, App Distribution builds included.
-8. **Web is configured, but its key and App Check are not finished.** The
-   web app is registered (`flutterfire configure`), and
+8. **Web is outside this submission, and unfinished.** The entry is iOS,
+   with an Android APK; the code still builds for the web. The web app is registered (`flutterfire configure`), and
    `DefaultFirebaseOptions.web` now exists. Still open:
    - The auto-created browser key needs HTTP-referrer restrictions to the
      hosting domains and `localhost`.
@@ -1036,7 +1042,8 @@ to see. Greptile is pointed at this section.
     | Rules, indexes and TTL for the §6.3 collections | Live (item 5) |
     | The case, share-code, report, appointment, conversation, notification and alert functions, with the signed-report PDF | Built, with emulator tests |
     | The eight client kill-switch defaults (§10) | Built (`remote_config_defaults.dart`) |
-    | The AI jobs (pre-read, risk check and notes translation, symptom intake, report translation, explanation, alert drafting) | Built in Cloud Functions; their model layer is moving to Gemini, and the app gains Firebase AI Logic calls |
+    | The AI jobs (pre-read, risk check and notes translation, symptom intake, report translation, explanation, alert drafting) | Live in Cloud Functions on `gemini-3.8-flash` through the Agent Platform |
+    | The in-app AI Logic calls (symptom transcription and the region read through server prompt templates, Listen to this summary on `gemini-3.8-flash-tts`) | Live |
     | The in-app hybrid tasks (symptom tidy, notes summary) | Built on Dart, iOS and Android |
     | Voice recording and playback | Built (`record`, `just_audio`) |
     | The blocs and the feature screens | Built |
@@ -1056,3 +1063,4 @@ to see. Greptile is pointed at this section.
 | Date | Change | Author |
 |---|---|---|
 | 2026-11-15 | Crafted for this repository. | Theo |
+| 2026-11-18 | The entry is iOS with an Android APK, the web build out of scope; the in-app AI calls and the server's model are live (§10, §16). | Theo |

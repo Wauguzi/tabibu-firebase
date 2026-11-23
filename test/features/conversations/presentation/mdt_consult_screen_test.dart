@@ -102,6 +102,8 @@ void main() {
     WidgetTester tester, {
     required MdtState state,
     String uid = 'me',
+    Locale? locale,
+    double textScale = 1,
   }) async {
     tester.view.physicalSize = const Size(1170, 4000);
     tester.view.devicePixelRatio = 3;
@@ -115,23 +117,26 @@ void main() {
       routes: [
         GoRoute(
           path: '/mdt/:id',
-          builder: (_, _) => MultiBlocProvider(
-            providers: [
-              BlocProvider<AuthBloc>.value(value: authBloc),
-              ...blocs.providers,
-            ],
-            child: MdtConsultScreen(
-              role: .doctor,
-              conversationUid: 'mdt-1',
-              recorder: recorder,
-              player: player,
-              cues: cues,
+          builder: (_, _) => MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider<AuthBloc>.value(value: authBloc),
+                ...blocs.providers,
+              ],
+              child: MdtConsultScreen(
+                role: .doctor,
+                conversationUid: 'mdt-1',
+                recorder: recorder,
+                player: player,
+                cues: cues,
+              ),
             ),
           ),
         ),
       ],
     );
-    await tester.pumpRouterApp(router);
+    await tester.pumpRouterApp(router, locale: locale);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
   }
@@ -268,6 +273,62 @@ void main() {
           ),
         ),
       ).called(1);
+    });
+
+    testWidgets('the header is the patient line, not the member names', (
+      tester,
+    ) async {
+      await pumpConsult(
+        tester,
+        state: MdtLoadSuccess(
+          active: _consult(
+            summary: const CaseSummaryModel(
+              caseRef: 'C-1',
+              ageBand: '30-39',
+              sex: 'Female',
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('C-1'), findsOneWidget);
+      expect(find.text('30-39 · ${l10n.sexFemale}'), findsOneWidget);
+      expect(find.text(l10n.mdtYou), findsNothing);
+      expect(find.textContaining('Dr. Person'), findsNothing);
+    });
+
+    testWidgets('a closed consult keeps the closed line in the header', (
+      tester,
+    ) async {
+      await pumpConsult(
+        tester,
+        state: MdtLoadSuccess(active: _consult().copyWith(status: 'Closed')),
+      );
+
+      expect(find.text(l10n.mdtClosedSubtitle), findsWidgets);
+      expect(find.text(l10n.mdtYou), findsNothing);
+    });
+
+    testWidgets('the header holds at 2.0x in Kiswahili', (tester) async {
+      final sw = lookupAppLocalizations(const Locale('sw'));
+      await pumpConsult(
+        tester,
+        locale: const Locale('sw'),
+        textScale: 2,
+        state: MdtLoadSuccess(
+          active: _consult(
+            summary: const CaseSummaryModel(
+              caseRef: 'C-1',
+              ageBand: '30-39',
+              sex: 'Female',
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('30-39 · ${sw.sexFemale}'), findsOneWidget);
+      expect(find.text(sw.mdtYou), findsNothing);
+      expect(tester.takeException(), isNull);
     });
   });
 }

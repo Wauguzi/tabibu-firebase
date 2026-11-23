@@ -16,6 +16,7 @@ class AiDraftFrame extends StatefulWidget {
     required this.child,
     this.detail,
     this.footer,
+    this.initiallyExpanded = false,
     super.key,
   });
 
@@ -27,12 +28,39 @@ class AiDraftFrame extends StatefulWidget {
   final String? detail;
   final Widget? footer;
 
+  /// Open on the first build. A later open or close is what comes back,
+  /// including after a list disposes the frame while it is off screen.
+  final bool initiallyExpanded;
+
   @override
   State<AiDraftFrame> createState() => _AiDraftFrameState();
 }
 
 class _AiDraftFrameState extends State<AiDraftFrame> {
-  bool _expanded = false;
+  late bool _expanded;
+  var _restored = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_restored) return;
+    _restored = true;
+    // The workspace list drops this state on scroll. The route's bucket
+    // keeps the person's choice under the caller's PageStorageKey.
+    final stored = PageStorage.maybeOf(context)?.readState(context);
+    if (stored is bool) _expanded = stored;
+  }
+
+  void _toggle() {
+    setState(() => _expanded = !_expanded);
+    PageStorage.maybeOf(context)?.writeState(context, _expanded);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -85,7 +113,7 @@ class _AiDraftFrameState extends State<AiDraftFrame> {
                 ExcludeSemantics(child: label)
               else
                 Tappable(
-                  onTap: () => setState(() => _expanded = !_expanded),
+                  onTap: _toggle,
                   semanticLabel: widget.label,
                   child: ExcludeSemantics(child: label),
                 ),

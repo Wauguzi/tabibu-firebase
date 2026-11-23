@@ -83,6 +83,8 @@ class _AlertEditFormState extends State<AlertEditForm> {
       children: [
         for (final entry in _controllers.entries) ...[
           TabibuTextField(
+            // A white field on the white sheet: the hairline makes it seen.
+            bordered: true,
             label: alertDraftAudience(l10n, entry.key, widget.area),
             controller: entry.value.$1,
             maxLines: 2,
@@ -92,6 +94,8 @@ class _AlertEditFormState extends State<AlertEditForm> {
           ),
           const SizedBox(height: AppSpacing.xs),
           TabibuTextField(
+            // A white field on the white sheet: the hairline makes it seen.
+            bordered: true,
             label: alertDraftAudience(l10n, entry.key, widget.area),
             controller: entry.value.$2,
             maxLines: 8,

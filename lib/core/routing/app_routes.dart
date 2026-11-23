@@ -37,7 +37,6 @@ import 'package:tabibu/features/cases/presentation/enter_share_code_screen.dart'
 import 'package:tabibu/features/cases/presentation/patient_result_screen.dart';
 import 'package:tabibu/features/cases/presentation/reports_ready_screen.dart';
 import 'package:tabibu/features/cases/presentation/results_screen.dart';
-import 'package:tabibu/features/cases/presentation/share_done_screen.dart';
 import 'package:tabibu/features/cases/presentation/share_report_screen.dart';
 import 'package:tabibu/features/cases/presentation/shared_reports_screen.dart';
 import 'package:tabibu/features/cases/presentation/who_can_see_screen.dart';
@@ -66,7 +65,6 @@ import 'package:tabibu/features/profile/presentation/clinic_hours_screen.dart';
 import 'package:tabibu/features/profile/presentation/edit_profile_screen.dart';
 import 'package:tabibu/features/profile/presentation/help_screen.dart';
 import 'package:tabibu/features/profile/presentation/notification_settings_screen.dart';
-import 'package:tabibu/features/profile/presentation/patient_profile_screen.dart';
 import 'package:tabibu/features/profile/presentation/practitioner_profile_screen.dart';
 import 'package:tabibu/features/profile/presentation/privacy_policy_screen.dart';
 import 'package:tabibu/features/profile/presentation/privacy_screen.dart';
@@ -633,19 +631,6 @@ class PatientCalendarRoute extends GoRouteData with $PatientCalendarRoute {
       const CalendarScreen(role: .patient);
 }
 
-/// P-PROFILE-EDIT details.
-@TypedGoRoute<PatientProfileDetailsRoute>(
-  path: '${RoutePaths.patient}/profile/details',
-)
-class PatientProfileDetailsRoute extends GoRouteData
-    with $PatientProfileDetailsRoute {
-  const PatientProfileDetailsRoute();
-
-  @override
-  Widget build(BuildContext context, GoRouterState state) =>
-      const PatientProfileScreen();
-}
-
 /// P-PROFILE-EDIT edit.
 @TypedGoRoute<PatientEditProfileRoute>(
   path: '${RoutePaths.patient}/profile/edit',
@@ -812,21 +797,6 @@ class ShareReportRoute extends GoRouteData with $ShareReportRoute {
   @override
   Widget build(BuildContext context, GoRouterState state) =>
       ShareReportScreen(caseUid: caseUid);
-}
-
-/// P-SHARE · Report shared; reached with pushReplacement. Carries the
-/// case id only; the share and any code live in the ShareBloc (T-18).
-@TypedGoRoute<ShareDoneRoute>(
-  path: '${RoutePaths.patient}/result/:caseUid/share/done',
-)
-class ShareDoneRoute extends GoRouteData with $ShareDoneRoute {
-  const ShareDoneRoute({required this.caseUid});
-
-  final String caseUid;
-
-  @override
-  Widget build(BuildContext context, GoRouterState state) =>
-      ShareDoneScreen(caseUid: caseUid);
 }
 
 /// P-SHARE · Who can see my results.

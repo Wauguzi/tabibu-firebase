@@ -233,17 +233,38 @@ export function histologyDraft(tiles: Tile[], m: Record<string, number>): Prerea
   const unknown = tiles.filter((t) => t.label === 'Unknown').length;
   // Unknown is not Normal: when nothing usable was labelled, or more than a tenth of
   // the section went unlabelled, the draft says so instead of clearing the section.
-  const unlabelled = !any && (tiles.length - unknown === 0 || unknown / tiles.length > 0.1);
+  const read = tiles.length - unknown;
+  const unlabelled = !any && (read === 0 || unknown / tiles.length > 0.1);
+  // A negative finding covers only the areas the model read; the rest are named.
+  const unread =
+    unknown > 0
+      ? [{ text: `${unknown} of ${tiles.length} areas could not be read.`, evidenceIds: [] }]
+      : [];
+  const negative =
+    read === 0
+      ? []
+      : [
+          {
+            text:
+              unknown > 0
+                ? `No tumour in the ${read} ${read === 1 ? 'area' : 'areas'} that could be read.`
+                : 'No area examined shows tumour.',
+            evidenceIds: [],
+          },
+        ];
   return {
     findings: any
       ? [
           {
-            text: `${m.tumourTiles} of ${tiles.length} tiles (${m.tumourAreaPercent}%) are marked as tumour.`,
+            // Clinical words: the findings can be filled into the signed report a
+            // patient reads, which must not say "tile".
+            text: `Tumour in ${m.tumourTiles} of ${tiles.length} areas examined (${m.tumourAreaPercent}%).`,
             evidenceIds: evidence,
           },
           { text: `The largest focus spans about ${m.largestFocusMm} mm.`, evidenceIds: evidence },
+          ...unread,
         ]
-      : [{ text: 'No tile is marked as tumour.', evidenceIds: [] }],
+      : [...negative, ...unread],
     impression: any
       ? `Tumour suspected in the section, in the size range of ${focusClass(m.largestFocusMm)}.`
       : unlabelled

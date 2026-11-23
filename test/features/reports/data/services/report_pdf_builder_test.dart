@@ -694,4 +694,47 @@ void main() {
     expect(text, contains(en.reportPdfAge(36, 9)));
     expect(text, contains(en.reportPdfContentRef('1234 5678 9012')));
   });
+
+  test('a signature image is drawn, and a missing one says so', () async {
+    final drawn = await builder.build(pdfInput(signature: signaturePng), en);
+    expect(
+      latin1.decode(drawn, allowInvalid: true).contains('/Subtype/Image'),
+      isTrue,
+    );
+    expect(
+      _pageTexts(drawn).join('\n'),
+      isNot(contains(reportPdfSignatureUnavailable)),
+    );
+
+    final base = pdfInput();
+    final words = _pageTexts(
+      await builder.build(
+        base.copyWith(
+          signature: base.signature.copyWith(
+            png: const [],
+            unavailable: reportPdfSignatureUnavailable,
+          ),
+        ),
+        en,
+      ),
+    ).join('\n');
+    expect(words, contains(reportPdfSignatureUnavailable));
+  });
+
+  test('a missing signature says so in the report language', () async {
+    final base = pdfInput();
+    final words = _pageTexts(
+      await builder.build(
+        base.copyWith(
+          signature: base.signature.copyWith(
+            png: const [],
+            unavailable: reportPdfSignatureUnavailable,
+          ),
+        ),
+        sw,
+      ),
+    ).join('\n');
+    expect(words, contains(sw.reportPdfSignatureUnavailable));
+    expect(words, isNot(contains(reportPdfSignatureUnavailable)));
+  });
 }

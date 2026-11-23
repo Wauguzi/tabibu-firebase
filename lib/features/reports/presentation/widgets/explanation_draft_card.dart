@@ -6,7 +6,8 @@ import 'package:tabibu/l10n/l10n.dart';
 /// One language's AI explanation, waiting for the doctor: the draft's
 /// segments verbatim inside [AiDraftFrame], then Approve as is (primary) and
 /// Edit (secondary). Reject sits behind the `•••` button beside Edit. While
-/// [busy] every control is off.
+/// [busy] every control is off. While [approving], Approve as is keeps its
+/// colour and shows the loading dots, and Edit stays off so nothing doubles.
 class ExplanationDraftCard extends StatelessWidget {
   const ExplanationDraftCard({
     required this.title,
@@ -15,12 +16,14 @@ class ExplanationDraftCard extends StatelessWidget {
     required this.onApprove,
     required this.onEdit,
     required this.onMore,
+    this.approving = false,
     super.key,
   });
 
   final String title;
   final List<String> segments;
   final bool busy;
+  final bool approving;
   final VoidCallback onApprove;
   final VoidCallback onEdit;
   final VoidCallback onMore;
@@ -29,6 +32,7 @@ class ExplanationDraftCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final textTheme = Theme.of(context).textTheme;
+    final locked = busy || approving;
     return Column(
       crossAxisAlignment: .stretch,
       children: [
@@ -48,7 +52,8 @@ class ExplanationDraftCard extends StatelessWidget {
         const SizedBox(height: AppSpacing.sm),
         TabibuButton.primary(
           label: l10n.alertReviewApproveAsIs,
-          onTap: busy ? null : onApprove,
+          isLoading: approving,
+          onTap: locked ? null : onApprove,
         ),
         const SizedBox(height: AppSpacing.xs),
         // Outside the frame: its semantics merge everything inside it.
@@ -57,13 +62,13 @@ class ExplanationDraftCard extends StatelessWidget {
             Expanded(
               child: TabibuButton.secondary(
                 label: l10n.reviewEdit,
-                onTap: busy ? null : onEdit,
+                onTap: locked ? null : onEdit,
               ),
             ),
             const SizedBox(width: AppSpacing.xs),
             MoreButton(
               semanticLabel: l10n.notificationsMoreLabel,
-              onTap: busy ? null : onMore,
+              onTap: locked ? null : onMore,
             ),
           ],
         ),

@@ -95,17 +95,14 @@ class _PatientResultScreenState extends State<PatientResultScreen> {
     context.read<AppointmentsBloc>().add(
       AppointmentsRequested(uid: _patient.uid, role: .patient),
     );
-    final reader = context.read<ReportReaderBloc>();
-    if (reader.state.caseUid != widget.caseUid ||
-        reader.state.role != .patient) {
-      reader.add(
-        ReportReaderOpened(
-          uid: _patient.uid,
-          role: .patient,
-          caseUid: widget.caseUid,
-        ),
-      );
-    }
+    // Always ask again: what the reader holds may predate a release since.
+    context.read<ReportReaderBloc>().add(
+      ReportReaderOpened(
+        uid: _patient.uid,
+        role: .patient,
+        caseUid: widget.caseUid,
+      ),
+    );
   }
 
   @override
@@ -686,7 +683,7 @@ class _SharedBodyState extends State<_SharedBody> {
         ReportFileCard(
           title: l10n.resultDetailFullReport,
           fileName: fileName,
-          meta: l10n.resultDetailFileMeta('PDF', facility),
+          meta: l10n.resultDetailFileMeta(facility),
           downloadLabel: _downloading
               ? l10n.resultsLoadingLabel
               : l10n.resultDetailDownload,

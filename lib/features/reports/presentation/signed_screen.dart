@@ -198,9 +198,8 @@ class _SignedScreenState extends State<SignedScreen> {
         .where((r) => _matches(r, _filter) && _matchesQuery(r, folded, cases))
         .toList();
     final noHits = folded.isNotEmpty && searched.isEmpty;
-    final tileSet = mine
-        .where((r) => _matches(r, _filter == .week ? .week : .today))
-        .toList();
+    // The card counts what the selected pill shows, not always today.
+    final tileSet = mine.where((r) => _matches(r, _filter)).toList();
 
     return ShellTabPage(
       role: .pathologist,
@@ -253,18 +252,37 @@ class _SignedScreenState extends State<SignedScreen> {
             body: l10n.signedTabEmptyBody,
           ),
         ] else ...[
-          const SizedBox(height: AppSpacing.md),
-          ShortcutTile(
-            icon: Assets.icons.checkCircleIcon,
-            tone: .mint,
-            value: '${tileSet.length}',
-            title: _filter == .week
-                ? l10n.signedTabSignedWeek
-                : l10n.deskSignedToday,
-            body: _average(tileSet, l10n),
-          ),
+          // A zero is said below the pills, not counted above them.
+          if (tileSet.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.md),
+            ShortcutTile(
+              icon: Assets.icons.checkCircleIcon,
+              tone: .mint,
+              value: '${tileSet.length}',
+              title: switch (_filter) {
+                .today => l10n.deskSignedToday,
+                .week => l10n.signedTabSignedWeek,
+                .notifiable => l10n.signedTabSignedNotifiable,
+              },
+              body: _average(tileSet, l10n),
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           _chips(),
+          if (searched.isEmpty) ...[
+            const SizedBox(height: AppSpacing.sectionGap),
+            EmptyState(
+              title: switch (_filter) {
+                .today => l10n.signedTabEmptyToday,
+                .week => l10n.signedTabEmptyWeek,
+                .notifiable => l10n.signedTabEmptyNotifiable,
+              },
+              body: _filter == .notifiable
+                  ? l10n.signedTabEmptyNotifiableBody
+                  : null,
+              icon: Assets.icons.checkCircleIcon,
+            ),
+          ],
           const SizedBox(height: AppSpacing.md),
           for (final r in searched) ...[
             SignedReportRow(

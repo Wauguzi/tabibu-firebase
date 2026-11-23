@@ -134,6 +134,80 @@ void main() {
       }
     });
 
+    testWidgets('a required question carries the field asterisk', (
+      tester,
+    ) async {
+      await tester.pumpApp(
+        VerdictSelector<_Verdict>(
+          label: 'Findings',
+          options: options,
+          selected: null,
+          onSelected: (_) {},
+          required: true,
+        ),
+      );
+
+      final text = tester.widget<Text>(find.byWidgetPredicate(_requiredMark));
+      final span = text.textSpan! as TextSpan;
+      final star = span.children!.whereType<TextSpan>().single;
+      expect(
+        star.style?.color,
+        Theme.of(
+          tester.element(find.byType(VerdictSelector<_Verdict>)),
+        ).colorScheme.error,
+      );
+    });
+
+    testWidgets('pills share one scrolling line at 2.0x Swahili on 360 dp', (
+      tester,
+    ) async {
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+        tester.platformDispatcher.clearTextScaleFactorTestValue();
+      });
+      // cspell:ignore Nakubali kikamilifu kiasi Sikubaliani kabisa
+      const wide = <(_Verdict, String)>[
+        (_Verdict.agree, 'Nakubali kikamilifu'),
+        (_Verdict.partly, 'Nakubali kwa kiasi'),
+        (_Verdict.disagree, 'Sikubaliani kabisa'),
+      ];
+      for (final mode in [ThemeMode.light, ThemeMode.dark]) {
+        for (final width in [360.0, 840.0]) {
+          for (final scale in [1.0, 2.0]) {
+            tester.view.physicalSize = Size(width, 800);
+            tester.view.devicePixelRatio = 1;
+            tester.platformDispatcher.textScaleFactorTestValue = scale;
+            await tester.pumpApp(
+              VerdictSelector<_Verdict>(
+                label: 'Matokeo',
+                options: wide,
+                selected: null,
+                onSelected: (_) {},
+                required: true,
+              ),
+              themeMode: mode,
+              locale: const Locale('sw'),
+            );
+
+            expect(tester.takeException(), isNull);
+            final chips = find.byType(TabibuFilterChip);
+            expect(chips, findsNWidgets(3));
+            final line = tester.getCenter(chips.at(0)).dy;
+            expect(tester.getCenter(chips.at(1)).dy, line);
+            expect(tester.getCenter(chips.at(2)).dy, line);
+            final scroller = tester.widget<SingleChildScrollView>(
+              find.byType(SingleChildScrollView),
+            );
+            expect(scroller.scrollDirection, Axis.horizontal);
+            if (width == 360 && scale == 2) {
+              expect(tester.getRect(chips.at(2)).right, greaterThan(width));
+            }
+          }
+        }
+      }
+    });
+
     testWidgets('grows at 1.3x text without overflow at 390 dp', (
       tester,
     ) async {
@@ -167,4 +241,12 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   });
+}
+
+bool _requiredMark(Widget widget) {
+  final span = widget is Text ? widget.textSpan : null;
+  if (span is! TextSpan) return false;
+  final children = span.children;
+  if (children == null) return false;
+  return children.any((child) => child is TextSpan && child.text == ' *');
 }

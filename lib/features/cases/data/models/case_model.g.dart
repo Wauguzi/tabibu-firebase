@@ -82,6 +82,7 @@ _CaseModel _$CaseModelFromJson(Map<String, dynamic> json) => _CaseModel(
   cancelReason: json['cancelReason'] as String? ?? '',
   createdAt: json['createdAt'] as String? ?? '',
   lastUpdatedAt: json['lastUpdatedAt'] as String? ?? '',
+  openMdtUid: json['openMdtUid'] as String? ?? '',
 );
 
 Map<String, dynamic> _$CaseModelToJson(_CaseModel instance) =>
@@ -136,4 +137,5 @@ Map<String, dynamic> _$CaseModelToJson(_CaseModel instance) =>
       'cancelReason': instance.cancelReason,
       'createdAt': instance.createdAt,
       'lastUpdatedAt': instance.lastUpdatedAt,
+      'openMdtUid': instance.openMdtUid,
     };

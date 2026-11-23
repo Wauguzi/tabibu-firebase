@@ -63,11 +63,30 @@ class DoctorGridCard extends StatelessWidget {
                         ),
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(20),
-                          child: image == null
-                              ? Center(
-                                  child: Avatar.tile(name: name, radius: 36),
-                                )
-                              : Image(image: image, fit: .cover),
+                          // Initials sit on the square itself, under the
+                          // photo, so a photo that fails to load shows them.
+                          child: Stack(
+                            fit: .expand,
+                            children: [
+                              Center(
+                                child: Text(
+                                  Avatar.initialsOf(name),
+                                  style: textTheme.titleSmall?.copyWith(
+                                    color: isDark
+                                        ? AppColors.primaryTextDark
+                                        : AppColors.primaryTextLight,
+                                  ),
+                                ),
+                              ),
+                              if (image != null)
+                                Image(
+                                  image: image,
+                                  fit: .cover,
+                                  errorBuilder: (_, _, _) =>
+                                      const SizedBox.shrink(),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
                     ),

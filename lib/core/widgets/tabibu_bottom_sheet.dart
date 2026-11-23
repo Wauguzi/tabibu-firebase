@@ -72,40 +72,52 @@ class TabibuBottomSheet extends StatelessWidget {
         color: scheme.surfaceContainerLowest,
         child: SafeArea(
           top: false,
-          child: SingleChildScrollView(
-            controller: scrollController,
-            padding: EdgeInsets.fromLTRB(
-              AppSpacing.screenMargin,
-              // The native handle floats over this space.
-              AppSpacing.xxlg,
-              AppSpacing.screenMargin,
-              AppSpacing.screenMargin + MediaQuery.viewInsetsOf(context).bottom,
+          // The sheet route keeps its full height under the keyboard. Ending
+          // the scroll view at the keyboard's top is what lets a focused field
+          // scroll itself into view; padding inside it would not.
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
             ),
-            child: Column(
-              mainAxisSize: .min,
-              crossAxisAlignment: .stretch,
-              children: [
-                if (leading != null) ...[
-                  Center(child: leading),
-                  const SizedBox(height: AppSpacing.md),
+            child: SingleChildScrollView(
+              controller: scrollController,
+              padding: const EdgeInsets.fromLTRB(
+                AppSpacing.screenMargin,
+                // The native handle floats over this space.
+                AppSpacing.xxlg,
+                AppSpacing.screenMargin,
+                AppSpacing.screenMargin,
+              ),
+              child: Column(
+                mainAxisSize: .min,
+                crossAxisAlignment: .stretch,
+                children: [
+                  if (leading != null) ...[
+                    Center(child: leading),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+                  if (title != null)
+                    Text(title, style: textTheme.titleLarge, textAlign: align),
+                  if (subtitle != null) ...[
+                    const SizedBox(height: AppSpacing.xxs),
+                    Text(
+                      subtitle,
+                      style: textTheme.bodyMedium,
+                      textAlign: align,
+                    ),
+                  ],
+                  if (title != null || subtitle != null)
+                    const SizedBox(height: AppSpacing.md),
+                  child,
+                  if (cancelLabel != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    TabibuButton.ghost(
+                      label: cancelLabel,
+                      onTap: () => Navigator.of(context).maybePop(),
+                    ),
+                  ],
                 ],
-                if (title != null)
-                  Text(title, style: textTheme.titleLarge, textAlign: align),
-                if (subtitle != null) ...[
-                  const SizedBox(height: AppSpacing.xxs),
-                  Text(subtitle, style: textTheme.bodyMedium, textAlign: align),
-                ],
-                if (title != null || subtitle != null)
-                  const SizedBox(height: AppSpacing.md),
-                child,
-                if (cancelLabel != null) ...[
-                  const SizedBox(height: AppSpacing.sm),
-                  TabibuButton.ghost(
-                    label: cancelLabel,
-                    onTap: () => Navigator.of(context).maybePop(),
-                  ),
-                ],
-              ],
+              ),
             ),
           ),
         ),

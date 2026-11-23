@@ -296,6 +296,18 @@ describe('prereadScores and reportProvenance', () => {
     await assertFails(getDoc(doc(db('drWanjiru', PATHOLOGIST), 'cases/case1/reportProvenance/v1')));
   });
 
+  it('RT-203 the own pathologist reads a score not written yet, as not found', async () => {
+    // Before the pathologist scores a run there is no document; the read must
+    // answer "missing", not "denied", to the case's own pathologist only.
+    await assertSucceeds(getDoc(doc(db('drWanjiru', PATHOLOGIST), 'cases/case1/prereadScores/run2')));
+    await assertSucceeds(getDoc(doc(db('drWanjiru', PATHOLOGIST), 'cases/case1/reportProvenance/v2')));
+    await assertFails(getDoc(doc(db('drOdhiambo', DOCTOR), 'cases/case1/prereadScores/run2')));
+    await assertFails(getDoc(doc(db('amina', PATIENT), 'cases/case1/reportProvenance/v2')));
+    await seed('cases/case1', caseDoc({ pathologistUid: 'drOther' }));
+    await assertFails(getDoc(doc(db('drWanjiru', PATHOLOGIST), 'cases/case1/prereadScores/run2')));
+    await assertFails(getDoc(doc(db('drWanjiru', PATHOLOGIST), 'cases/case1/reportProvenance/v2')));
+  });
+
   it('RT-102 an admin reads scores and provenance', async () => {
     await assertSucceeds(getDoc(doc(db('admin', { admin: true }), 'cases/case1/prereadScores/run1')));
     await assertSucceeds(getDoc(doc(db('admin', { admin: true }), 'cases/case1/reportProvenance/v1')));

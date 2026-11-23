@@ -179,7 +179,11 @@ void main() {
 
         expect(find.text(_diagnosis), findsOneWidget);
         expect(find.text(_comments), findsOneWidget);
-        verifyNever(() => blocs.reportReader.add(any()));
+        verifyNever(
+          () => blocs.reportReader.add(
+            any(that: isNot(isA<ReportReaderOpened>())),
+          ),
+        );
       });
 
       testWidgets('a state that belongs to another case shows nothing of it', (
@@ -364,6 +368,28 @@ void main() {
         );
       });
 
+      testWidgets('reopens a case the reader already holds without its '
+          'report, as after the code is entered', (tester) async {
+        await pumpScreen(
+          tester,
+          reader: const ReportReaderLoadSuccess(
+            uid: 'doctor-1',
+            role: Role.doctor,
+            caseUid: _caseUid,
+          ),
+        );
+
+        verify(
+          () => blocs.reportReader.add(
+            const ReportReaderOpened(
+              uid: 'doctor-1',
+              role: Role.doctor,
+              caseUid: _caseUid,
+            ),
+          ),
+        ).called(1);
+      });
+
       testWidgets('while loading, no release or decision control and '
           'only ReportReaderOpened is added', (tester) async {
         await pumpScreen(tester, reader: const ReportReaderInitial());
@@ -412,9 +438,11 @@ void main() {
         await tester.pump(const Duration(milliseconds: 600));
       }
 
-      List<ReportReaderEvent> sent() => verify(
-        () => blocs.reportReader.add(captureAny()),
-      ).captured.cast<ReportReaderEvent>();
+      List<ReportReaderEvent> sent() =>
+          verify(() => blocs.reportReader.add(captureAny())).captured
+              .cast<ReportReaderEvent>()
+              .where((e) => e is! ReportReaderOpened)
+              .toList();
 
       Finder inFrame(String text) => find.descendant(
         of: find.byType(AiDraftFrame),
@@ -453,7 +481,11 @@ void main() {
           ).extension<AppStatusColors>()!;
           expect(fillOf(tester, l10n.explanationMarkButton), status.ink);
           expect(find.byType(AiDraftFrame), findsNothing);
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
         });
 
         testWidgets('the sheet says what happens, asks for no mode or '
@@ -474,7 +506,11 @@ void main() {
           expect(find.byType(TextField), findsNothing);
           expect(find.textContaining(_aiExplanation), findsNothing);
           expect(find.textContaining(_approvedText), findsNothing);
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
         });
 
         testWidgets('Cancel sends nothing', (tester) async {
@@ -485,7 +521,11 @@ void main() {
           await tester.tap(find.text(l10n.commonCancel));
           await settleSheet(tester);
 
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
           expect(find.text(l10n.explanationConfirm), findsNothing);
         });
 
@@ -498,7 +538,11 @@ void main() {
           await tester.tap(find.text(l10n.explanationConfirm));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 50));
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
 
           await settleSheet(tester);
           expect(sent(), [const ReportDiscussedRequested()]);
@@ -520,7 +564,11 @@ void main() {
           await settleSheet(tester);
 
           expect(find.text(l10n.explanationConfirm), findsNothing);
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
         });
 
         testWidgets('a failed release keeps the report and the button, and '
@@ -591,7 +639,11 @@ void main() {
             ),
           );
 
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
         });
 
         testWidgets('approved text sits outside any AI frame, marked '
@@ -699,7 +751,11 @@ void main() {
           expect(find.text(l10n.explanationEditTitle), findsOneWidget);
           final field = tester.widget<TextField>(find.byType(TextField));
           expect(field.controller?.text, _aiExplanation);
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
 
           await tester.enterText(
             find.byType(TextField),
@@ -709,7 +765,11 @@ void main() {
           await tester.tap(find.text(l10n.explanationSaveAndApprove));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 50));
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
 
           await settleSheet(tester);
           expect(sent(), [
@@ -762,7 +822,11 @@ void main() {
           await tester.tap(find.text(l10n.commonCancel));
           await settleSheet(tester);
           expect(find.text(l10n.explanationEditTitle), findsNothing);
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
         });
 
         testWidgets('Reject takes the options button and a '
@@ -779,7 +843,11 @@ void main() {
           await tester.tap(draftMore());
           await settleSheet(tester);
           expect(find.text(l10n.alertReviewReject), findsOneWidget);
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
 
           await tester.tap(find.text(l10n.alertReviewReject));
           await settleSheet(tester);
@@ -787,12 +855,20 @@ void main() {
           expect(find.text(title), findsNWidgets(2));
           expect(find.text(l10n.alertReviewReject), findsOneWidget);
           expect(find.text(l10n.commonCancel), findsOneWidget);
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
 
           await tester.tap(find.text(l10n.alertReviewReject));
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 50));
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
 
           await settleSheet(tester);
           expect(sent(), [
@@ -817,7 +893,11 @@ void main() {
           await tester.tap(find.text(l10n.commonCancel));
           await settleSheet(tester);
 
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
           expect(find.byType(AiDraftFrame), findsOneWidget);
         });
 
@@ -827,18 +907,25 @@ void main() {
 
           expect(find.text(l10n.explanationWaitingForDraft), findsOneWidget);
           expect(find.byType(AiDraftFrame), findsNothing);
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
 
           await tester.tap(find.text(l10n.commonRetry));
           await tester.pump();
 
-          expect(sent(), [
-            const ReportReaderOpened(
-              uid: 'doctor-1',
-              role: Role.doctor,
-              caseUid: _caseUid,
+          // Once on arrival, once for Retry.
+          verify(
+            () => blocs.reportReader.add(
+              const ReportReaderOpened(
+                uid: 'doctor-1',
+                role: Role.doctor,
+                caseUid: _caseUid,
+              ),
             ),
-          ]);
+          ).called(2);
         });
 
         testWidgets('a write in progress turns every control off', (
@@ -860,7 +947,11 @@ void main() {
           await tester.tap(draftMore(), warnIfMissed: false);
           await settleSheet(tester);
 
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
           expect(find.text(l10n.explanationEditTitle), findsNothing);
           expect(find.text(l10n.alertReviewReject), findsNothing);
           expect(inFrame(_aiExplanation), findsOneWidget);
@@ -921,7 +1012,11 @@ void main() {
           expect(find.text(l10n.explanationWaitingForDraft), findsNothing);
           expect(find.text(l10n.alertReviewApproveAsIs), findsNothing);
           expect(find.text(l10n.explanationMarkButton), findsNothing);
-          verifyNever(() => blocs.reportReader.add(any()));
+          verifyNever(
+            () => blocs.reportReader.add(
+              any(that: isNot(isA<ReportReaderOpened>())),
+            ),
+          );
         });
 
         testWidgets('is offered no release on an unreleased report', (
@@ -1049,7 +1144,11 @@ void main() {
       ) async {
         await pumpScreen(tester, reader: loaded(_report()));
 
-        verifyNever(() => blocs.reportReader.add(any()));
+        verifyNever(
+          () => blocs.reportReader.add(
+            any(that: isNot(isA<ReportReaderOpened>())),
+          ),
+        );
         verifyNever(() => blocs.cases.add(any()));
       });
 
@@ -1074,6 +1173,7 @@ void main() {
 
         expect(find.text('Open pathology report'), findsOneWidget);
         expect(find.text('Full findings'), findsOneWidget);
+        expect(find.text('Download report'), findsOneWidget);
         expect(find.text('Start an MDT consult'), findsOneWidget);
         expect(find.text('Bring in other doctors'), findsOneWidget);
         expect(find.textContaining('Message'), findsNothing);

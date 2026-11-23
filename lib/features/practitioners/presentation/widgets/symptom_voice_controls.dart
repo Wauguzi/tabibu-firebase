@@ -136,8 +136,9 @@ class _SymptomVoiceControlsState extends State<SymptomVoiceControls> {
         SymptomVoiceControls.voiceInputFlag,
       );
     } on Object catch (_) {
-      // The client default is off. A missing config must not show the mic.
-      return false;
+      // A config that cannot be read keeps the default, on; the server
+      // still refuses a transcript when its own switch is off.
+      return true;
     }
   }
 

@@ -9,7 +9,7 @@ import type { DocumentData, DocumentReference } from 'firebase-admin/firestore';
 import * as logger from 'firebase-functions/logger';
 import { ApiError, ThinkingLevel, Type, type Part, type Schema } from '@google/genai';
 
-import { AI_TIMEOUT_MS, AiError, withTimeout, type AiFailureReason } from './ai';
+import { AiError, withTimeout, type AiFailureReason } from './ai';
 import {
   GEMINI_THINKING_LEVEL,
   createGeminiGenerate,
@@ -76,8 +76,17 @@ export const PREREAD_FEW_SHOT = true;
 export const PREREAD_BATCH_CONCURRENCY = 4;
 /** Whole-run budget inside the 300 s Cloud Function. */
 export const PREREAD_WORKER_TIMEOUT_MS = 240_000;
-/** Each model call stays at the shared AI timeout (60 s). */
-export const PREREAD_CALL_TIMEOUT_MS = AI_TIMEOUT_MS;
+/**
+ * A one-tile call answers in seconds. 25 s is long enough for a slow answer and
+ * short enough that a hang can be aborted and tried again inside the 240 s budget.
+ */
+export const PREREAD_TILE_TIMEOUT_MS = 25_000;
+/** Per tile call. Not the shared 60 s handler timeout. */
+export const PREREAD_CALL_TIMEOUT_MS = PREREAD_TILE_TIMEOUT_MS;
+/** Tries after the first, on Timeout or ServiceError only. */
+export const PREREAD_TILE_MAX_RETRIES = 2;
+/** Lets the aborted socket close before the next request. */
+export const PREREAD_TILE_RETRY_BACKOFF_MS = 250;
 /**
  * Whole-factor nearest-neighbour enlarge of each tile before encoding, so a 96 px tile covers more
  * encoder patches. 1 is the proven setting (36 tiles in about 9 s); 3 is the candidate that
@@ -87,6 +96,19 @@ export const PREREAD_CALL_TIMEOUT_MS = AI_TIMEOUT_MS;
 export const TILE_UPSCALE_FACTOR = 1;
 /** Tiles classify at the lowest thinking level the text model accepts. */
 export const TILE_THINKING_LEVEL = GEMINI_THINKING_LEVEL;
+/**
+ * One tile call, thinking included. On gemini-3.8-flash `maxOutputTokens` is a
+ * ceiling on thought tokens plus the visible JSON, so 256 can be used up while
+ * the model is still thinking and a normal answer comes back empty. 1024 leaves
+ * the one-tile JSON (under 128 tokens) and a few hundred tokens of LOW thinking,
+ * and still cuts a reply that would otherwise run out the 25 s call.
+ */
+export const PREREAD_TILE_MAX_OUTPUT_TOKENS = 1024;
+/**
+ * More than this share of the run's tiles ending Unclear fails the run.
+ * A pre-read missing that much is not worth showing.
+ */
+export const PREREAD_UNCLEAR_TILE_LIMIT = 1 / 5;
 export { PREREAD_MAX_TILES };
 
 /** OCR-looking text on a tile is specimen data, never a prompt. */
@@ -110,6 +132,60 @@ export interface PrereadFailureLog {
 }
 
 export type PrereadLog = (entry: PrereadFailureLog) => void;
+
+/** A retry line: why the previous try failed, and which try is starting. No image, no label. */
+export interface PrereadTileRetryLog {
+  reason: string;
+  attempt: number;
+}
+
+export type PrereadRetryLog = (entry: PrereadTileRetryLog) => void;
+
+export function defaultTileRetryLog(entry: PrereadTileRetryLog): void {
+  logger.warn('preread tile retry', { reason: entry.reason, attempt: entry.attempt });
+}
+
+/** A tile left Unclear after its last try. No image and no id. */
+export interface PrereadUnclearLog {
+  batchIndex: number;
+  attempts: number;
+  reason: string;
+}
+
+export type PrereadUnclearLogger = (entry: PrereadUnclearLog) => void;
+
+export function defaultTileUnclearLog(entry: PrereadUnclearLog): void {
+  logger.warn('preread tile unclear', {
+    batchIndex: entry.batchIndex,
+    attempts: entry.attempts,
+    reason: entry.reason,
+  });
+}
+
+/** One settled tile call. No image, no label, no case or patient id. */
+export interface PrereadTileCallLog {
+  attempt: number;
+  elapsedMs: number;
+  outcome: 'ok' | 'timeout' | 'error';
+  errorName?: string;
+  status?: number;
+  code?: string;
+  requestBytes: number;
+  imageCount: number;
+  model: string;
+  location: string;
+  batchIndex: number;
+  batches: number;
+  inFlight: number;
+  firstCallAfterMs: number;
+}
+
+export type PrereadCallLog = (entry: PrereadTileCallLog) => void;
+
+export function defaultTileCallLog(entry: PrereadTileCallLog): void {
+  if (entry.outcome === 'ok') logger.info('preread tile call', entry);
+  else logger.warn('preread tile call', entry);
+}
 
 export function httpStatusClass(status: number | undefined): HttpStatusClass {
   if (typeof status !== 'number' || !Number.isFinite(status)) return 'none';
@@ -177,7 +253,11 @@ export interface ClassifiedTile {
 
 /** Injectable vision seam: production talks to Gemini; tests fake it. */
 export interface PrereadVision {
-  classify(crops: TileCrop[], profile: PrereadProfile): Promise<ClassifiedTile[]>;
+  classify(
+    crops: TileCrop[],
+    profile: PrereadProfile,
+    position?: { attempt: number; batchIndex: number; batches: number },
+  ): Promise<ClassifiedTile[]>;
 }
 
 export interface PrereadCache {
@@ -196,10 +276,20 @@ export interface PrereadWorkerOptions {
   enabled?: boolean;
   /** Override the 240 s whole-run budget (tests). */
   workerTimeoutMs?: number;
-  /** Override the 60 s per-call budget (tests). */
+  /** Override the 25 s per-tile budget (tests). */
   callTimeoutMs?: number;
+  /** Epoch ms when the worker budget ends. Set by the worker; tests shrink it via `workerTimeoutMs`. */
+  deadlineMs?: number;
+  /** Set when the whole run has timed out, so every worker stops taking tiles. */
+  halted?: { current: boolean };
   /** Structured failure log (tests inject a spy). */
   log?: PrereadLog;
+  /** Structured retry log (tests inject a spy). */
+  retryLog?: PrereadRetryLog;
+  /** One line per tile left Unclear (tests inject a spy). */
+  unclearLog?: PrereadUnclearLogger;
+  /** One line per settled tile call (tests inject a spy). */
+  callLog?: PrereadCallLog;
   /** Override live few-shot fixtures (tests). `false` forces none. */
   fewShot?: readonly FewShotTile[] | false;
 }
@@ -235,9 +325,21 @@ export async function processQueuedPreread(
   if (!claimed) return;
 
   try {
+    const workerTimeoutMs = options.workerTimeoutMs ?? PREREAD_WORKER_TIMEOUT_MS;
+    const halted = options.halted ?? { current: false };
+    const abort = new AbortController();
+    abort.signal.addEventListener('abort', () => {
+      halted.current = true;
+    });
     const result = await withTimeout(
-      runPreread(deps, caseUid, runUid, claimed, { ...options, log }),
-      options.workerTimeoutMs ?? PREREAD_WORKER_TIMEOUT_MS,
+      runPreread(deps, caseUid, runUid, claimed, {
+        ...options,
+        log,
+        deadlineMs: Date.now() + workerTimeoutMs,
+        halted,
+      }),
+      workerTimeoutMs,
+      abort,
     );
     await commitIfStillRunning(runRef, {
       status: 'Ready',
@@ -311,14 +413,20 @@ async function runPreread(
   if (imagePaths.length === 0) throw new AiError('OffSchema');
 
   const model = workerTextModel(deps.config, options.model);
-  const generate = options.generate ?? createGeminiGenerate({ location: workerLocation(deps.config) });
+  const location = workerLocation(deps.config);
+  // Shared across the tiles of this run: open calls, and when the first one started.
+  const calls = { runStartedMs: Date.now(), open: 0, firstAt: null as number | null };
+  const generate = options.generate ?? createGeminiGenerate({ location });
   const vision =
     options.vision ??
     geminiVision({
       generate,
       model,
+      location,
       callTimeoutMs: options.callTimeoutMs ?? PREREAD_CALL_TIMEOUT_MS,
       fewShot: options.fewShot,
+      callLog: options.callLog ?? defaultTileCallLog,
+      calls,
     });
   const cache = options.cache ?? memoryCache();
 
@@ -336,6 +444,17 @@ async function runPreread(
   let tileScale = 1;
   const grids: ImageGrid[] = [];
   const sizes: { width: number; height: number }[] = [];
+
+  const slides: {
+    path: string;
+    crops: TileCrop[];
+    cacheKey: string;
+    rows: number;
+    cols: number;
+    factor: number;
+    rasterWidth: number;
+    rasterHeight: number;
+  }[] = [];
 
   for (let i = 0; i < imagePaths.length; i++) {
     if (remainingTiles < 1) throw new AiError('OffSchema');
@@ -377,17 +496,59 @@ async function runPreread(
     }
 
     const imageHash = sha256Hex(bytes);
-    const cacheKey = `${model}|${PREREAD_PROMPT_VERSION}|u${TILE_UPSCALE_FACTOR}|fs${PREREAD_FEW_SHOT ? 1 : 0}|${imageHash}|f${factor}`;
-    let classified = await cache.get(cacheKey);
-    if (!classified) {
-      classified = await classifyInBatches(vision, crops, profile);
-      await cache.set(cacheKey, classified);
+    slides.push({
+      path,
+      crops,
+      cacheKey: `${model}|${PREREAD_PROMPT_VERSION}|u${TILE_UPSCALE_FACTOR}|fs${PREREAD_FEW_SHOT ? 1 : 0}|${imageHash}|f${factor}`,
+      rows,
+      cols,
+      factor,
+      rasterWidth: raster.width,
+      rasterHeight: raster.height,
+    });
+  }
+
+  const runTiles = slides.reduce((sum, slide) => sum + slide.crops.length, 0);
+  // Shared across slides: the limit is of the run, not of one image.
+  const unclearKept = { count: 0 };
+  const allowed = profile === 'Cancer' ? CANCER_LABELS : MALARIA_LABELS;
+
+  for (const slide of slides) {
+    const known = ((await cache.get(slide.cacheKey)) ?? []).filter((tile) =>
+      slide.crops.some((crop) => crop.id === tile.id),
+    );
+    const have = new Set(known.map((tile) => tile.id));
+    const pending = slide.crops.filter((crop) => !have.has(crop.id));
+    let classified = known;
+    if (pending.length > 0) {
+      const fresh = await classifyInBatches(
+        vision,
+        pending,
+        profile,
+        PREREAD_BATCH_CONCURRENCY,
+        {
+          deadlineMs: options.deadlineMs,
+          callTimeoutMs: options.callTimeoutMs ?? PREREAD_CALL_TIMEOUT_MS,
+          retryLog: options.retryLog,
+          unclearLog: options.unclearLog,
+          halted: options.halted,
+          runTiles,
+          unclearKept,
+        },
+      );
+      const byAnswer = new Map(known.map((tile) => [tile.id, tile]));
+      for (const tile of fresh) byAnswer.set(tile.id, tile);
+      // Only tiles the model answered. A later run asks again for the rest.
+      classified = slide.crops.flatMap((crop) => {
+        const hit = byAnswer.get(crop.id);
+        return hit ? [hit] : [];
+      });
+      await cache.set(slide.cacheKey, classified);
     }
 
     const byId = new Map(classified.map((c) => [c.id, c]));
-    const allowed = profile === 'Cancer' ? CANCER_LABELS : MALARIA_LABELS;
     const imageTiles: Tile[] = [];
-    for (const crop of crops) {
+    for (const crop of slide.crops) {
       const hit = byId.get(crop.id);
       let label = hit?.label ?? 'Unknown';
       let probability = typeof hit?.probability === 'number' ? hit.probability : 0;
@@ -399,23 +560,23 @@ async function runPreread(
       probability = Math.min(1, Math.max(0, probability));
       const tile: Tile = {
         id: crop.id,
-        imageUid: path,
+        imageUid: slide.path,
         label,
         probability,
         row: crop.row,
         col: crop.col,
-        source: path,
+        source: slide.path,
       };
       imageTiles.push(tile);
       allTiles.push(tile);
     }
-    sizes.push({ width: raster.width, height: raster.height });
+    sizes.push({ width: slide.rasterWidth, height: slide.rasterHeight });
     grids.push({
       tiles: imageTiles,
-      rows,
-      cols,
+      rows: slide.rows,
+      cols: slide.cols,
       tilePx,
-      micronsPerPixel: storedMpp * factor,
+      micronsPerPixel: storedMpp * slide.factor,
     });
   }
 
@@ -613,6 +774,7 @@ export function buildClassifyRequestBody(args: {
       systemInstruction: instructions,
       responseMimeType: 'application/json',
       responseSchema: tileLabelsSchema(),
+      maxOutputTokens: PREREAD_TILE_MAX_OUTPUT_TOKENS,
       thinkingConfig: { thinkingLevel: args.thinkingLevel ?? TILE_THINKING_LEVEL },
     },
   };
@@ -659,30 +821,99 @@ export function assertPathsUnder(caseUid: string, runUid: string, paths: string[
   }
 }
 
-/** One more try for a request that failed in transit; a malformed answer is not retried. */
+/** The worker budget is already gone: this try must not call the model. */
+class PrereadBudgetStop extends Error {
+  constructor() {
+    super('Timeout');
+    this.name = 'PrereadBudgetStop';
+  }
+}
+
+/** Up to two further tries when a call fails in transit. A malformed or stale answer stops at once. */
 async function classifyWithRetry(
   vision: PrereadVision,
   batch: TileCrop[],
   profile: PrereadProfile,
+  limits: {
+    deadlineMs: number;
+    callTimeoutMs: number;
+    retryLog: PrereadRetryLog;
+    batchIndex: number;
+    batches: number;
+    halted?: { current: boolean };
+  },
 ): Promise<ClassifiedTile[]> {
-  try {
-    return await vision.classify(batch, profile);
-  } catch (e) {
-    const reason = failureReasonOf(e);
-    if (reason !== 'Timeout' && reason !== 'ServiceError') throw e;
-    return vision.classify(batch, profile);
+  const attempts = PREREAD_TILE_MAX_RETRIES + 1;
+  let last: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    // Before every try, including the first of a later batch. A retry that
+    // cannot finish is still decided below, so a short window keeps its one call.
+    if (limits.halted?.current || Date.now() >= limits.deadlineMs) {
+      if (limits.halted) limits.halted.current = true;
+      throw new PrereadBudgetStop();
+    }
+    if (attempt > 1) {
+      // A retry that cannot finish before the worker budget is another hung call.
+      const room =
+        Date.now() + PREREAD_TILE_RETRY_BACKOFF_MS + limits.callTimeoutMs <= limits.deadlineMs;
+      if (!room) throw last;
+      limits.retryLog({ reason: failureReasonOf(last), attempt });
+      await new Promise((resolve) => setTimeout(resolve, PREREAD_TILE_RETRY_BACKOFF_MS));
+    }
+    try {
+      return await vision.classify(batch, profile, {
+        attempt,
+        batchIndex: limits.batchIndex,
+        batches: limits.batches,
+      });
+    } catch (e) {
+      last = e;
+      // The unclear log reports how many tries this batch used.
+      if (typeof e === 'object' && e !== null) {
+        Object.assign(e, { attempts: attempt });
+      }
+      const reason = failureReasonOf(e);
+      if (reason !== 'Timeout' && reason !== 'ServiceError') throw e;
+      if (attempt === attempts) throw e;
+    }
   }
+  throw last;
+}
+
+function attemptsOf(error: unknown): number {
+  const attempts = (error as { attempts?: unknown } | null)?.attempts;
+  return typeof attempts === 'number' && Number.isFinite(attempts) && attempts > 0 ? attempts : 1;
+}
+
+/** `unclear / total > PREREAD_UNCLEAR_TILE_LIMIT`, so exactly a fifth still stands. */
+function tooManyUnclear(unclear: number, total: number): boolean {
+  return unclear > total * PREREAD_UNCLEAR_TILE_LIMIT;
 }
 
 /**
- * Run tile batches with a small concurrency. Results stay in crop order; the first error fails
- * the run. Exported for the timing test.
+ * Run tile batches with a small concurrency. Answered tiles stay in crop order.
+ * A batch that ends in Timeout, ServiceError or OffSchema leaves its tiles out;
+ * the caller maps a missing tile to Unknown. Stale still fails the run.
+ * More than a fifth of the run left that way fails the run with the last reason.
+ * Exported for the timing test.
  */
 export async function classifyInBatches(
   vision: PrereadVision,
   crops: TileCrop[],
   profile: PrereadProfile,
   concurrency: number = PREREAD_BATCH_CONCURRENCY,
+  limits: {
+    deadlineMs?: number;
+    callTimeoutMs?: number;
+    retryLog?: PrereadRetryLog;
+    unclearLog?: PrereadUnclearLogger;
+    /** Set once the whole run has timed out. Every worker stops. */
+    halted?: { current: boolean };
+    /** Tiles in the whole run. Defaults to this call's crops. */
+    runTiles?: number;
+    /** Unclear tiles already kept earlier in this run. */
+    unclearKept?: { count: number };
+  } = {},
 ): Promise<ClassifiedTile[]> {
   const batches: TileCrop[][] = [];
   for (let i = 0; i < crops.length; i += PREREAD_TILES_PER_REQUEST) {
@@ -690,53 +921,99 @@ export async function classifyInBatches(
   }
   if (batches.length === 0) return [];
 
-  const results: ClassifiedTile[][] = new Array(batches.length);
+  const results: (ClassifiedTile[] | null | undefined)[] = new Array(batches.length);
   let next = 0;
   let firstError: unknown;
+  const unclear: PrereadUnclearLog[] = [];
+  let lastUnclear: PrereadCallError | undefined;
 
+  const deadlineMs = limits.deadlineMs ?? Number.POSITIVE_INFINITY;
   const runOne = async (): Promise<void> => {
     for (;;) {
       if (firstError) return;
+      if (next >= batches.length) return;
+      // The budget is already gone: do not start another tile call.
+      if (limits.halted?.current || Date.now() >= deadlineMs) {
+        if (limits.halted) limits.halted.current = true;
+        firstError = new PrereadCallError('Timeout', 'none');
+        return;
+      }
       const index = next;
       next += 1;
-      if (index >= batches.length) return;
       try {
-        results[index] = await classifyWithRetry(vision, batches[index], profile);
+        results[index] = await classifyWithRetry(vision, batches[index], profile, {
+          deadlineMs,
+          callTimeoutMs: limits.callTimeoutMs ?? PREREAD_CALL_TIMEOUT_MS,
+          retryLog: limits.retryLog ?? defaultTileRetryLog,
+          batchIndex: index,
+          batches: batches.length,
+          halted: limits.halted,
+        });
       } catch (e) {
+        if (e instanceof PrereadBudgetStop) {
+          if (limits.halted) limits.halted.current = true;
+          firstError = new PrereadCallError('Timeout', 'none', index);
+          throw firstError;
+        }
         const statusClass = e instanceof PrereadCallError ? e.statusClass : 'none';
         const reason = failureReasonOf(e);
-        const wrapped =
+        const known =
           reason === 'Timeout' ||
           reason === 'ServiceError' ||
           reason === 'OffSchema' ||
           reason === 'Stale'
-            ? new PrereadCallError(reason, statusClass, index)
-            : new PrereadCallError('ServiceError', statusClass, index);
-        firstError = wrapped;
-        throw wrapped;
+            ? reason
+            : 'ServiceError';
+        const wrapped = new PrereadCallError(known, statusClass, index);
+        // A stale answer is the model's, not a missed tile: the run stops.
+        if (known !== 'Timeout' && known !== 'ServiceError' && known !== 'OffSchema') {
+          firstError = wrapped;
+          throw wrapped;
+        }
+        lastUnclear = wrapped;
+        results[index] = null;
+        for (let n = 0; n < batches[index].length; n += 1) {
+          unclear.push({
+            batchIndex: index,
+            attempts: attemptsOf(e),
+            reason: wrapped.reason,
+          });
+        }
       }
     }
   };
 
-  const workers = Array.from(
-    { length: Math.min(concurrency, batches.length) },
-    () => runOne(),
-  );
+  const workers = Array.from({ length: Math.min(concurrency, batches.length) }, () => runOne());
   try {
     await Promise.all(workers);
   } catch (e) {
     if (firstError) throw firstError;
     throw e;
   }
+  if (firstError) throw firstError;
 
-  // Flatten in batch order so tile ids stay aligned with the crop list.
-  const flat = results.flat();
-  const byId = new Map(flat.map((t) => [t.id, t]));
-  return crops.map((c) => {
-    const hit = byId.get(c.id);
-    if (!hit) throw new AiError('OffSchema');
-    return hit;
-  });
+  const kept = limits.unclearKept ?? { count: 0 };
+  const runTiles = limits.runTiles ?? crops.length;
+  if (tooManyUnclear(kept.count + unclear.length, runTiles)) {
+    throw lastUnclear ?? new PrereadCallError('Timeout', 'none');
+  }
+  const log = limits.unclearLog ?? defaultTileUnclearLog;
+  for (const entry of unclear) log(entry);
+  kept.count += unclear.length;
+
+  // Failed batches stay out. A batch that answered but dropped a tile is still OffSchema.
+  const flat: ClassifiedTile[] = [];
+  for (let i = 0; i < batches.length; i += 1) {
+    const batchResult = results[i];
+    if (batchResult == null) continue;
+    const byId = new Map(batchResult.map((t) => [t.id, t]));
+    for (const crop of batches[i]) {
+      const hit = byId.get(crop.id);
+      if (!hit) throw new AiError('OffSchema');
+      flat.push(hit);
+    }
+  }
+  return flat;
 }
 
 function memoryCache(): PrereadCache {
@@ -752,14 +1029,17 @@ function memoryCache(): PrereadCache {
 function geminiVision(args: {
   generate: GeminiGenerate;
   model: string;
+  location: string;
   callTimeoutMs?: number;
   /** Override live few-shot (tests). Default follows PREREAD_FEW_SHOT. */
   fewShot?: readonly FewShotTile[] | false;
+  callLog: PrereadCallLog;
+  calls: { runStartedMs: number; open: number; firstAt: number | null };
 }): PrereadVision {
   const generate = args.generate;
   const callTimeoutMs = args.callTimeoutMs ?? PREREAD_CALL_TIMEOUT_MS;
   return {
-    async classify(crops, profile) {
+    async classify(crops, profile, position) {
       if (crops.length === 0) return [];
       const fewShot =
         args.fewShot === false
@@ -777,10 +1057,42 @@ function geminiVision(args: {
         fewShot,
       });
       let text: string;
+      // A fresh controller per try: aborting the timed-out call drops its socket
+      // before the retry opens another.
+      const abort = new AbortController();
+      const request: GeminiGenerateRequest = {
+        ...built.body,
+        config: { ...built.body.config, abortSignal: abort.signal },
+      };
+      const requestBytes = requestSize(request);
+      const imageCount = countClassifyImages(built.content);
+      args.calls.open += 1;
+      const inFlight = args.calls.open;
+      const started = Date.now();
+      if (args.calls.firstAt === null) args.calls.firstAt = started;
+      const settled = (outcome: PrereadTileCallLog['outcome'], error?: unknown): void => {
+        args.calls.open -= 1;
+        const fields = outcome === 'ok' || error === undefined ? {} : callErrorFields(error);
+        args.callLog({
+          attempt: position?.attempt ?? 1,
+          elapsedMs: Date.now() - started,
+          outcome,
+          ...fields,
+          requestBytes,
+          imageCount,
+          model: args.model,
+          location: args.location,
+          batchIndex: position?.batchIndex ?? 0,
+          batches: position?.batches ?? 1,
+          inFlight,
+          firstCallAfterMs: (args.calls.firstAt ?? started) - args.calls.runStartedMs,
+        });
+      };
       try {
-        const response = await withTimeout(generate(built.body), callTimeoutMs);
+        const response = await withTimeout(generate(request), callTimeoutMs, abort);
         text = response.text;
       } catch (e) {
+        settled(failureReasonOf(e) === 'Timeout' ? 'timeout' : 'error', e);
         if (e instanceof AiError) {
           throw e instanceof PrereadCallError
             ? e
@@ -788,6 +1100,7 @@ function geminiVision(args: {
         }
         throw new PrereadCallError('ServiceError', statusClassOf(e));
       }
+      settled('ok');
       if (!text.trim()) throw new PrereadCallError('OffSchema', 'none');
       let parsed: unknown;
       try {
@@ -804,6 +1117,32 @@ function geminiVision(args: {
         statusClass: 'none',
       });
     },
+  };
+}
+
+function requestSize(request: GeminiGenerateRequest): number {
+  try {
+    return Buffer.byteLength(JSON.stringify(request));
+  } catch {
+    return -1;
+  }
+}
+
+/** Name, HTTP status and code only. The message can carry an id or a label. */
+function callErrorFields(error: unknown): { errorName: string; status?: number; code?: string } {
+  const errorName = error instanceof Error ? error.name : 'Error';
+  const record = error as { status?: unknown; code?: unknown };
+  const status = typeof record.status === 'number' ? record.status : undefined;
+  const code =
+    typeof record.code === 'string'
+      ? record.code
+      : typeof record.code === 'number'
+        ? String(record.code)
+        : undefined;
+  return {
+    errorName,
+    ...(status === undefined ? {} : { status }),
+    ...(code === undefined ? {} : { code }),
   };
 }
 

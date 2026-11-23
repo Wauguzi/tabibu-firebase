@@ -152,6 +152,12 @@ describe('patients', () => {
       getDocs(query(collection(doctor, 'patients'), where('doctorUids', 'array-contains', 'drOdhiambo'))),
     );
     await assertFails(getDocs(collection(doctor, 'patients')));
+    await assertFails(
+      getDocs(query(
+        collection(db('drStranger', DOCTOR), 'patients'),
+        where('doctorUids', 'array-contains', 'drOdhiambo'),
+      )),
+    );
   });
 
   it('RT-6 no client creates or deletes a record', async () => {

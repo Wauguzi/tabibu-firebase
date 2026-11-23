@@ -261,6 +261,7 @@ enum AppError implements Exception {
   roleAlreadySet,
   patientAlreadyRegistered,
   patientExists,
+  mdtAlreadyOpen,
   doctorsOnly,
   invalidPatient,
   accountNotFound,
@@ -308,6 +309,8 @@ enum AppError implements Exception {
   voiceUnavailable,
   // The report waits for a running pre-read (`prereadPending`).
   prereadPending,
+  // Appointment chat before the doctor accepts (`conversationUnavailable`).
+  conversationUnavailable,
   unknown;
 
   /// Maps a callable's `message` reason key to its [AppError], falling back
@@ -328,6 +331,7 @@ enum AppError implements Exception {
       'roleAlreadySet' => AppError.roleAlreadySet,
       'patientAlreadyRegistered' => AppError.patientAlreadyRegistered,
       'patientExists' => AppError.patientExists,
+      'mdtAlreadyOpen' => AppError.mdtAlreadyOpen,
       'doctorsOnly' => AppError.doctorsOnly,
       'invalidPatient' => AppError.invalidPatient,
       'accountNotFound' => AppError.accountNotFound,
@@ -371,6 +375,7 @@ enum AppError implements Exception {
       'invalidSlides' || 'invalidCount' => AppError.invalidSlides,
       'voiceDisabled' => AppError.voiceUnavailable,
       'prereadPending' => AppError.prereadPending,
+      'conversationUnavailable' => AppError.conversationUnavailable,
       _ => null,
     };
     return reason ?? fromFirebaseCode(e.code);
@@ -440,6 +445,7 @@ enum AppError implements Exception {
     .roleAlreadySet => l10n.errorRoleAlreadySet,
     .patientAlreadyRegistered => l10n.errorPatientAlreadyRegistered,
     .patientExists => l10n.errorPatientExists,
+    .mdtAlreadyOpen => l10n.errorMdtAlreadyOpen,
     .doctorsOnly => l10n.errorDoctorsOnly,
     .invalidPatient => l10n.errorInvalidPatient,
     .accountNotFound => l10n.errorAccountNotFound,
@@ -482,6 +488,7 @@ enum AppError implements Exception {
     .noRoleAssigned => l10n.errorNoRoleAssigned,
     .voiceUnavailable => l10n.symptomVoiceUnavailable,
     .prereadPending => l10n.errorPrereadPending,
+    .conversationUnavailable => l10n.errorConversationUnavailable,
     .unknown => l10n.errorUnknown,
   };
 }
@@ -1977,7 +1984,7 @@ enum NotificationTemplate {
       l10n.notificationAppointmentCancelledByPatientBody,
     .appointmentCancelledByDoctor =>
       l10n.notificationAppointmentCancelledByDoctorBody,
-    .mdtInvited => l10n.notificationMdtInvitedBody,
+    .mdtInvited => l10n.notificationMdtInvitedBody(args['name'] ?? ''),
     .mdtInviteAccepted => l10n.notificationMdtInviteAcceptedBody,
     .mdtInviteDeclined => l10n.notificationMdtInviteDeclinedBody,
     .messageReceived => l10n.notificationMessageReceivedBody(_count(args)),

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:firebase_remote_config/firebase_remote_config.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -24,6 +25,7 @@ import 'package:tabibu/features/preread/data/models/preread_model.dart';
 import 'package:tabibu/features/preread/data/region_read_client.dart';
 import 'package:tabibu/features/preread/presentation/widgets/region_capture.dart';
 import 'package:tabibu/features/preread/presentation/widgets/region_read_gating.dart';
+import 'package:tabibu/features/preread/presentation/widgets/region_read_panel.dart';
 import 'package:tabibu/features/preread/presentation/widgets/region_read_sheet.dart';
 import 'package:tabibu/features/preread/presentation/widgets/slide_viewer.dart';
 import 'package:tabibu/features/profile/data/models/doctor_model.dart';
@@ -39,11 +41,13 @@ import 'package:tabibu/features/reports/data/models/report_template_section_mode
 import 'package:tabibu/features/reports/data/services/report_labels.dart';
 import 'package:tabibu/features/reports/presentation/widgets/case_request_view.dart';
 import 'package:tabibu/features/reports/presentation/widgets/discard_revision_sheet.dart';
+import 'package:tabibu/features/reports/presentation/widgets/report_flag_switch.dart';
 import 'package:tabibu/features/reports/presentation/widgets/sample_received_view.dart';
 import 'package:tabibu/features/reports/presentation/widgets/signed_case_view.dart';
 import 'package:tabibu/features/reports/presentation/widgets/workspace_facts.dart';
 import 'package:tabibu/features/reports/presentation/widgets/workspace_score_card.dart';
 import 'package:tabibu/features/reports/presentation/widgets/workspace_sign_sheet.dart';
+import 'package:tabibu/features/reports/presentation/widgets/workspace_step_section.dart';
 import 'package:tabibu/features/worklist/presentation/widgets/ai_mark.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
@@ -56,6 +60,7 @@ class CaseWorkspaceScreen extends StatefulWidget {
     @visibleForTesting this.storage,
     @visibleForTesting this.regionReadEnabled,
     @visibleForTesting this.regionClient,
+    @visibleForTesting this.regionCapture,
     super.key,
   });
 
@@ -64,6 +69,10 @@ class CaseWorkspaceScreen extends StatefulWidget {
   final PrereadStorage? storage;
   final bool Function()? regionReadEnabled;
   final RegionReadClient? regionClient;
+
+  /// Deterministic capture bytes: the boundary never completes under a
+  /// test pump.
+  final Future<Uint8List?> Function()? regionCapture;
 
   static const int fieldMax = 2000;
 
@@ -101,12 +110,25 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
   final _settledNotes = <String>{};
 
   bool _heatmapOn = true;
-  bool _writeOwn = false;
+
+  /// The draft the AI's diagnosis and comments were filled into, once.
+  String? _aiFilledFor;
   String? _slideUrl;
   String? _heatmapUrl;
+
+  /// The latest region read. Screen state only: never saved, never
+  /// reported, cleared with the case.
+  RegionReadAnswer? _regionAnswer;
   String _loadedRun = '';
   List<NotifiableDiseaseModel> _confirmable = const [];
   var _registerLoaded = false;
+
+  /// Null until the pathologist toggles a step. A locked diagnosis stays
+  /// shut; once the score exists, the score step starts shut and diagnosis
+  /// starts open.
+  bool? _scoreOpen;
+  bool? _diagnosisOpen;
+  final GlobalKey _diagnosisSection = GlobalKey();
 
   @override
   void initState() {
@@ -136,6 +158,13 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
     _addendum.addListener(_onFieldEdited);
     unawaited(_loadRegister(bloc.state));
     unawaited(_loadImages(bloc.state.preread));
+  }
+
+  @override
+  void didUpdateWidget(covariant CaseWorkspaceScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A new case drops the old case's answer.
+    if (oldWidget.caseUid != widget.caseUid) _regionAnswer = null;
   }
 
   void _onFieldEdited() {
@@ -275,16 +304,18 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
     };
   }
 
-  void _askRegion() {
+  Future<void> _askRegion() async {
     final client =
         widget.regionClient ?? AiLogicRegionReadClient(getIt<AiLogicService>());
-    unawaited(
-      showRegionReadSheet(
-        context: context,
-        client: client,
-        captureController: _captureController,
-      ),
+    final answer = await showRegionReadSheet(
+      context: context,
+      client: client,
+      captureController: _captureController,
+      capture: widget.regionCapture,
     );
+    // A dismiss keeps whatever the panel already shows.
+    if (!mounted || answer == null) return;
+    setState(() => _regionAnswer = answer);
   }
 
   bool _readRegionReadEnabled() {
@@ -293,8 +324,21 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
     try {
       return FirebaseRemoteConfig.instance.getBool(regionReadEnabledKey);
     } on Object catch (_) {
-      // The client default is off. A missing config must not show the action.
-      return false;
+      // A config that cannot be read keeps the default, on.
+      return true;
+    }
+  }
+
+  /// The template id behind the panel's detail arrow: the same key the
+  /// service reads, or its default when config is out of reach.
+  String _regionTemplateId() {
+    try {
+      return RemoteConfigAiLogicConfig().optionalString(
+            AiLogicService.regionTemplateKey,
+          ) ??
+          AiLogicService.defaultRegionTemplateId;
+    } on Object catch (_) {
+      return AiLogicService.defaultRegionTemplateId;
     }
   }
 
@@ -439,6 +483,21 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
     );
   }
 
+  /// The diagnosis step opens in the same frame as the saved score. Scroll
+  /// once that frame has laid the heading out.
+  void _revealDiagnosis() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final target = _diagnosisSection.currentContext;
+      if (target == null) return;
+      Scrollable.ensureVisible(
+        target,
+        alignment: 0,
+        duration: const Duration(milliseconds: 300),
+      );
+    });
+  }
+
   Future<void> _openSign(CaseWorkspaceState state) async {
     final language = Localizations.localeOf(context).languageCode;
     final findings =
@@ -469,6 +528,7 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
               onTiles: (v) => setState(() => _tilesVerdict = v),
               onOverall: (v) => setState(() => _overall = v),
               onSave: _saveScore,
+              missingAnswers: context.l10n.scoreAnswerEveryQuestion,
             )
           : null,
     );
@@ -547,7 +607,9 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
             ),
           );
           context.pop();
-        } else if (state is CaseWorkspaceWriteFailure ||
+        }
+        if (state is CaseScoreSuccess) _revealDiagnosis();
+        if (state is CaseWorkspaceWriteFailure ||
             state is CaseWorkspaceLoadFailure) {
           final error = state is CaseWorkspaceWriteFailure
               ? state.error
@@ -609,7 +671,7 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                         SignedCaseView(
                           report: state.signed!,
                           caseModel: state.caseModel!,
-                          busy: state is CaseWorkspaceWriteInProgress,
+                          busy: _busy(state),
                           onRevisionStarted: (kind, text) =>
                               _add(CaseRevisionStarted(kind: kind, text: text)),
                         ),
@@ -649,7 +711,7 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                   Expanded(
                     child: CaseRequestView(
                       caseModel: asked,
-                      busy: state is CaseWorkspaceWriteInProgress,
+                      busy: _busy(state),
                       onAccept: () => _add(const CaseRequestAccepted()),
                       onDecline: (reason) =>
                           _add(CaseRequestDeclined(reason: reason)),
@@ -687,7 +749,7 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                   Expanded(
                     child: SampleReceivedView(
                       caseModel: asked,
-                      busy: state is CaseWorkspaceWriteInProgress,
+                      busy: _busy(state),
                       suggested: suggestedAccession(
                         orderNumber: asked.orderNumber,
                         firstName: _me.firstName,
@@ -710,8 +772,11 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
         final preread = state.preread;
         final ready = preread?.isReady == true;
         final locked = state.needsScore;
+        final savedScore = state.score;
+        final savingScore = state is CaseWorkspaceWriteInProgress;
         final isRevision =
             draft?.kindValue == .amendment || draft?.kindValue == .addendum;
+        final scoreStep = !isRevision && (locked || savedScore != null);
         // An open Amendment / Addendum can be left unsigned; an Initial
         // draft is the case's report, and a closed one is already gone.
         final canDiscard =
@@ -725,6 +790,26 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
         );
         final loading = state is CaseWorkspaceLoadInProgress && draft == null;
         final canSign = draft != null && _canSign(draft, locked: locked);
+        // Scored, with a ready AI draft and nothing of the pathologist's yet:
+        // the AI's diagnosis and comments go in to be edited. The bloc and the
+        // rules refuse it before a score; this asks once per draft.
+        if (draft != null &&
+            !locked &&
+            !isRevision &&
+            ready &&
+            // Only an untouched draft: nothing saved, nothing typed.
+            draft.diagnosis.trim().isEmpty &&
+            draft.comments.trim().isEmpty &&
+            draft.responses.isEmpty &&
+            _diagnosis.text.trim().isEmpty &&
+            _comments.text.trim().isEmpty &&
+            !draft.startedFromPreread &&
+            _aiFilledFor != draft.uid) {
+          _aiFilledFor = draft.uid;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _add(const CaseDraftStartedFromPreread());
+          });
+        }
 
         return Scaffold(
           body: SafeArea(
@@ -790,7 +875,8 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                                     setState(() => _heatmapOn = v),
                                 heatmapLabel: l10n.workspaceHeatmap,
                                 tilesLabel: '',
-                                askRegionLabel: l10n.regionAskAction,
+                                askRegionLabel: l10n.regionAskButton,
+                                askRegionSemanticLabel: l10n.regionAskAction,
                                 onAskRegion: canAskRegion ? _askRegion : null,
                                 regionCaptureController: _captureController,
                                 scaleLabel: workspaceScaleLabel(
@@ -803,24 +889,14 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                                 zoomInLabel: l10n.workspaceZoomIn,
                                 zoomOutLabel: l10n.workspaceZoomOut,
                               ),
-                              // Heatmap legend is unsigned AI outside the
-                              // draft frame: label it the same way as the
-                              // pre-read card.
-                              if (_heatmapUrl != null) ...[
+                              // The Ask AI answer lives here, never in the
+                              // report.
+                              if (canAskRegion) ...[
                                 const SizedBox(height: AppSpacing.sm),
-                                Row(
-                                  children: [
-                                    AiMark(label: l10n.workspaceAiPreread),
-                                    const SizedBox(width: AppSpacing.sm),
-                                    Expanded(
-                                      child: Text(
-                                        l10n.workspaceAiPrereadNotResult,
-                                        style: Theme.of(
-                                          context,
-                                        ).textTheme.bodySmall,
-                                      ),
-                                    ),
-                                  ],
+                                RegionReadPanel(
+                                  answer: _regionAnswer,
+                                  model: AiLogicService.regionReadModel,
+                                  templateId: _regionTemplateId(),
                                 ),
                               ],
                             ],
@@ -833,63 +909,120 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                             if (state.caseModel?.slideImages.isNotEmpty ==
                                 true) ...[
                               const SizedBox(height: AppSpacing.md),
-                              SlidesCard(slides: state.caseModel!.slideImages),
-                            ],
-                            if (locked && !isRevision) ...[
-                              const SizedBox(height: AppSpacing.md),
-                              WorkspaceScoreCard(
-                                findings: _findingsVerdict,
-                                impression: _impressionVerdict,
-                                urgency: _urgencyVerdict,
-                                measurements: _measurementsVerdict,
-                                tiles: _tilesVerdict,
-                                overall: _overall,
-                                comment: _scoreComment,
-                                onFindings: (v) =>
-                                    setState(() => _findingsVerdict = v),
-                                onImpression: (v) =>
-                                    setState(() => _impressionVerdict = v),
-                                onUrgency: (v) =>
-                                    setState(() => _urgencyVerdict = v),
-                                onMeasurements: (v) =>
-                                    setState(() => _measurementsVerdict = v),
-                                onTiles: (v) =>
-                                    setState(() => _tilesVerdict = v),
-                                onOverall: (v) => setState(() => _overall = v),
-                                onSave: _saveScore,
-                                saving: state is CaseWorkspaceWriteInProgress,
+                              SlidesCard(
+                                slides: state.caseModel!.slideImages,
+                                orderNumber: state.caseModel!.orderNumber,
                               ),
-                              const SizedBox(height: AppSpacing.sm),
-                              Text(
-                                l10n.scoreLockLine,
-                                style: Theme.of(context).textTheme.bodySmall,
+                            ],
+                            if (scoreStep) ...[
+                              const SizedBox(height: AppSpacing.md),
+                              WorkspaceStepSection(
+                                number: 1,
+                                title: l10n.workspaceStepAiScore,
+                                status: locked ? .toDo : .done,
+                                statusLabel: locked
+                                    ? l10n.workspaceStepToDo
+                                    : l10n.workspaceStepDone,
+                                expanded: _scoreOpen ?? locked,
+                                onToggle: () => setState(
+                                  () => _scoreOpen = !(_scoreOpen ?? locked),
+                                ),
+                                child: locked
+                                    ? Column(
+                                        crossAxisAlignment: .stretch,
+                                        children: [
+                                          WorkspaceScoreCard(
+                                            findings: _findingsVerdict,
+                                            impression: _impressionVerdict,
+                                            urgency: _urgencyVerdict,
+                                            measurements: _measurementsVerdict,
+                                            tiles: _tilesVerdict,
+                                            overall: _overall,
+                                            comment: _scoreComment,
+                                            onFindings: (v) => setState(
+                                              () => _findingsVerdict = v,
+                                            ),
+                                            onImpression: (v) => setState(
+                                              () => _impressionVerdict = v,
+                                            ),
+                                            onUrgency: (v) => setState(
+                                              () => _urgencyVerdict = v,
+                                            ),
+                                            onMeasurements: (v) => setState(
+                                              () => _measurementsVerdict = v,
+                                            ),
+                                            onTiles: (v) => setState(
+                                              () => _tilesVerdict = v,
+                                            ),
+                                            onOverall: (v) =>
+                                                setState(() => _overall = v),
+                                            onSave: _saveScore,
+                                            saving: savingScore,
+                                            missingAnswers:
+                                                l10n.scoreAnswerEveryQuestion,
+                                          ),
+                                          const SizedBox(height: AppSpacing.sm),
+                                          Text(
+                                            l10n.scoreLockLine,
+                                            style: Theme.of(
+                                              context,
+                                            ).textTheme.bodySmall,
+                                          ),
+                                        ],
+                                      )
+                                    // Saved: the arrow shows and hides the
+                                    // one-line result.
+                                    : WorkspaceScoreSummary(
+                                        label: l10n.scoreSavedSummary(
+                                          savedScore!.overall,
+                                        ),
+                                      ),
                               ),
                             ],
                             if (draft != null) ...[
                               const SizedBox(height: AppSpacing.md),
-                              _ReportSection(
-                                draft: draft,
-                                preread: isRevision ? null : preread,
-                                locked: locked,
-                                writeOwn: _writeOwn,
-                                diagnosis: _diagnosis,
-                                comments: _comments,
-                                confirmable: _confirmable,
-                                sections: _sections,
-                                answers: _answers,
-                                missingRequired:
-                                    !(draft.kindValue == .addendum) &&
-                                    _missingRequired(),
-                                onWriteOwn: () =>
-                                    setState(() => _writeOwn = true),
-                                onStartFromAi: () =>
-                                    _add(const CaseDraftStartedFromPreread()),
-                                onDiagnosisType: (t) =>
-                                    _setDiagnosisType(draft, t),
-                                onCritical: (v) => _setCritical(draft, v),
-                                onNotifiable: (id, {required on}) =>
-                                    _toggleNotifiable(draft, id, on: on),
-                                addendum: _addendum,
+                              WorkspaceStepSection(
+                                key: _diagnosisSection,
+                                // Step 1 only when there is a score to give.
+                                number: scoreStep ? 2 : 1,
+                                title: l10n.reportSectionDiagnosis,
+                                status: locked && !isRevision
+                                    ? .waiting
+                                    : .toDo,
+                                statusLabel: locked && !isRevision
+                                    ? l10n.workspaceStepWaiting
+                                    : l10n.workspaceStepToDo,
+                                expanded:
+                                    (!locked || isRevision) &&
+                                    (_diagnosisOpen ?? true),
+                                locked: locked && !isRevision,
+                                lockedReason: l10n.workspaceDiagnosisWaiting,
+                                onToggle: () => setState(
+                                  () => _diagnosisOpen =
+                                      !(_diagnosisOpen ?? true),
+                                ),
+                                child: _ReportSection(
+                                  draft: draft,
+                                  preread: isRevision ? null : preread,
+                                  locked: locked,
+                                  diagnosis: _diagnosis,
+                                  comments: _comments,
+                                  confirmable: _confirmable,
+                                  sections: _sections,
+                                  answers: _answers,
+                                  // The diagnosis counts too: on a manual
+                                  // read nothing fills it.
+                                  missingRequired:
+                                      !(draft.kindValue == .addendum) &&
+                                      (_missingRequired() ||
+                                          _diagnosis.text.trim().isEmpty),
+                                  onDiagnosisType: (t) =>
+                                      _setDiagnosisType(draft, t),
+                                  onCritical: (v) => _setCritical(draft, v),
+                                  onNotifiable: (id, {required on}) =>
+                                      _toggleNotifiable(draft, id, on: on),
+                                  addendum: _addendum,
+                                ),
                               ),
                             ],
                             const SizedBox(height: AppSpacing.md),
@@ -909,7 +1042,22 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                           ],
                         ),
                 ),
-                if (draft != null)
+                if (draft != null) ...[
+                  if (locked && !isRevision)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(
+                        AppSpacing.screenMargin,
+                        AppSpacing.sm,
+                        AppSpacing.screenMargin,
+                        0,
+                      ),
+                      child: Text(
+                        l10n.workspaceDiagnosisWaiting,
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
                   BottomActionBar(
                     secondary: TabibuButton.outline(
                       label: l10n.workspaceSaveDraft,
@@ -920,6 +1068,7 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
                       onTap: canSign ? () => _signFrom(state, draft) : null,
                     ),
                   ),
+                ],
               ],
             ),
           ),
@@ -971,8 +1120,14 @@ class _PrereadCard extends StatelessWidget {
     final measurements = workspaceMeasurementRows(preread.measurements);
 
     return AiDraftFrame(
+      key: PageStorageKey('preread-${preread.uid}'),
       label: l10n.workspaceAiPreread,
       detail: models.isEmpty ? null : models,
+      initiallyExpanded: true,
+      footer: Text(
+        l10n.workspaceAiPrereadDisclaimer,
+        style: textTheme.bodySmall,
+      ),
       child: Column(
         crossAxisAlignment: .stretch,
         children: [
@@ -988,7 +1143,10 @@ class _PrereadCard extends StatelessWidget {
             const SizedBox(height: AppSpacing.sm),
             Text(l10n.reportPdfMeasurements, style: textTheme.titleSmall),
             for (final (key, value) in measurements)
-              Text('$key · $value', style: textTheme.bodyMedium),
+              Text(
+                '${reportMeasurementLabel(l10n, key)} · $value',
+                style: textTheme.bodyMedium,
+              ),
           ],
           if (draft.impression.isNotEmpty) ...[
             const SizedBox(height: AppSpacing.sm),
@@ -1019,15 +1177,12 @@ class _ReportSection extends StatelessWidget {
     required this.draft,
     required this.preread,
     required this.locked,
-    required this.writeOwn,
     required this.diagnosis,
     required this.comments,
     required this.confirmable,
     required this.sections,
     required this.answers,
     required this.missingRequired,
-    required this.onWriteOwn,
-    required this.onStartFromAi,
     required this.onDiagnosisType,
     required this.onCritical,
     required this.onNotifiable,
@@ -1037,7 +1192,6 @@ class _ReportSection extends StatelessWidget {
   final ReportDraftModel draft;
   final PrereadModel? preread;
   final bool locked;
-  final bool writeOwn;
   final TextEditingController diagnosis;
   final TextEditingController comments;
   final TextEditingController addendum;
@@ -1046,8 +1200,6 @@ class _ReportSection extends StatelessWidget {
   sections;
   final Map<String, TextEditingController> answers;
   final bool missingRequired;
-  final VoidCallback onWriteOwn;
-  final VoidCallback onStartFromAi;
   final ValueChanged<DiagnosisType> onDiagnosisType;
   final ValueChanged<bool> onCritical;
   final void Function(String diseaseId, {required bool on}) onNotifiable;
@@ -1059,38 +1211,6 @@ class _ReportSection extends StatelessWidget {
     final isAddendum = draft.kindValue == .addendum;
     final isAmendment = draft.kindValue == .amendment;
     final fieldsLocked = locked || isAddendum;
-    final ready = preread?.isReady == true;
-    // Never offer AI on Amendment / Addendum; preread is null for those.
-    final showChooser =
-        !locked &&
-        !isAddendum &&
-        !isAmendment &&
-        draft.diagnosis.isEmpty &&
-        ready &&
-        !writeOwn &&
-        !draft.startedFromPreread;
-
-    // The two buttons start the report from the AI draft or from nothing.
-    // The fields stay in view under them, so scoring never makes the report
-    // fields vanish; typing in them is writing one's own.
-    final chooser = showChooser
-        ? Column(
-            crossAxisAlignment: .stretch,
-            children: [
-              TabibuButton.primary(
-                label: l10n.workspaceStartFromAiDraft,
-                onTap: onStartFromAi,
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              TabibuButton.outline(
-                label: l10n.workspaceWriteOwn,
-                onTap: onWriteOwn,
-              ),
-              const SizedBox(height: AppSpacing.md),
-            ],
-          )
-        : null;
-
     final aiDiagnosis = preread?.draft.impression ?? '';
     final aiComments = preread == null ? '' : workspaceAiComments(preread!);
     final diagnosisFramed =
@@ -1105,6 +1225,16 @@ class _ReportSection extends StatelessWidget {
         draft.startedFromPreread &&
         comments.text.trim().isNotEmpty &&
         !commentsFramed;
+    // The AI's words are in the fields: say they are there to be edited.
+    final aiFilledHint = (diagnosisFramed || commentsFramed) && !fieldsLocked
+        ? Padding(
+            padding: const EdgeInsets.only(bottom: AppSpacing.md),
+            child: Text(
+              l10n.workspaceAiFilledHint,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          )
+        : null;
 
     Widget wrapField({
       required bool framed,
@@ -1155,7 +1285,7 @@ class _ReportSection extends StatelessWidget {
           ),
           const SizedBox(height: AppSpacing.md),
         ],
-        ?chooser,
+        ?aiFilledHint,
         Wrap(
           spacing: AppSpacing.xs,
           children: [
@@ -1177,6 +1307,8 @@ class _ReportSection extends StatelessWidget {
           edited: diagnosisEdited,
           field: TabibuTextField(
             label: l10n.reportSectionDiagnosis,
+            // Sign needs it; an addendum carries the signed one.
+            required: !isAddendum,
             controller: diagnosis,
             maxLines: 4,
             maxLength: CaseWorkspaceScreen.fieldMax,
@@ -1227,8 +1359,7 @@ class _ReportSection extends StatelessWidget {
           ),
         ],
         const SizedBox(height: AppSpacing.md),
-        CheckRow(
-          circle: true,
+        ReportFlagSwitch(
           label: l10n.workspaceCriticalFinding,
           value: draft.isCritical,
           onChanged: fieldsLocked ? null : onCritical,
@@ -1241,8 +1372,7 @@ class _ReportSection extends StatelessWidget {
           ),
           for (final disease in confirmable) ...[
             const SizedBox(height: AppSpacing.xs),
-            CheckRow(
-              circle: true,
+            ReportFlagSwitch(
               label: l10n.workspacePositiveFor(
                 workspaceDiseaseName(disease, language),
               ),
@@ -1271,3 +1401,9 @@ void _notifyPasteCut(BuildContext context, int limit) {
     ),
   );
 }
+
+/// A write, and the reload of the case that follows it: the button that
+/// started it keeps its spinner until the new screen is ready.
+bool _busy(CaseWorkspaceState state) =>
+    state is CaseWorkspaceWriteInProgress ||
+    state is CaseWorkspaceLoadInProgress;

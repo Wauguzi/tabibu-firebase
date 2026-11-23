@@ -21,11 +21,27 @@ export class AiError extends Error {
 /** The longest a handler waits on the service; a late answer is dropped, not retried. */
 export const AI_TIMEOUT_MS = 60_000;
 
-/** Rejects with a `Timeout` `AiError` when `work` has not settled in `ms`. */
-export function withTimeout<T>(work: Promise<T>, ms: number = AI_TIMEOUT_MS): Promise<T> {
+/**
+ * Rejects with a `Timeout` `AiError` when `work` has not settled in `ms`.
+ * `abort` is only for a caller that passed a signal into the request: the timer
+ * cancels that request so a retry is not a second live call. Other callers pass
+ * nothing and are left running, as before.
+ */
+export function withTimeout<T>(
+  work: Promise<T>,
+  ms: number = AI_TIMEOUT_MS,
+  abort?: AbortController,
+): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
+  if (abort) {
+    // Aborting rejects `work` after this promise has already settled as Timeout.
+    void work.catch(() => undefined);
+  }
   const timeout = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new AiError('Timeout')), ms);
+    timer = setTimeout(() => {
+      reject(new AiError('Timeout'));
+      abort?.abort();
+    }, ms);
   });
   return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
 }

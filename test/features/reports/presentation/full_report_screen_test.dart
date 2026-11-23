@@ -202,7 +202,11 @@ void main() {
 
         expect(find.text(_diagnosis), findsOneWidget);
         expect(find.text(_comments), findsOneWidget);
-        verifyNever(() => blocs.reportReader.add(any()));
+        verifyNever(
+          () => blocs.reportReader.add(
+            any(that: isNot(isA<ReportReaderOpened>())),
+          ),
+        );
       });
 
       testWidgets('a state that belongs to another case shows nothing of it', (
@@ -478,7 +482,11 @@ void main() {
         // And once the report is on screen nothing more is sent.
         await pumpScreen(tester, reader: loaded(_report()));
         expect(find.text('Mark as discussed'), findsNothing);
-        verifyNever(() => blocs.reportReader.add(any()));
+        verifyNever(
+          () => blocs.reportReader.add(
+            any(that: isNot(isA<ReportReaderOpened>())),
+          ),
+        );
       });
     });
 

@@ -1,4 +1,4 @@
-// cspell:ignore Kipindupindu
+// cspell:ignore Kipindupindu Mwaliko mjadala amekualika kujadili
 import assert from 'node:assert/strict';
 import { randomBytes } from 'node:crypto';
 
@@ -10,6 +10,7 @@ import { emulatorDeps, resetEmulators } from './emulator.test-support';
 import {
   ALERT_DELIVERY_ARG_ALLOW,
   GLOBAL_ARG_ALLOW,
+  MDT_INVITE_ARG_ALLOW,
   NotificationTx,
   TEMPLATES,
   renderPush,
@@ -37,6 +38,7 @@ describe('notifications', () => {
       for (const key of t.argKeys) {
         const ok =
           GLOBAL_ARG_ALLOW.has(key) ||
+          (MDT_INVITE_ARG_ALLOW.has(key) && t.key === 'mdtInvited') ||
           (ALERT_DELIVERY_ARG_ALLOW.has(key) &&
             (t.key === 'alertDeliveredClinician' ||
               t.key === 'alertDeliveredPatient' ||
@@ -62,6 +64,16 @@ describe('notifications', () => {
         assert.equal(banned.test(text), false, `${t.key}: ${text}`);
       }
     }
+  });
+
+  it('names the inviter on an MDT invitation in English and Swahili', () => {
+    const en = renderPush('mdtInvited', 'en', { name: 'Dr. Achieng Odhiambo' });
+    assert.equal(en.title, 'Consult invitation');
+    assert.equal(en.body, 'Dr. Achieng Odhiambo invited you to discuss a case.');
+    const sw = renderPush('mdtInvited', 'sw', { name: 'Dr. Achieng Odhiambo' });
+    assert.equal(sw.title, 'Mwaliko wa mjadala');
+    assert.equal(sw.body, 'Dr. Achieng Odhiambo amekualika kujadili kesi.');
+    assert.throws(() => renderPush('mdtInviteAccepted', 'en', { name: 'Dr. Achieng Odhiambo' }));
   });
 
   it('resolves alert names from the bundle and refuses free text / unknown ids', () => {

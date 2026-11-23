@@ -38,6 +38,9 @@ import 'package:tabibu/features/notifications/blocs/notifications_bloc/notificat
 import 'package:tabibu/features/orders/blocs/order_bloc/order_bloc.dart';
 import 'package:tabibu/features/orders/blocs/order_bloc/order_event.dart';
 import 'package:tabibu/features/orders/blocs/order_bloc/order_state.dart';
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_bloc.dart';
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_event.dart';
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_state.dart';
 import 'package:tabibu/features/practitioners/blocs/directory_bloc/directory_bloc.dart';
 import 'package:tabibu/features/practitioners/blocs/directory_bloc/directory_event.dart';
 import 'package:tabibu/features/practitioners/blocs/directory_bloc/directory_state.dart';
@@ -98,6 +101,9 @@ class MockReportReaderBloc
 class MockOrderBloc extends MockBloc<OrderEvent, OrderState>
     implements OrderBloc {}
 
+class MockPatientsBloc extends MockBloc<PatientsEvent, PatientsState>
+    implements PatientsBloc {}
+
 class MockDeskBloc extends MockBloc<DeskEvent, DeskState> implements DeskBloc {}
 
 class MockFacilitiesBloc extends MockBloc<FacilitiesEvent, FacilitiesState>
@@ -127,6 +133,7 @@ class FeatureBlocs {
     when(() => caseWorkspace.state).thenReturn(const CaseWorkspaceInitial());
     when(() => reportReader.state).thenReturn(const ReportReaderInitial());
     when(() => order.state).thenReturn(const OrderInitial());
+    when(() => patients.state).thenReturn(const PatientsInitial());
     when(() => facilities.state).thenReturn(const FacilitiesInitial());
     when(
       () => theme.state,
@@ -148,6 +155,7 @@ class FeatureBlocs {
       caseWorkspace,
       reportReader,
       order,
+      patients,
       facilities,
       theme,
     ]) {
@@ -170,6 +178,7 @@ class FeatureBlocs {
   final caseWorkspace = MockCaseWorkspaceBloc();
   final reportReader = MockReportReaderBloc();
   final order = MockOrderBloc();
+  final patients = MockPatientsBloc();
   final facilities = MockFacilitiesBloc();
   final theme = MockThemeBloc();
 
@@ -189,6 +198,7 @@ class FeatureBlocs {
     BlocProvider<CaseWorkspaceBloc>.value(value: caseWorkspace),
     BlocProvider<ReportReaderBloc>.value(value: reportReader),
     BlocProvider<OrderBloc>.value(value: order),
+    BlocProvider<PatientsBloc>.value(value: patients),
     BlocProvider<FacilitiesBloc>.value(value: facilities),
     BlocProvider<ThemeBloc>.value(value: theme),
   ];

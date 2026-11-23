@@ -3,6 +3,7 @@ import 'package:tabibu/core/constants/enums.dart';
 import 'package:tabibu/features/reports/data/models/pathology_report_model.dart';
 import 'package:tabibu/features/reports/data/models/report_response_model.dart';
 import 'package:tabibu/features/reports/data/models/report_text_approved_model.dart';
+import 'package:tabibu/features/reports/data/services/report_labels.dart';
 
 part 'report_pdf_input.freezed.dart';
 part 'report_pdf_input.g.dart';
@@ -159,6 +160,10 @@ abstract class PdfSignature with _$PdfSignature {
     @JsonKey(name: 'signedAtLabel') @Default('') String signedAtLabel,
     @JsonKey(name: 'contentRef') @Default('') String contentRef,
     @JsonKey(name: 'png') @Default(<int>[]) List<int> png,
+
+    /// Words in the signature box when the stored image cannot be drawn.
+    /// Empty leaves the box blank. Not an ARB string yet.
+    @JsonKey(name: 'unavailable') @Default('') String unavailable,
   }) = _PdfSignature;
 
   const PdfSignature._();
@@ -246,6 +251,12 @@ abstract class ReportPdfInput with _$ReportPdfInput {
     bool isDraft = false,
     ReportTextApprovedModel? translation,
     List<int> signaturePng = const [],
+    String signatureUnavailable = '',
+
+    /// Whole years stored on the case when the date of birth
+    /// did not reach here.
+    /// -1 leaves the age missing.
+    int recordedAgeYears = -1,
     String supportContact = '',
   }) {
     if (isDraft) {
@@ -301,7 +312,14 @@ abstract class ReportPdfInput with _$ReportPdfInput {
       ),
       ...reportBlocksFromResponses(report.responses),
     ];
-    final age = PdfSubject.ageFromDateOfBirth(dateOfBirth, now);
+    // The date of birth carries years and months. The case only stored whole
+    // years, and only that remains when the date of birth never arrived.
+    final fromDob = PdfSubject.ageFromDateOfBirth(dateOfBirth, now);
+    final known = fromDob.years >= 0;
+    final years = known
+        ? fromDob.years
+        : (recordedAgeYears >= 0 ? recordedAgeYears : -1);
+    final months = known ? fromDob.months : (years >= 0 ? 0 : -1);
 
     return ReportPdfInput(
       viewerRole: viewerRole,
@@ -321,14 +339,24 @@ abstract class ReportPdfInput with _$ReportPdfInput {
       ),
       subject: PdfSubject(
         displayName: patientDisplayName,
-        ageYears: age.years,
-        ageMonths: age.months,
+        ageYears: years,
+        ageMonths: months,
         sex: sex,
         residence: residence,
       ),
       blocks: blocks,
       measurements: report.measurements
-          .map((m) => PdfMeasurement(key: m.key, value: m.formatted))
+          .map(
+            (m) => PdfMeasurement(
+              key: m.key,
+              value: reportMeasurementValue(
+                m.key,
+                m.value,
+                unit: m.unit,
+                precision: m.precision,
+              ),
+            ),
+          )
           .toList(),
       addenda: report.addenda
           .map((a) => PdfAddendum(text: a.text, signedAt: a.signedAt))
@@ -342,6 +370,7 @@ abstract class ReportPdfInput with _$ReportPdfInput {
         signedAtLabel: report.signedAt,
         contentRef: report.contentSha256,
         png: signaturePng,
+        unavailable: signaturePng.isEmpty ? signatureUnavailable : '',
       ),
       translation: translation?.approvedText ?? const {},
       translationApproverName: translation?.approverName ?? '',

@@ -16,6 +16,7 @@ import 'package:tabibu/features/auth/data/models/onboarding_hive.dart';
 import 'package:tabibu/features/cases/data/models/case_hive.dart';
 import 'package:tabibu/features/cases/data/models/case_log_entry_hive.dart';
 import 'package:tabibu/features/cases/data/models/case_payment_hive.dart';
+import 'package:tabibu/features/cases/data/models/explanation_audio_hive.dart';
 import 'package:tabibu/features/cases/data/models/notes_translation_hive.dart';
 import 'package:tabibu/features/cases/data/models/ordered_test_hive.dart';
 import 'package:tabibu/features/cases/data/models/risk_check_hive.dart';
@@ -58,6 +59,7 @@ extension HiveRegistrar on HiveInterface {
     registerAdapter(ConversationHiveAdapter());
     registerAdapter(ConversationMemberHiveAdapter());
     registerAdapter(DoctorHiveAdapter());
+    registerAdapter(ExplanationAudioHiveAdapter());
     registerAdapter(GuidanceBulletHiveAdapter());
     registerAdapter(GuidanceSourceHiveAdapter());
     registerAdapter(IntakeDraftHiveAdapter());
@@ -102,6 +104,7 @@ extension IsolatedHiveRegistrar on IsolatedHiveInterface {
     registerAdapter(ConversationHiveAdapter());
     registerAdapter(ConversationMemberHiveAdapter());
     registerAdapter(DoctorHiveAdapter());
+    registerAdapter(ExplanationAudioHiveAdapter());
     registerAdapter(GuidanceBulletHiveAdapter());
     registerAdapter(GuidanceSourceHiveAdapter());
     registerAdapter(IntakeDraftHiveAdapter());

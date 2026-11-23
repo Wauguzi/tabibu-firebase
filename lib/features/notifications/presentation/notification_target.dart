@@ -1,6 +1,7 @@
 import 'package:go_router/go_router.dart';
 import 'package:tabibu/core/helpers/role_helper.dart';
 import 'package:tabibu/core/routing/app_routes.dart';
+import 'package:tabibu/features/conversations/presentation/mdt_routes.dart';
 import 'package:tabibu/features/notifications/data/models/notification_model.dart';
 
 /// Topic pushes and some local banners carry the path itself; inbox taps
@@ -35,6 +36,20 @@ GoRouteData? notificationTarget(String deepLink, RoleHelper roles) {
       caseUid: id,
     ),
     ('alerts', 2, .patient) => HealthNoticeRoute(alertUid: id),
+    // A message opens its conversation, which loads itself on open: an
+    // appointment chat by its appointment, a consult by its id. A case chat
+    // has no screen of its own yet.
+    ('conversations', 2, .patient) when id.startsWith(_appointmentChat) =>
+      PatientAppointmentChatRoute(
+        appointmentUid: id.substring(_appointmentChat.length),
+      ),
+    ('conversations', 2, .doctor) when id.startsWith(_appointmentChat) =>
+      DoctorAppointmentChatRoute(
+        appointmentUid: id.substring(_appointmentChat.length),
+      ),
+    ('conversations', 2, .doctor || .pathologist)
+        when !id.startsWith(_appointmentChat) && !id.startsWith(_caseChat) =>
+      mdtConsultRoute(role, id),
     ('alerts', 3, .doctor)
         when segments[2] == 'review' && roles.canApproveAlerts =>
       AlertReviewRoute(alertUid: id),
@@ -95,6 +110,9 @@ GoRouteData? notificationRowTarget(NotificationModel row, RoleHelper roles) =>
 /// A plain deep-link payload with no row: the Tier 1 screen, else the inbox.
 GoRouteData? notificationTapRoute(String deepLink, RoleHelper roles) =>
     notificationTarget(deepLink, roles) ?? notificationsHome(roles);
+
+const _appointmentChat = 'appt_';
+const _caseChat = 'case_';
 
 bool _caseLink(List<String> segments) =>
     segments.length == 2 ||

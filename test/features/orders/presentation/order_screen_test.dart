@@ -30,6 +30,9 @@ import 'package:tabibu/features/orders/data/models/lab_test_model.dart';
 import 'package:tabibu/features/orders/data/models/lab_test_type_model.dart';
 import 'package:tabibu/features/orders/presentation/order_screen.dart';
 import 'package:tabibu/features/orders/presentation/widgets/order_send_step.dart';
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_event.dart';
+import 'package:tabibu/features/patients/blocs/patients_bloc/patients_state.dart';
+import 'package:tabibu/features/patients/data/models/patient_model.dart';
 import 'package:tabibu/features/practitioners/data/models/practitioner_model.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
@@ -155,6 +158,7 @@ void main() {
     registerFallbackValue(const OrderReset());
     registerFallbackValue(const SlideUploadReset());
     registerFallbackValue(const CasesRefreshed(uid: '', role: .doctor));
+    registerFallbackValue(const PatientsLoadRequested(doctorUid: ''));
     await initializeDateFormatting('sw');
   });
 
@@ -677,6 +681,125 @@ void main() {
           }
         }
       });
+
+      testWidgets(
+        'a pending patient who syncs on a later step can be ordered',
+        (tester) async {
+          when(
+            () => blocs.appointments.state,
+          ).thenReturn(const AppointmentsLoadSuccess());
+          final pending = PatientModel.empty().copyWith(
+            patientId: 'local-1',
+            firstName: 'Amina',
+            lastName: 'Wambui',
+            phoneNumber: '+254700000001',
+            dateOfBirth: '1990-01-02',
+            doctorUids: const ['doc-1'],
+            synced: false,
+          );
+          final synced = pending.copyWith(patientId: 'server-9', synced: true);
+          final patients = StreamController<PatientsState>();
+          addTearDown(patients.close);
+          whenListen(
+            blocs.patients,
+            patients.stream,
+            initialState: PatientsLoadSuccess(
+              patients: [pending],
+              doctorUid: 'doc-1',
+            ),
+          );
+          when(() => blocs.patients.add(any())).thenReturn(null);
+
+          var current = const OrderInitial() as OrderState;
+          final orders = StreamController<OrderState>();
+          addTearDown(orders.close);
+          whenListen(blocs.order, orders.stream, initialState: current);
+          when(() => blocs.order.add(any())).thenAnswer((invocation) {
+            final event = invocation.positionalArguments.single as OrderEvent;
+            switch (event) {
+              case OrderStarted(
+                :final patientId,
+                :final patientName,
+                :final patientPending,
+                :final patientHeld,
+              ):
+                current = _editing(
+                  _draft(
+                    appointmentUid: '',
+                    patientId: patientId,
+                    patientName: patientName,
+                  ).copyWith(
+                    patientPending: patientPending,
+                    patientHeld: patientHeld,
+                  ),
+                );
+              case OrderTestToggled(:final labTestId):
+                final ids = [...current.draft.testIds];
+                if (ids.contains(labTestId)) {
+                  ids.remove(labTestId);
+                } else {
+                  ids.add(labTestId);
+                }
+                current = _editing(current.draft.copyWith(testIds: ids));
+              case OrderPatientResolved(
+                :final patientId,
+                :final patientName,
+                :final patientPending,
+                :final patientHeld,
+              ):
+                current = _editing(
+                  current.draft.copyWith(
+                    patientId: patientId,
+                    patientName: patientName,
+                    patientPending: patientPending,
+                    patientHeld: patientHeld,
+                  ),
+                );
+              default:
+                return;
+            }
+            orders.add(current);
+            return;
+          });
+
+          await pumpScreen(tester, appointmentUid: '');
+          await tester.tap(find.text('Amina Wambui'));
+          await tester.pump();
+          await tester.tap(find.text('Histology · sentinel lymph node'));
+          await tester.pump();
+          await tester.tap(find.text(_en.orderContinueTests(1)));
+          await tester.pump();
+
+          expect(find.text(_en.orderPatientNotSent), findsOneWidget);
+          expect(
+            tester
+                .widget<TabibuButton>(
+                  find.widgetWithText(TabibuButton, _en.orderCreate),
+                )
+                .onTap,
+            isNull,
+          );
+
+          patients.add(
+            PatientsLoadSuccess(patients: [synced], doctorUid: 'doc-1'),
+          );
+          await tester.pump();
+
+          expect(find.text(_en.orderPatientNotSent), findsNothing);
+          expect(
+            tester
+                .widget<TabibuButton>(
+                  find.widgetWithText(TabibuButton, _en.orderCreate),
+                )
+                .onTap,
+            isNotNull,
+          );
+          expect(blocs.order.state.draft.patientId, 'server-9');
+          expect(blocs.order.state.draft.patientPending, isFalse);
+          expect(blocs.order.state.draft.testIds, ['t1']);
+          expect(blocs.order.state.draft.caseUid, 'case-1');
+        },
+      );
     });
 
     group('tests step', () {

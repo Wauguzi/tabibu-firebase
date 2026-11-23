@@ -265,7 +265,9 @@ rules-test:
 functions-test:
 		$(require_java21)
 		cd functions && npm install --silent && ./node_modules/.bin/eslint src \
-		    && ./node_modules/.bin/tsc -p tsconfig.build.json
+		    && ./node_modules/.bin/tsc -p tsconfig.build.json \
+		    && ./node_modules/.bin/tsc --noEmit -p tsconfig.json \
+		    && ./node_modules/.bin/tsc -p tsconfig.scripts.json
 		PATH="$(JDK21_BIN):$$PATH" $(FIREBASE) emulators:exec --only firestore,auth,storage --project demo-tabibu \
 		    "cd functions && npm test"
 

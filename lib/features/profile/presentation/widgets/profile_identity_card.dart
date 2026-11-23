@@ -1,10 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/constants/app_colors.dart';
 import 'package:tabibu/core/constants/app_radii.dart';
-import 'package:tabibu/core/constants/app_shadows.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/constants/app_status_colors.dart';
-import 'package:tabibu/core/constants/app_styles.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 
@@ -30,7 +28,7 @@ class PatientIdentityCard extends StatelessWidget {
   final String phoneNumber;
   final String editLabel;
 
-  /// The pencil into the profile details; null while it leads nowhere.
+  /// The pencil into Edit profile; null while it leads nowhere.
   final VoidCallback? onEdit;
   final String photoUrl;
 
@@ -40,55 +38,50 @@ class PatientIdentityCard extends StatelessWidget {
     return '+254 ${phone.substring(4, 7)} *** ***';
   }
 
-  /// "Amina W.": the first name with the last initial, shared with the
-  /// profile details hero.
+  /// "Amina W.": the first name with the last initial.
   static String shortName(String firstName, String lastName) =>
       lastName.isEmpty ? firstName : '$firstName ${lastName.characters.first}.';
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final shortName = PatientIdentityCard.shortName(firstName, lastName);
-    final isDark = scheme.brightness == .dark;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        // Raised in dark by a lighter tone, not a light shadow.
-        color: isDark
-            ? scheme.surfaceContainerHigh
-            : scheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(AppRadii.hero),
-        boxShadow: AppShadows.card(),
-      ),
-      child: Padding(
-        padding: AppStyles.cardPadding,
-        child: Row(
-          children: [
-            Avatar.tile(
-              name: '$firstName $lastName',
-              image: _photo(photoUrl),
-              radius: 28,
+    // The pattern is teal in both themes, so the name and number stay white.
+    return PatternCard(
+      child: Row(
+        children: [
+          Avatar.tile(
+            name: '$firstName $lastName',
+            image: _photo(photoUrl),
+            radius: 28,
+          ),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: .start,
+              children: [
+                Text(
+                  shortName,
+                  style: textTheme.titleLarge?.copyWith(color: AppColors.white),
+                ),
+                Text(
+                  maskPhone(phoneNumber),
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: AppColors.white.withValues(alpha: 0.8),
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: AppSpacing.md),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: .start,
-                children: [
-                  Text(shortName, style: textTheme.titleLarge),
-                  Text(maskPhone(phoneNumber), style: textTheme.bodyMedium),
-                ],
-              ),
-            ),
-            const SizedBox(width: AppSpacing.sm),
-            CircleIconButton(
-              icon: Assets.icons.editIcon,
-              onTap: onEdit,
-              iconSize: 32,
-              semanticLabel: editLabel,
-              onCard: true,
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          CircleIconButton(
+            icon: Assets.icons.editIcon,
+            onTap: onEdit,
+            iconSize: 32,
+            semanticLabel: editLabel,
+            onCard: true,
+          ),
+        ],
       ),
     );
   }

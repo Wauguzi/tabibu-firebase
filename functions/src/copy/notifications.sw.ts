@@ -56,7 +56,7 @@ export const pushSw: Record<string, { title?: string; body: string; bodyPlural?:
     title: 'Miadi imeghairiwa',
     body: 'Daktari wako ameghairi miadi yako. Unaweza kuweka muda mwingine.',
   },
-  mdtInvited: { title: 'Mwaliko wa mjadala', body: 'Umealikwa kwenye majadiliano ya MDT.' },
+  mdtInvited: { title: 'Mwaliko wa mjadala', body: '{name} amekualika kujadili kesi.' },
   mdtInviteAccepted: { title: 'Mwaliko umekubaliwa', body: 'Mwenzako amejiunga na majadiliano yako ya MDT.' },
   mdtInviteDeclined: { title: 'Mwaliko umekataliwa', body: 'Mwenzako amekataa mwaliko wako wa MDT.' },
   messageReceived: {

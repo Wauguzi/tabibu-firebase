@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/cases/data/models/slide_image_model.dart';
 import 'package:tabibu/features/cases/presentation/widgets/slides_card.dart';
 import 'package:tabibu/l10n/l10n.dart';
@@ -63,6 +64,105 @@ void main() {
     await pump(tester, [one], asked: <String>[]);
 
     expect(find.byType(CircularProgressIndicator), findsNothing);
+  });
+
+  testWidgets('a tapped slide opens edge to edge, not floating', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3;
+    // A notch and a home indicator, as on the iPhone.
+    tester.view.padding = const FakeViewPadding(top: 141, bottom: 102);
+    addTearDown(tester.view.reset);
+    await tester.pumpApp(
+      SlidesCard(
+        slides: const [one],
+        urlFor: (path) async => 'https://example.test/$path',
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    tester.takeException();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SlidesCard),
+        matching: find.byType(Tappable),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    // Test images cannot load; that error is not what this test is about.
+    tester.takeException();
+
+    final page = tester.getRect(find.byType(Dialog));
+    expect(page.top, 0);
+    expect(page.bottom, 2532 / 3);
+  });
+
+  Future<void> openFull(WidgetTester tester, {String orderNumber = ''}) async {
+    tester.view.physicalSize = const Size(1170, 2532);
+    tester.view.devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await tester.pumpApp(
+      SlidesCard(
+        slides: const [one],
+        orderNumber: orderNumber,
+        urlFor: (path) async => 'https://example.test/$path',
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    tester.takeException();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(SlidesCard),
+        matching: find.byType(Tappable),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    tester.takeException();
+  }
+
+  testWidgets('the full slide is titled by its order, the slide beneath', (
+    tester,
+  ) async {
+    await openFull(tester, orderNumber: 'ODR-AO-NB-17112026-001');
+
+    final bar = tester.widget<TopBar>(find.byType(TopBar));
+    expect(bar.title, 'ODR-AO-NB-17112026-001');
+    expect(bar.subtitle, '${en.orderSlidesTitle} · 0.975 µm/px');
+  });
+
+  testWidgets('a double tap zooms in about the tap, a second goes back', (
+    tester,
+  ) async {
+    await openFull(tester, orderNumber: 'ODR-1');
+    final viewer = find.byType(InteractiveViewer);
+    final controller = tester
+        .widget<InteractiveViewer>(viewer)
+        .transformationController!;
+    final at = tester.getTopLeft(viewer) + const Offset(100, 200);
+
+    await tester.tapAt(at);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(at);
+    await tester.pumpAndSettle();
+    tester.takeException();
+
+    expect(controller.value.getMaxScaleOnAxis(), closeTo(2.5, 0.01));
+    // The slide point under the finger stays under it.
+    final under = controller.toScene(const Offset(100, 200));
+    expect(under.dx, closeTo(100, 0.5));
+    expect(under.dy, closeTo(200, 0.5));
+
+    await tester.tapAt(at);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tapAt(at);
+    await tester.pumpAndSettle();
+    tester.takeException();
+    expect(controller.value.getMaxScaleOnAxis(), closeTo(1, 0.01));
   });
 
   testWidgets('nothing at all without slides', (tester) async {

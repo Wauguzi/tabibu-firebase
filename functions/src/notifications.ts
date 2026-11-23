@@ -21,6 +21,8 @@ export type NotifyLanguage = 'en' | 'sw';
 
 export const GLOBAL_ARG_ALLOW = new Set(['newCount']);
 export const ALERT_DELIVERY_ARG_ALLOW = new Set(['diseaseId', 'countyId']);
+/** The inviter's display name. Only `mdtInvited` may carry it. */
+export const MDT_INVITE_ARG_ALLOW = new Set(['name']);
 
 const CODE_TEMPLATES = new Set([
   'caseShared',
@@ -75,7 +77,7 @@ export const TEMPLATES: readonly TemplateDef[] = [
   { key: 'appointmentExpired', category: 'Appointment', resourceType: 'Appointment', actionType: 'Acknowledge', priority: 'Normal', argKeys: [] },
   { key: 'appointmentCancelledByPatient', category: 'Appointment', resourceType: 'Appointment', actionType: '', priority: 'Normal', argKeys: [] },
   { key: 'appointmentCancelledByDoctor', category: 'Appointment', resourceType: 'Appointment', actionType: 'Acknowledge', priority: 'Normal', argKeys: [] },
-  { key: 'mdtInvited', category: 'Mdt', resourceType: 'Conversation', actionType: 'Approval', priority: 'Normal', argKeys: [] },
+  { key: 'mdtInvited', category: 'Mdt', resourceType: 'Conversation', actionType: 'Approval', priority: 'Normal', argKeys: ['name'] },
   { key: 'mdtInviteAccepted', category: 'Mdt', resourceType: 'Conversation', actionType: '', priority: 'Normal', argKeys: [] },
   { key: 'mdtInviteDeclined', category: 'Mdt', resourceType: 'Conversation', actionType: '', priority: 'Normal', argKeys: [], pushes: false },
   { key: 'messageReceived', category: 'Message', resourceType: 'Conversation', actionType: '', priority: 'Normal', argKeys: ['newCount'] },

@@ -67,6 +67,7 @@ class CaseHiveAdapter extends TypeAdapter<CaseHive> {
       cancelReason: fields[47] as String,
       createdAt: fields[48] as String,
       lastUpdatedAt: fields[49] as String,
+      openMdtUid: fields[51] == null ? '' : fields[51] as String,
       synced: fields[50] as bool,
     );
   }
@@ -74,7 +75,7 @@ class CaseHiveAdapter extends TypeAdapter<CaseHive> {
   @override
   void write(BinaryWriter writer, CaseHive obj) {
     writer
-      ..writeByte(51)
+      ..writeByte(52)
       ..writeByte(0)
       ..write(obj.uid)
       ..writeByte(1)
@@ -176,7 +177,9 @@ class CaseHiveAdapter extends TypeAdapter<CaseHive> {
       ..writeByte(49)
       ..write(obj.lastUpdatedAt)
       ..writeByte(50)
-      ..write(obj.synced);
+      ..write(obj.synced)
+      ..writeByte(51)
+      ..write(obj.openMdtUid);
   }
 
   @override

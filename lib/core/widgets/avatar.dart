@@ -25,7 +25,8 @@ class Avatar extends StatelessWidget {
     caseSensitive: false,
   );
 
-  String get _initials {
+  /// "Dr. Achieng Odhiambo" → "AO": first and last initials, no title.
+  static String initialsOf(String name) {
     final parts = name.trim().split(RegExp(r'\s+'));
     // A title is not part of a person's initials.
     if (parts.length > 1 && _title.hasMatch(parts.first)) parts.removeAt(0);
@@ -44,7 +45,7 @@ class Avatar extends StatelessWidget {
     // The initials sit under the photo, so a photo that fails to load (a
     // re-upload gives the file a new URL) shows them instead of a blank.
     final initials = Text(
-      _initials,
+      initialsOf(name),
       style: textTheme.titleSmall?.copyWith(color: status.infoText),
     );
     final size = radius * 2;

@@ -328,7 +328,9 @@ void main() {
       expect(find.text('ODR-AO-PK-02112026-003 · Core biopsy'), findsOneWidget);
     });
 
-    testWidgets('notifiable keeps the today tile and any date', (tester) async {
+    testWidgets('notifiable counts its own reports, of any date', (
+      tester,
+    ) async {
       _useTallSurface(tester);
       final l10n = lookupAppLocalizations(const Locale('en'));
       final oldAt = nairobiTimeOf(_at(plusDays: -10, hour: 8, minute: 47))!;
@@ -340,8 +342,10 @@ void main() {
       await tester.tap(find.text(l10n.signedTabNotifiable).first);
       await tester.pump();
 
-      expect(find.text(l10n.deskSignedToday), findsOneWidget);
-      expect(find.text('${todayCount()}'), findsOneWidget);
+      // Not today's count: every notifiable report, under its own title.
+      expect(find.text(l10n.deskSignedToday), findsNothing);
+      expect(find.text(l10n.signedTabSignedNotifiable), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
       expect(find.byType(SignedReportRow), findsNWidgets(2));
       // Older rows show a weekday date, never a time.
       final date = DateFormat('EEE d MMM', 'en').format(oldAt);
@@ -352,6 +356,33 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('nothing today: no card at 0, an empty state under the pills', (
+      tester,
+    ) async {
+      _useTallSurface(tester);
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      final old = signedMine().where((r) => r.uid == 'r-old').toList();
+      await pumpScreen(
+        tester,
+        cases: CasesLoadSuccess(reports: old, cases: joinedCases()),
+      );
+
+      expect(find.byType(ShortcutTile), findsNothing);
+      expect(find.text(l10n.signedTabToday), findsOneWidget);
+      expect(find.text(l10n.signedTabEmptyToday), findsOneWidget);
+      expect(
+        tester.getTopLeft(find.text(l10n.signedTabEmptyToday)).dy,
+        greaterThan(tester.getTopLeft(find.text(l10n.signedTabToday)).dy),
+      );
+
+      // The old report is notifiable: that pill counts and lists it.
+      await tester.tap(find.text(l10n.signedTabNotifiable).first);
+      await tester.pump();
+      expect(find.byType(ShortcutTile), findsOneWidget);
+      expect(find.text(l10n.signedTabEmptyToday), findsNothing);
+      expect(find.byType(SignedReportRow), findsOneWidget);
     });
 
     testWidgets('a report signed at 23:30 Nairobi counts as today', (

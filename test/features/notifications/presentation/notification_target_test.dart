@@ -53,12 +53,32 @@ void main() {
     });
 
     test('Tier 2 and unknown links open nothing', () {
-      expect(target('/conversations/x1', doctor), isNull);
+      expect(target('/conversations/case_c1_p1', doctor), isNull);
       expect(target('/cases/c1/unknown/z', patient), isNull);
       expect(target('/cases/c1/reports/r1/extra', doctor), isNull);
       expect(target('', patient), isNull);
       expect(target('/', patient), isNull);
       expect(target('/appointments/a1', none), isNull);
+    });
+
+    test('a message opens its conversation, for its own people', () {
+      const consult = '7d4a3b1e-2f6c-4a8b-9e1d-0c5f6a7b8c9d';
+      expect(target('/conversations/$consult', doctor), '/doctor/mdt/$consult');
+      expect(
+        target('/conversations/$consult', pathologist),
+        '/pathologist/mdt/$consult',
+      );
+      expect(target('/conversations/$consult', patient), isNull);
+      expect(
+        target('/conversations/appt_a1', patient),
+        '/patient/appointment/a1/chat',
+      );
+      expect(
+        target('/conversations/appt_a1', doctor),
+        '/doctor/appointment/a1/chat',
+      );
+      expect(target('/conversations/appt_a1', pathologist), isNull);
+      expect(target('/conversations/case_c1_p1', pathologist), isNull);
     });
 
     test('returns typed routes', () {
@@ -67,7 +87,7 @@ void main() {
 
     test('a push with no Tier 1 target opens the role inbox', () {
       expect(
-        notificationTapRoute('/conversations/x1', doctor)?.location,
+        notificationTapRoute('/conversations/case_c1_p1', doctor)?.location,
         '/doctor/notifications',
       );
       expect(
@@ -148,7 +168,7 @@ void main() {
       // back to the inbox itself (app.dart).
       expect(
         targetOf(
-          row('x:y:doc-1', deepLink: '/conversations/x1', code: ''),
+          row('x:y:doc-1', deepLink: '/conversations/case_c1_p1', code: ''),
           doctor,
         ),
         isNull,

@@ -264,6 +264,22 @@ class _OrderSendStepState extends State<OrderSendStep> {
                 ),
                 const SizedBox(height: AppSpacing.xs),
               ],
+              if (state.draft.patientPending) ...[
+                Text(
+                  l10n.orderPatientNotSent,
+                  style: textTheme.bodySmall,
+                  textAlign: .center,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+              ],
+              if (state.draft.patientHeld) ...[
+                Text(
+                  l10n.errorPatientExists,
+                  style: textTheme.bodySmall,
+                  textAlign: .center,
+                ),
+                const SizedBox(height: AppSpacing.xs),
+              ],
               TabibuButton.primary(
                 label: l10n.orderSend,
                 isLoading: busy || _uploading,

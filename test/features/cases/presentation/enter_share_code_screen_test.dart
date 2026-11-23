@@ -5,9 +5,11 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:tabibu/core/constants/enums.dart';
+import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_state.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
+import 'package:tabibu/features/cases/blocs/cases_bloc/cases_event.dart';
 import 'package:tabibu/features/cases/blocs/cases_bloc/cases_state.dart';
 import 'package:tabibu/features/cases/blocs/share_bloc/share_event.dart';
 import 'package:tabibu/features/cases/blocs/share_bloc/share_state.dart';
@@ -37,6 +39,7 @@ void main() {
   setUpAll(() {
     registerFallbackValue(const ShareReset());
     registerFallbackValue(const DirectoryRequested());
+    registerFallbackValue(const CasesRefreshed(uid: '', role: Role.doctor));
   });
 
   setUp(() {
@@ -44,6 +47,7 @@ void main() {
     authBloc = MockAuthBloc();
     when(() => blocs.share.add(any())).thenReturn(null);
     when(() => blocs.directory.add(any())).thenReturn(null);
+    when(() => blocs.cases.add(any())).thenReturn(null);
     when(() => blocs.directory.state).thenReturn(const DirectoryLoadSuccess());
     when(() => blocs.cases.state).thenReturn(
       const CasesLoadSuccess(
@@ -130,6 +134,59 @@ void main() {
         ).called(1);
       },
     );
+
+    testWidgets(
+      'on open it refreshes the cases, so a case shared from the inbox opens',
+      (tester) async {
+        await pumpScreen(tester);
+
+        verify(
+          () => blocs.cases.add(
+            const CasesRefreshed(uid: 'doc-1', role: Role.doctor),
+          ),
+        ).called(1);
+      },
+    );
+
+    testWidgets('while the cases refresh, the field is off and the button '
+        'waits', (tester) async {
+      when(() => blocs.cases.state).thenReturn(const CasesLoadInProgress());
+      await pumpScreen(tester);
+
+      expect(tester.widget<TextField>(find.byType(TextField)).enabled, isFalse);
+      final button = tester.widget<TabibuButton>(find.byType(TabibuButton));
+      expect(button.isLoading, isTrue);
+      expect(button.onTap, isNull);
+
+      await tester.tap(find.byType(TabibuButton));
+      await tester.pump();
+      verifyNever(
+        () => blocs.share.add(any(that: isA<ShareRedeemRequested>())),
+      );
+    });
+
+    testWidgets('once the cases arrive, the field opens and names the case', (
+      tester,
+    ) async {
+      whenListen(
+        blocs.cases,
+        Stream.fromIterable(const [
+          CasesLoadSuccess(
+            cases: [CaseModel(uid: 'c1', orderNumber: 'TB-1042')],
+          ),
+        ]),
+        initialState: const CasesLoadInProgress(),
+      );
+      await pumpScreen(tester);
+
+      expect(find.textContaining('TB-1042'), findsWidgets);
+      expect(tester.widget<TextField>(find.byType(TextField)).enabled, isTrue);
+      await tester.enterText(find.byType(TextField), '4821');
+      await tester.pump();
+      verify(
+        () => blocs.share.add(any(that: isA<ShareRedeemRequested>())),
+      ).called(1);
+    });
 
     testWidgets('T-18: the field is empty on open, whatever a notification '
         'carries', (tester) async {
@@ -285,6 +342,20 @@ void main() {
       await tester.pump();
 
       expect(find.text(l10n.shareCodeWrong), findsNothing);
+    });
+
+    testWidgets('a redeemed code refreshes reports', (tester) async {
+      await pumpScreen(
+        tester,
+        then: const [ShareRedeemSuccess(redeemedCaseUid: 'c1')],
+      );
+      await tester.pumpAndSettle();
+
+      verify(
+        () =>
+            blocs.cases.add(const CasesRefreshed(uid: 'doc-1', role: .doctor)),
+      ).called(2);
+      await tester.pumpWidget(const SizedBox.shrink());
     });
 
     testWidgets('a doctor who redeems lands on the case', (tester) async {

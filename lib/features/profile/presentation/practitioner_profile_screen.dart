@@ -152,7 +152,20 @@ class _PractitionerDetailsScreenState extends State<PractitionerProfileScreen> {
                   listener: (context, state) {
                     switch (state) {
                       case ProfileSaveSuccess():
+                        // The pop would close a notice opened here.
+                        final root = Navigator.of(
+                          context,
+                          rootNavigator: true,
+                        ).context;
                         context.pop();
+                        unawaited(
+                          showTabibuNotification(
+                            root,
+                            message: l10n.profileSavedToast,
+                            isError: false,
+                            dismissLabel: l10n.commonDismiss,
+                          ),
+                        );
                       case ProfileSaveFailure(:final error):
                         setState(() => _saving = false);
                         unawaited(

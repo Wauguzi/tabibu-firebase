@@ -72,6 +72,10 @@
     "@errorPrereadPending": {
         "description": "Shown when a report cannot start because the pre-read is still running"
     },
+    "errorConversationUnavailable": "Chat opens once your doctor accepts the appointment.",
+    "@errorConversationUnavailable": {
+        "description": "Shown when the appointment chat is opened before the doctor has accepted the booking"
+    },
     "workspaceAwaitingPrereadCheck": "Check again",
     "@workspaceAwaitingPrereadCheck": {
         "description": "Pathologist: re-reads the case while waiting for the pre-read"
@@ -2066,6 +2070,38 @@
     "@reportQuestionMethodNotes": {
         "description": "Report template question: how the test was run"
     },
+    "reportMeasurementTileCount": "Tiles read",
+    "@reportMeasurementTileCount": {
+        "description": "Report measurements: the row name for the `tileCount` measurement"
+    },
+    "reportMeasurementTumourTiles": "Tiles with tumour",
+    "@reportMeasurementTumourTiles": {
+        "description": "Report measurements: the row name for the `tumourTiles` measurement"
+    },
+    "reportMeasurementNormalTiles": "Normal tiles",
+    "@reportMeasurementNormalTiles": {
+        "description": "Report measurements: the row name for the `normalTiles` measurement"
+    },
+    "reportMeasurementUnknownTiles": "Unclear tiles",
+    "@reportMeasurementUnknownTiles": {
+        "description": "Report measurements: the row name for the `unknownTiles` measurement"
+    },
+    "reportMeasurementLargestFocusTiles": "Largest focus, in tiles",
+    "@reportMeasurementLargestFocusTiles": {
+        "description": "Report measurements: the row name for the `largestFocusTiles` measurement"
+    },
+    "reportMeasurementLargestFocusMm": "Largest focus",
+    "@reportMeasurementLargestFocusMm": {
+        "description": "Report measurements: the row name for the `largestFocusMm` measurement"
+    },
+    "reportMeasurementTumourAreaPercent": "Tumour area",
+    "@reportMeasurementTumourAreaPercent": {
+        "description": "Report measurements: the row name for the `tumourAreaPercent` measurement"
+    },
+    "reportMeasurementParasitaemiaPercent": "Parasitaemia",
+    "@reportMeasurementParasitaemiaPercent": {
+        "description": "Report measurements: the row name for the `parasitaemiaPercent` measurement"
+    },
     "notificationOrderCreatedBody": "Your doctor has ordered tests for you.",
     "@notificationOrderCreatedBody": {
         "description": "Inbox body for the `orderCreated` push"
@@ -2210,9 +2246,14 @@
     "@notificationAppointmentCancelledByDoctorBody": {
         "description": "Inbox body for the `appointmentCancelledByDoctor` push"
     },
-    "notificationMdtInvitedBody": "You have been invited to an MDT discussion.",
+    "notificationMdtInvitedBody": "{name} invited you to discuss a case.",
     "@notificationMdtInvitedBody": {
-        "description": "Inbox body for the `mdtInvited` push"
+        "description": "Inbox body for the `mdtInvited` push. {name} is the inviter's display name; no patient detail, no case number.",
+        "placeholders": {
+            "name": {
+                "type": "String"
+            }
+        }
     },
     "notificationMdtInviteAcceptedBody": "A colleague has joined your MDT discussion.",
     "@notificationMdtInviteAcceptedBody": {
@@ -2587,6 +2628,10 @@
     "@reportPdfSignature": {
         "description": "PDF report signed block: signature caption"
     },
+    "reportPdfSignatureUnavailable": "Signature could not be shown",
+    "@reportPdfSignatureUnavailable": {
+        "description": "Report PDF: in the signature box when the stored signature image cannot be fetched or does not match the signed report"
+    },
     "reportPdfEndOfReport": "End of report",
     "@reportPdfEndOfReport": {
         "description": "PDF report closing line"
@@ -2845,6 +2890,15 @@
     "resultsFilterAll": "All · {count}",
     "@resultsFilterAll": {
         "description": "Results tab: All filter chip with the result count",
+        "placeholders": {
+            "count": {
+                "type": "int"
+            }
+        }
+    },
+    "resultsFilterWaiting": "Waiting · {count}",
+    "@resultsFilterWaiting": {
+        "description": "Results tab: Waiting filter chip with the result count",
         "placeholders": {
             "count": {
                 "type": "int"
@@ -3153,13 +3207,10 @@
     "@resultDetailFullReport": {
         "description": "Shared result: report file card title"
     },
-    "resultDetailFileMeta": "PDF · {size} · from {facility}",
+    "resultDetailFileMeta": "PDF · from {facility}",
     "@resultDetailFileMeta": {
-        "description": "Shared result: report file size and source",
+        "description": "Shared result: the report file's type and source (the PDF is built on demand, so it has no size)",
         "placeholders": {
-            "size": {
-                "type": "String"
-            },
             "facility": {
                 "type": "String"
             }
@@ -4596,6 +4647,26 @@
     "@signedTabEmptyBody": {
         "description": "Signed tab: empty state body"
     },
+    "signedTabSignedNotifiable": "Signed with a notifiable finding",
+    "@signedTabSignedNotifiable": {
+        "description": "Signed tab: count card title under the Notifiable filter, counting every such report"
+    },
+    "signedTabEmptyToday": "Nothing signed today",
+    "@signedTabEmptyToday": {
+        "description": "Signed tab: empty state under the Today filter"
+    },
+    "signedTabEmptyWeek": "Nothing signed this week",
+    "@signedTabEmptyWeek": {
+        "description": "Signed tab: empty state under the This week filter"
+    },
+    "signedTabEmptyNotifiable": "No notifiable findings",
+    "@signedTabEmptyNotifiable": {
+        "description": "Signed tab: empty state under the Notifiable filter"
+    },
+    "signedTabEmptyNotifiableBody": "Reports where you mark a notifiable disease positive show here.",
+    "@signedTabEmptyNotifiableBody": {
+        "description": "Signed tab: empty state body under the Notifiable filter"
+    },
     "doctorReportSubtitle": "{patient} · {caseNumber}",
     "@doctorReportSubtitle": {
         "description": "Doctor report: subtitle with patient name and case number",
@@ -5141,14 +5212,6 @@
     "@workspaceYourEdit": {
         "description": "Label on a section the pathologist edited; the screen appends the time"
     },
-    "workspaceStartFromAiDraft": "Start from the AI draft",
-    "@workspaceStartFromAiDraft": {
-        "description": "Workspace button: copy the AI text into the report fields"
-    },
-    "workspaceWriteOwn": "Write my own",
-    "@workspaceWriteOwn": {
-        "description": "Workspace button: start the report fields empty"
-    },
     "workspaceCriticalFinding": "Critical finding",
     "@workspaceCriticalFinding": {
         "description": "Workspace marker for a critical result"
@@ -5178,7 +5241,7 @@
             }
         }
     },
-    "workspaceNotifiableExplainer": "Ticking adds this case to the area alert engine when you sign.",
+    "workspaceNotifiableExplainer": "Switching on adds this case to the area alert engine when you sign.",
     "@workspaceNotifiableExplainer": {
         "description": "Explainer under the notifiable checkboxes"
     },
@@ -5270,6 +5333,43 @@
     "scoreSave": "Save score",
     "@scoreSave": {
         "description": "Score card button"
+    },
+    "scoreAnswerEveryQuestion": "Answer every * question to save",
+    "@scoreAnswerEveryQuestion": {
+        "description": "Under Save score while a required verdict is unanswered"
+    },
+    "workspaceAiFilledHint": "The AI's diagnosis and comments are filled in. Edit the remarks before you sign.",
+    "@workspaceAiFilledHint": {
+        "description": "Diagnosis step: over the fields the AI draft filled in, to be edited"
+    },
+    "scoreSavedSummary": "Done · overall {n} of 5",
+    "@scoreSavedSummary": {
+        "description": "The AI score step when collapsed after saving",
+        "placeholders": {
+            "n": {
+                "type": "int"
+            }
+        }
+    },
+    "workspaceStepAiScore": "AI score",
+    "@workspaceStepAiScore": {
+        "description": "Heading of the first reporting step"
+    },
+    "workspaceStepWaiting": "Waiting",
+    "@workspaceStepWaiting": {
+        "description": "Reporting step state while an earlier step is unfinished"
+    },
+    "workspaceStepToDo": "To do",
+    "@workspaceStepToDo": {
+        "description": "Reporting step state when it can be done now"
+    },
+    "workspaceStepDone": "Done",
+    "@workspaceStepDone": {
+        "description": "Reporting step state when the step is finished"
+    },
+    "workspaceDiagnosisWaiting": "Save the AI score to start the diagnosis.",
+    "@workspaceDiagnosisWaiting": {
+        "description": "Why the Diagnosis step stays closed until the score is saved"
     },
     "scoreLockLine": "Score the AI draft to start your report.",
     "@scoreLockLine": {
@@ -6211,6 +6311,10 @@
     "@mdtYou": {
         "description": "The signed-in member"
     },
+    "mdtAdmin": "Admin",
+    "@mdtAdmin": {
+        "description": "MDT members sheet: the chip on the member who opened the consult"
+    },
     "mdtPreview": "{sender}: {preview}",
     "@mdtPreview": {
         "description": "MDT preview line; sender and text",
@@ -6235,17 +6339,17 @@
     "@mdtEmptyDoctor": {
         "description": "MDT empty body for doctors"
     },
-    "mdtEmptyPathologist": "Doctors can invite you to talk through a case. You can also start one from any case.",
+    "mdtEmptyPathologist": "Start a consult from here. Invite a doctor or a pathologist to talk through a case.",
     "@mdtEmptyPathologist": {
         "description": "MDT empty body for pathologists"
+    },
+    "errorMdtAlreadyOpen": "This case already has an open consult.",
+    "@errorMdtAlreadyOpen": {
+        "description": "MDT: a second open consult on the same case is refused"
     },
     "mdtEmptyTitle": "No consults yet",
     "@mdtEmptyTitle": {
         "description": "MDT empty title"
-    },
-    "mdtGoToDesk": "Go to my desk",
-    "@mdtGoToDesk": {
-        "description": "MDT empty desk button"
     },
     "mdtClosedNote": "Consults close when the case is completed. You can still read them.",
     "@mdtClosedNote": {
@@ -6533,6 +6637,15 @@
     "chatRowTitle": "Appointment chat",
     "@chatRowTitle": {
         "description": "Appointment screen chat row"
+    },
+    "chatRowWaitingCaption": "Opens once {doctor} accepts",
+    "@chatRowWaitingCaption": {
+        "description": "Patient appointment screen: caption under the disabled chat row while the booking awaits the doctor",
+        "placeholders": {
+            "doctor": {
+                "type": "String"
+            }
+        }
     },
     "chatRowBody": "Opens on {date} and closes when it ends.",
     "@chatRowBody": {
@@ -6902,61 +7015,25 @@
     "@profileDetailsBadPhone": {
         "description": "Bad phone error"
     },
-    "editProfileTitle": "My profile",
-    "@editProfileTitle": {
-        "description": "Patient profile title"
-    },
-    "editProfileSubtitle": "{age} years · {area}",
-    "@editProfileSubtitle": {
-        "description": "Patient profile subtitle; age and area",
-        "placeholders": {
-            "age": {
-                "type": "int"
-            },
-            "area": {
-                "type": "String"
-            }
-        }
-    },
     "editProfileEditTitle": "Edit profile",
     "@editProfileEditTitle": {
         "description": "Edit profile title"
     },
-    "editProfileAboutMe": "About me",
-    "@editProfileAboutMe": {
-        "description": "About me section"
+    "profileSavedToast": "Profile updated",
+    "@profileSavedToast": {
+        "description": "Shared notice after a profile save, shown on the screen the person returns to"
     },
     "editProfileDob": "Date of birth",
     "@editProfileDob": {
         "description": "Date of birth row"
     },
-    "editProfileDobValue": "{date} · {age} years",
-    "@editProfileDobValue": {
-        "description": "Date of birth value; date and age",
-        "placeholders": {
-            "age": {
-                "type": "int"
-            },
-            "date": {
-                "type": "String"
-            }
-        }
-    },
     "editProfileSex": "Sex",
     "@editProfileSex": {
         "description": "Sex row"
     },
-    "editProfilePhone": "Phone",
-    "@editProfilePhone": {
-        "description": "Phone row"
-    },
     "editProfileEmail": "Email",
     "@editProfileEmail": {
         "description": "Email row"
-    },
-    "editProfileArea": "My area",
-    "@editProfileArea": {
-        "description": "My area row"
     },
     "editProfileFirstName": "First name",
     "@editProfileFirstName": {
@@ -8368,9 +8445,9 @@
             }
         }
     },
-    "workspaceAiPrereadNotResult": "AI pre-read, not a result",
-    "@workspaceAiPrereadNotResult": {
-        "description": "Beside the heatmap legend: unsigned AI, not a signed finding"
+    "workspaceAiPrereadDisclaimer": "Disclaimer: AI pre-read, not a result",
+    "@workspaceAiPrereadDisclaimer": {
+        "description": "AI pre-read card: disclaimer that the pre-read is not a result"
     },
     "explanationFailedBody": "The AI could not write this explanation. Nothing was sent to the patient.",
     "@explanationFailedBody": {
@@ -8379,6 +8456,15 @@
     "explanationRejectedBody": "You set this explanation aside. Nothing was sent to the patient.",
     "@explanationRejectedBody": {
         "description": "Explanation review: the doctor rejected the draft and none is left to review"
+    },
+    "explanationLanguageFailed": "The {language} explanation couldn't be written, so it was not sent to the patient.",
+    "@explanationLanguageFailed": {
+        "description": "Explanation review: one language's draft failed. The language name is English or Kiswahili. No failure reason.",
+        "placeholders": {
+            "language": {
+                "type": "String"
+            }
+        }
     },
     "resultsWaitingBodyNoDate": "{doctor} has your reviewed results. You can read them here after your appointment.",
     "@resultsWaitingBodyNoDate": {
@@ -8663,10 +8749,6 @@
     "@chatVoicePlayFailed": {
         "description": "Chat: playback fetch or decode failed"
     },
-    "chatVoiceTranscriptUnavailable": "Transcript not available for voice notes.",
-    "@chatVoiceTranscriptUnavailable": {
-        "description": "Chat: plain line under a voice note; no ASR for m4a"
-    },
     "hybridTidyNotes": "Tidy my notes",
     "@hybridTidyNotes": {
         "description": "Hybrid: tidy action under the symptoms field"
@@ -8729,13 +8811,21 @@
     },
     "regionAskAction": "Ask AI about this region",
     "@regionAskAction": {
-        "description": "Slide viewer: ask for an AI read of the visible region"
+        "description": "Slide viewer: ask for an AI read of the visible region (the sheet's title, and what a screen reader says for the button)"
+    },
+    "regionAskButton": "Ask AI",
+    "@regionAskButton": {
+        "description": "Slide viewer: the short button, bottom right of the slide, for the region read"
     },
     "regionAskSubmit": "Ask",
     "@regionAskSubmit": {
         "description": "Region sheet: submit the read request"
     },
-    "regionQuestionHint": "Optional question about this region",
+    "regionQuestionLabel": "Question",
+    "@regionQuestionLabel": {
+        "description": "Region sheet: label for the optional question field"
+    },
+    "regionQuestionHint": "Any anomalies in this region?",
     "@regionQuestionHint": {
         "description": "Region sheet: hint for the optional question field"
     },
@@ -8766,5 +8856,46 @@
     "regionFailed": "Couldn't read that region just now.",
     "@regionFailed": {
         "description": "Region sheet: read failed, with retry"
+    },
+    "regionReadGuide": "Zoom into an area of the slide, then tap Ask AI for an AI read of just that region.",
+    "@regionReadGuide": {
+        "description": "Ask AI panel: guide shown before the first region read"
+    },
+    "regionReadDraftLabel": "Ask AI draft",
+    "@regionReadDraftLabel": {
+        "description": "Ask AI panel: frame label on the region read"
+    },
+    "regionReadDisclaimer": "Disclaimer: Ask AI draft, not a result",
+    "@regionReadDisclaimer": {
+        "description": "Ask AI panel: disclaimer under a region read, once an answer exists"
+    },
+    "addPatientTitle": "Add a patient",
+    "@addPatientTitle": {
+        "description": "Add patient sheet: title"
+    },
+    "addPatientSave": "Save patient",
+    "@addPatientSave": {
+        "description": "Add patient sheet: save button"
+    },
+    "addPatientAreaLine": "Area: {place}, from your facility",
+    "@addPatientAreaLine": {
+        "description": "Add patient sheet: the patient's area, taken from the doctor's facility (sub-county and county)",
+        "placeholders": {
+            "place": {
+                "type": "String"
+            }
+        }
+    },
+    "addPatientPending": "Saved on this phone, not yet sent",
+    "@addPatientPending": {
+        "description": "Patients list and order: a patient added offline, waiting to sync"
+    },
+    "orderPatientNotSent": "This patient is saved on this phone and not yet sent. Sending waits until the record is on file.",
+    "@orderPatientNotSent": {
+        "description": "Order send step: the patient has not synced yet, so the order cannot be sent"
+    },
+    "doctorReportDownload": "Download report",
+    "@doctorReportDownload": {
+        "description": "Doctor case and report screens: download the signed report as a PDF"
     }
 }

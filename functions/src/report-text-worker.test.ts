@@ -1,4 +1,4 @@
-// cspell:ignore Camillus Brendan
+// cspell:ignore Camillus Brendan madawa dawa kutuliza
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 
@@ -9,6 +9,7 @@ import { seedWorld, type World } from './case.test-support';
 import { sha256 } from './case-support';
 import {
   REPORT_TEXT_ANSWERS_MAX_CHARS,
+  REPORT_TEXT_DENY_PHRASES,
   REPORT_TEXT_PROMPT_VERSION,
   capAnswers,
   containsDenyPhrase,
@@ -151,6 +152,24 @@ describe('report-text validation', () => {
     );
     assert.ok(kept.some((r) => r.question === 'short'));
     assert.ok(!kept.some((r) => r.question === 'long'));
+  });
+
+  it('"cure" in "secure" or "obscure" matches nothing', () => {
+    assert.equal(containsDenyPhrase('Keep the wound secure and clean.'), null);
+    assert.equal(containsDenyPhrase('The cause is obscure.'), null);
+  });
+
+  it('English stems still match at a word start', () => {
+    assert.equal(containsDenyPhrase('The doctor prescribed rest.'), 'prescri');
+    assert.equal(containsDenyPhrase('Ask about the prognosis.'), 'prognosis');
+    assert.equal(containsDenyPhrase('The wound healed and cured.'), 'cure');
+  });
+
+  it("a mid-word Kiswahili 'dawa' in 'madawa' still fails", () => {
+    assert.equal(
+      containsDenyPhrase('Hii ni madawa ya kutuliza maumivu.'),
+      'dawa',
+    );
   });
 });
 
@@ -832,6 +851,43 @@ describe('processQueuedReportText', () => {
     assert.ok(String(req.contents).includes('REPORT_BEGIN'));
   });
 
+  it('names every refused word in the system instruction', async () => {
+    const { caseUid, textUid } = await seedDocs();
+    const spy = geminiSpy(
+      'The signed report finds metastatic carcinoma in 2 of 5 nodes. The largest deposit measures 1.2 mm.',
+    );
+    await processQueuedReportText(
+      { ...w.deps, bucket: BUCKET },
+      caseUid,
+      textUid,
+      { enabled: true, geminiGenerate: spy.generate },
+    );
+    const instruction = String(spy.requests()[0]?.config?.systemInstruction);
+    for (const phrase of REPORT_TEXT_DENY_PHRASES) {
+      assert.ok(instruction.includes(`"${phrase}"`), phrase);
+    }
+    for (const word of ['tile', 'heatmap', 'pre-read', 'AI draft']) {
+      assert.ok(instruction.includes(`"${word}"`), word);
+    }
+  });
+
+  it('leaves tile counts out of the prompt but keeps other measures', async () => {
+    const { caseUid, textUid } = await seedDocs();
+    const spy = geminiSpy(
+      'The signed report finds metastatic carcinoma in 2 of 5 nodes. The largest deposit measures 1.2 mm.',
+    );
+    await processQueuedReportText(
+      { ...w.deps, bucket: BUCKET },
+      caseUid,
+      textUid,
+      { enabled: true, geminiGenerate: spy.generate },
+    );
+    assert.ok(!spy.sentInput().includes('tumourTiles'));
+    assert.ok(!spy.sentInput().includes('tileCount'));
+    assert.ok(!spy.sentInput().includes('Tiles='));
+    assert.ok(spy.sentInput().includes('largestFocusMm=1.2'));
+  });
+
   it('ignores a text that is already Ready', async () => {
     const { caseUid, textUid } = await seedQueued();
     let calls = 0;
@@ -962,5 +1018,79 @@ describe('processQueuedReportText', () => {
     assert.equal(logs.length, 1);
     assert.equal(logs[0].reason, 'OffSchema');
     assert.ok(!JSON.stringify(logs).includes('metastatic'));
+  });
+
+  it('a refusal logs reason AdvicePhrase with the matched phrase', async () => {
+    const caseUid = randomUUID();
+    const reportUid = 'v1';
+    const textUid = `${reportUid}_Explanation_en`;
+    const report = {
+      caseUid,
+      version: 1,
+      stage: 'Initial',
+      title: SOURCE.title,
+      diagnosis: SOURCE.diagnosis,
+      comments: SOURCE.comments,
+      measurements: SOURCE.measurements,
+      responses: {},
+      isCritical: false,
+      addenda: [],
+      amendmentReason: '',
+      notifiableFindings: [],
+      confirmatoryRequests: [],
+      signedByTitle: '',
+      signedByName: '',
+      signedByKmpdcNumber: '',
+      signedByFacilityName: '',
+      signatureSha256: '',
+      orderNumber: '',
+      testName: '',
+      sampleCollectedAt: '',
+      sampleReceivedAt: '',
+      labAccessionNo: '',
+      profile: '',
+      templateKey: '',
+      diagnosisType: '',
+    };
+    const contentSha256 = sha256(stableReportContent(report));
+    const patientId = await seedPatient();
+    await w.deps.db.collection('cases').doc(caseUid).set({ uid: caseUid, patientId, patientName: 'Amina Wambui' });
+    await w.deps.db.collection('cases').doc(caseUid).collection('reports').doc(reportUid).set({
+      ...report,
+      contentSha256,
+    });
+    await w.deps.db.collection('cases').doc(caseUid).collection('reportTexts').doc(textUid).set({
+      uid: textUid,
+      caseUid,
+      reportUid,
+      kind: 'Explanation',
+      language: 'en',
+      sourceSha256: contentSha256,
+      status: 'Queued',
+      machineText: {},
+      models: {},
+      failureReason: '',
+      requestedAt: '2026-11-03T00:00:00.000Z',
+      readyAt: '',
+      lastUpdatedAt: '2026-11-03T00:00:00.000Z',
+    });
+    const logs: { reason: string; phrase?: string }[] = [];
+    await processQueuedReportText(
+      { ...w.deps, bucket: BUCKET },
+      caseUid,
+      textUid,
+      {
+        enabled: true,
+        log: (e) => logs.push(e),
+        generate: async () => ({
+          text: 'You should rest and drink water for three full days now.',
+          models: {},
+        }),
+      },
+    );
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0].reason, 'AdvicePhrase');
+    assert.equal(logs[0].phrase, 'you should');
+    assert.ok(!JSON.stringify(logs).includes('drink water'));
   });
 });

@@ -44,13 +44,14 @@ void main() {
     required Future<Uint8List> Function(MessageModel) loadBytes,
     AnalyticsService? analyticsService,
     String surface = 'chat',
+    MessageModel? note,
   }) async {
     tester.view.physicalSize = const Size(1170, 2000);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     await tester.pumpApp(
       VoiceNotePlayer(
-        message: message,
+        message: note ?? message,
         foreground: const Color(0xFF111111),
         loadBytes: loadBytes,
         player: player,
@@ -111,6 +112,23 @@ void main() {
 
     expect(find.text(l10n.chatVoicePlayFailed), findsOneWidget);
     expect(find.bySemanticsLabel(l10n.chatVoicePlayLabel), findsOneWidget);
+  });
+
+  testWidgets('a voice note does not say the transcript is unavailable', (
+    tester,
+  ) async {
+    await pumpPlayer(
+      tester,
+      loadBytes: (_) async => Uint8List.fromList([1, 2, 3]),
+      note: message.copyWith(transcriptStatus: 'Failed'),
+    );
+    await tester.pump(const Duration(seconds: 5));
+
+    expect(
+      find.text('Transcript not available for voice notes.'),
+      findsNothing,
+    );
+    expect(find.text(l10n.chatVoicePlayFailed), findsNothing);
   });
 
   testWidgets('after a failure, play again reloads and clears the error', (

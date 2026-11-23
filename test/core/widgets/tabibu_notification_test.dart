@@ -76,6 +76,8 @@ void main() {
           hint: 'Double tap to dismiss',
           isButton: true,
           hasTapAction: true,
+          // Announced when it appears, without taking focus.
+          isLiveRegion: true,
         ),
       );
 
@@ -151,6 +153,9 @@ void main() {
     testWidgets('dismisses with Enter from the keyboard', (tester) async {
       await openNotification(tester);
 
+      // Not modal: the page keeps its own focus stop (Open) before the notice.
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
@@ -158,6 +163,50 @@ void main() {
       expect(find.text('Something went wrong'), findsNothing);
 
       await tester.pump(const Duration(seconds: 5));
+    });
+
+    testWidgets('the screen under it still scrolls and takes taps', (
+      tester,
+    ) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      var taps = 0;
+      await tester.pumpApp(
+        Scaffold(
+          body: Builder(
+            builder: (context) => ListView(
+              controller: scroll,
+              children: [
+                ElevatedButton(
+                  onPressed: () => showTabibuNotification(
+                    context,
+                    message: 'Draft saved',
+                    isError: false,
+                    dismissLabel: 'Double tap to dismiss',
+                  ),
+                  child: const Text('Open'),
+                ),
+                for (var i = 0; i < 40; i++)
+                  SizedBox(height: 80, child: Text('Row $i')),
+                TextButton(onPressed: () => taps++, child: const Text('Below')),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(find.text('Draft saved'), findsOneWidget);
+
+      // A drag in the middle of the screen moves the list, notice or not.
+      await tester.drag(find.text('Row 3'), const Offset(0, -400));
+      await tester.pump();
+      expect(scroll.offset, greaterThan(0));
+      expect(find.text('Draft saved'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pumpAndSettle();
+      expect(find.text('Draft saved'), findsNothing);
     });
   });
 }

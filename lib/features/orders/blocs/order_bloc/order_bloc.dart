@@ -41,6 +41,7 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
        _clock = clock ?? DateTime.now,
        super(const OrderInitial()) {
     on<OrderStarted>(_onStarted, transformer: restartable());
+    on<OrderPatientResolved>(_onPatientResolved);
     on<OrderTestToggled>(_onTestToggled);
     on<OrderDetailsChanged>(_onDetailsChanged);
     on<OrderPaymentChanged>(_onPaymentChanged);
@@ -80,8 +81,16 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
 
   Future<void> _onStarted(OrderStarted event, Emitter<OrderState> emit) async {
     final reopen = event.caseUid.isNotEmpty;
+    final sameVisit = event.appointmentUid.isEmpty
+        ? state.draft.appointmentUid.isEmpty &&
+              state.draft.patientId == event.patientId
+        : state.draft.appointmentUid == event.appointmentUid;
+    final sameFlags =
+        state.draft.patientPending == event.patientPending &&
+        state.draft.patientHeld == event.patientHeld;
     final resume =
-        state.draft.appointmentUid == event.appointmentUid &&
+        sameVisit &&
+        sameFlags &&
         (!reopen || state.draft.caseUid == event.caseUid) &&
         state is! OrderSendSuccess &&
         state is! OrderInitial;
@@ -96,6 +105,8 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
             testIds: event.testIds.take(OrderDraft.maxTests).toList(),
             collectedAt: _clock(),
             created: reopen,
+            patientPending: event.patientPending,
+            patientHeld: event.patientHeld,
           );
     if (!resume) _watch++;
     emit(
@@ -216,6 +227,14 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
       emit(_failure(AppError.dataNotFound));
       return;
     }
+    if (draft.patientHeld) {
+      emit(_failure(AppError.patientExists));
+      return;
+    }
+    if (draft.patientPending) {
+      emit(_failure(AppError.noInternet));
+      return;
+    }
     if (!draft.created) {
       if (!await _internet.check()) {
         emit(_failure(AppError.noInternet));
@@ -278,6 +297,27 @@ class OrderBloc extends Bloc<OrderEvent, OrderState> {
       }
       if (settled) return;
     }
+  }
+
+  void _onPatientResolved(
+    OrderPatientResolved event,
+    Emitter<OrderState> emit,
+  ) {
+    if (state is OrderInitial ||
+        state is OrderWriteInProgress ||
+        state is OrderSendSuccess) {
+      return;
+    }
+    // A visit already names its patient. This is only the walk-in row.
+    if (state.draft.appointmentUid.isNotEmpty) return;
+    final next = state.draft.copyWith(
+      patientId: event.patientId,
+      patientName: event.patientName,
+      patientPending: event.patientPending,
+      patientHeld: event.patientHeld,
+    );
+    if (next == state.draft) return;
+    emit(_editing(next));
   }
 
   void _onPathologistSelected(

@@ -1,12 +1,16 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+import 'package:logger/logger.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
+import 'package:tabibu/core/helpers/db_helper.dart';
 import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/core/services/ai_logic_service.dart';
 import 'package:tabibu/core/services/analytics_service.dart';
 import 'package:tabibu/core/services/audio_service_contract.dart';
 import 'package:tabibu/features/cases/data/explanation_audio_cache.dart';
+import 'package:tabibu/features/cases/data/explanation_audio_store.dart';
 import 'package:tabibu/features/cases/data/speech_client.dart';
 import 'package:tabibu/features/cases/data/speech_request.dart';
 import 'package:tabibu/features/reports/presentation/widgets/explanation_language.dart';
@@ -14,8 +18,9 @@ import 'package:tabibu/features/reports/presentation/widgets/listen_card.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
 /// Plays the doctor-approved explanation the patient can already read. Fetches
-/// audio on tap only, caches per request, and never writes anything to disk.
-/// Unknown languages hide the card rather than mispronouncing.
+/// audio on tap only; keeps played clips in memory and in the encrypted
+/// audio store until sign-out. Unknown languages hide the card rather than
+/// mispronouncing.
 class ExplanationListenCard extends StatefulWidget {
   const ExplanationListenCard({
     required this.text,
@@ -25,6 +30,8 @@ class ExplanationListenCard extends StatefulWidget {
     this.player,
     this.analytics,
     this.settings,
+    this.logger,
+    this.audioStore,
     super.key,
   });
 
@@ -41,12 +48,20 @@ class ExplanationListenCard extends StatefulWidget {
   /// Resolved from Remote Config on first play when absent.
   final SpeechSettings? settings;
 
+  /// Debug failure log; a default logger when absent.
+  final Logger? logger;
+
+  /// On-disk audio; a live store when absent.
+  final ExplanationAudioStore? audioStore;
+
   @override
   State<ExplanationListenCard> createState() => _ExplanationListenCardState();
 }
 
 class _ExplanationListenCardState extends State<ExplanationListenCard> {
   late final AudioPlayerService _player;
+  late final Logger _logger;
+  late final ExplanationAudioStore _store;
   AnalyticsService? _analyticsOrNull;
   StreamSubscription<AudioPlayback>? _sub;
   final _cache = ExplanationAudioCache();
@@ -68,8 +83,11 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
   void initState() {
     super.initState();
     _player = widget.player ?? getIt<AudioPlayerService>();
+    _logger = widget.logger ?? Logger();
+    _store = widget.audioStore ?? ExplanationAudioStore(getIt<DBHelper>());
     _analyticsOrNull = widget.analytics;
     _sub = _player.playback.listen(_onPlayback);
+    unawaited(_hydrate());
   }
 
   @override
@@ -109,6 +127,52 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
     _loading = false;
     _duration = Duration.zero;
     if (wasPlaying) unawaited(_player.stop());
+    unawaited(_hydrate());
+  }
+
+  /// Warms the memory cache from disk, so an offline replay shows play
+  /// instead of the offline line. Key-checked: newer words win.
+  Future<void> _hydrate() async {
+    final key = _cacheKey;
+    final bytes = await _readStored();
+    if (!mounted || key != _cacheKey || bytes == null) return;
+    setState(() => _cache.put(key, bytes));
+  }
+
+  /// Disk audio for the current request, or null on a miss or a store
+  /// failure. A miss just means the model is asked.
+  Future<Uint8List?> _readStored() async {
+    try {
+      return await _store.get(_request);
+    } on Object catch (error) {
+      if (kDebugMode) {
+        _logger.e('Listen store read failed: ${error.runtimeType}');
+      }
+      return null;
+    }
+  }
+
+  /// Persists a fresh clip. Playback already started, so a failure only logs.
+  Future<void> _storePut(SpeechRequest request, Uint8List bytes) async {
+    try {
+      await _store.put(request, bytes);
+    } on Object catch (error) {
+      if (kDebugMode) {
+        _logger.e('Listen store write failed: ${error.runtimeType}');
+      }
+    }
+  }
+
+  /// Refreshes a replayed clip's age. Playback already started, so a
+  /// failure only logs.
+  Future<void> _storePlayed(SpeechRequest request) async {
+    try {
+      await _store.played(request);
+    } on Object catch (error) {
+      if (kDebugMode) {
+        _logger.e('Listen store write failed: ${error.runtimeType}');
+      }
+    }
   }
 
   @override
@@ -183,16 +247,11 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
       return;
     }
     final generation = _generation;
-    final settings = _settings;
-    final request = SpeechRequest(
-      text: widget.text,
-      language: widget.language,
-      voice: settings.voice,
-      model: settings.model,
-    );
+    final request = _request;
     final key = request.cacheKey;
-    // Offline plays only from memory; nothing is fetched.
-    if (!widget.online && _cache.get(key) == null) {
+    final stored = _cache.get(key) ?? await _readStored();
+    // Offline replays come from the caches; nothing is fetched.
+    if (!widget.online && stored == null) {
       setState(() {});
       return;
     }
@@ -202,6 +261,7 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
       final resumed = await _player.resume(key);
       if (resumed) {
         unawaited(_analytics?.logVoicePlaybackStarted(surface: 'explanation'));
+        unawaited(_storePlayed(request));
         return;
       }
     }
@@ -210,18 +270,52 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
       _error = false;
     });
     try {
-      final bytes = _cache.get(key) ?? await widget.speech.speak(request);
+      final Uint8List bytes;
+      final bool fresh;
+      if (stored != null) {
+        bytes = stored;
+        fresh = false;
+      } else {
+        fresh = true;
+        try {
+          bytes = await widget.speech.speak(request);
+        } on Object catch (error) {
+          if (kDebugMode) {
+            _logger.e(
+              'Listen speak failed: ${error.runtimeType} '
+              '(language ${request.language}, voice ${request.voice}, '
+              'model ${request.model}, text ${request.text.length} chars)',
+            );
+          }
+          rethrow;
+        }
+      }
       // A stale start drops unplayed: new words, dispose or covering.
       if (!mounted || key != _cacheKey || generation != _generation) return;
       _cache.put(key, bytes);
       _playId = key;
-      await _player.playBytes(bytes, id: key);
+      try {
+        await _player.playBytes(bytes, id: key);
+      } on Object catch (error) {
+        if (kDebugMode) {
+          _logger.e(
+            'Listen play failed: ${error.runtimeType} (${bytes.length} bytes)',
+          );
+        }
+        rethrow;
+      }
       if (generation != _generation) {
         // Started late: stop it, unless a newer start took the player.
         if (_playId == key) unawaited(_player.stop());
         return;
       }
       unawaited(_analytics?.logVoicePlaybackStarted(surface: 'explanation'));
+      // Persist fresh clips, refresh replays. Playback already started.
+      if (fresh) {
+        unawaited(_storePut(request, bytes));
+      } else {
+        unawaited(_storePlayed(request));
+      }
     } on Object catch (_) {
       if (mounted) setState(() => _error = true);
     } finally {
@@ -284,10 +378,12 @@ class _ExplanationListenCardState extends State<ExplanationListenCard> {
     );
   }
 
-  String get _cacheKey => SpeechRequest(
+  SpeechRequest get _request => SpeechRequest(
     text: widget.text,
     language: widget.language,
     voice: _settings.voice,
     model: _settings.model,
-  ).cacheKey;
+  );
+
+  String get _cacheKey => _request.cacheKey;
 }

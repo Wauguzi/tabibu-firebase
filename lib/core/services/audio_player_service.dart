@@ -53,18 +53,32 @@ class JustAudioPlayerPlatform implements AudioPlayerPlatform {
   Future<Duration?> setBytes(Uint8List bytes) async {
     await _deleteTemp();
     // Web cannot write a temp file; a data URI loads in the browser player.
+    final format = byteFormatOf(bytes);
     if (kIsWeb) {
       return await _player.setAudioSource(
-        AudioSource.uri(Uri.dataFromBytes(bytes, mimeType: 'audio/mp4')),
+        AudioSource.uri(webByteUri(bytes, mimeType: format.mimeType)),
       );
     }
     final dir = await getTemporaryDirectory();
     final path =
         '${dir.path}${Platform.pathSeparator}'
-        'tabibu_play_${DateTime.now().microsecondsSinceEpoch}.m4a';
+        'tabibu_play_${DateTime.now().microsecondsSinceEpoch}'
+        '.${format.extension}';
     await File(path).writeAsBytes(bytes, flush: true);
     _tempPath = path;
     return await _player.setFilePath(path);
+  }
+
+  /// iOS picks the decoder from the file name, so speech (WAV) under the
+  /// recorder's `.m4a` never loads.
+  static ({String extension, String mimeType}) byteFormatOf(Uint8List bytes) {
+    final wav =
+        bytes.length >= 12 &&
+        String.fromCharCodes(bytes.sublist(0, 4)) == 'RIFF' &&
+        String.fromCharCodes(bytes.sublist(8, 12)) == 'WAVE';
+    return wav
+        ? (extension: 'wav', mimeType: 'audio/wav')
+        : (extension: 'm4a', mimeType: 'audio/mp4');
   }
 
   /// Builds the web byte source without touching `dart:io` (unit-tested).

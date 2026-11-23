@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/constants/enums.dart';
-import 'package:tabibu/core/routing/app_routes.dart';
 import 'package:tabibu/core/utils/settle_refresh.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
@@ -170,7 +169,7 @@ class _MdtScreenState extends State<MdtScreen> {
     final subtitle = widget.role == .pathologist
         ? l10n.mdtSubtitlePathologist
         : l10n.mdtSubtitleDoctor;
-    final canStart = widget.role == .doctor;
+    final canStart = widget.role == .doctor || widget.role == .pathologist;
     final background = widget.role == .pathologist
         ? RoleBackground.pathologist
         : RoleBackground.doctor;
@@ -302,19 +301,19 @@ class _MdtScreenState extends State<MdtScreen> {
 
   List<Widget> _emptyState() {
     final l10n = context.l10n;
-    final doctor = widget.role == .doctor;
     return [
       const SizedBox(height: AppSpacing.sectionGap),
       EmptyState(
         title: l10n.mdtEmptyTitle,
-        body: doctor ? l10n.mdtEmptyDoctor : l10n.mdtEmptyPathologist,
+        body: widget.role == .pathologist
+            ? l10n.mdtEmptyPathologist
+            : l10n.mdtEmptyDoctor,
         icon: Assets.icons.mdtIcon,
         actions: [
           TabibuButton.primary(
-            label: doctor ? l10n.mdtStartConsult : l10n.mdtGoToDesk,
-            onTap: doctor
-                ? () => unawaited(mdtNewRoute(widget.role).push<void>(context))
-                : () => const PathologistHomeRoute().go(context),
+            label: l10n.mdtStartConsult,
+            onTap: () =>
+                unawaited(mdtNewRoute(widget.role).push<void>(context)),
           ),
         ],
       ),

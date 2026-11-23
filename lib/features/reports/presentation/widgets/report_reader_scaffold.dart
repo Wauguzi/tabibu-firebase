@@ -67,8 +67,9 @@ class _ReportReaderScaffoldState extends State<ReportReaderScaffold> {
     if (cases.state.cases.isEmpty) {
       cases.add(CasesRequested(uid: _uid, role: .doctor));
     }
-    final reader = context.read<ReportReaderBloc>();
-    if (reader.state.caseUid != widget.caseUid) _open();
+    // Always ask again: what the reader holds for this case may predate a
+    // code entered since, which is what makes the report readable.
+    _open();
   }
 
   void _open() => context.read<ReportReaderBloc>().add(

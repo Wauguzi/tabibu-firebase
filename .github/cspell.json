@@ -20,6 +20,10 @@
   ],
   "useGitignore": true,
   "words": [
+    "Kiprop",
+    "fewshot",
+    "dawa",
+    "ftyp",
     "Achieng",
     "addended",
     "afya",
@@ -242,6 +246,7 @@
     "kliniki",
     "KMPDC",
     "KNPHI",
+    "kore",
     "kubali",
     "kubwa",
     "kuhusu",
@@ -541,7 +546,10 @@
     "zinazokufikia",
     "zinazopendekezwa",
     "zito",
-    "Zote"
+    "Zote",
+    "Arjun",
+    "Mehta",
+    "Omondi"
   ],
   "ignorePaths": [
     "**/lib/firebase_options.dart",

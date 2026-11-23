@@ -138,6 +138,7 @@ void main() {
         'roleAlreadySet': AppError.roleAlreadySet,
         'patientAlreadyRegistered': AppError.patientAlreadyRegistered,
         'patientExists': AppError.patientExists,
+        'mdtAlreadyOpen': AppError.mdtAlreadyOpen,
         'doctorsOnly': AppError.doctorsOnly,
         'invalidPatient': AppError.invalidPatient,
         'accountNotFound': AppError.accountNotFound,
@@ -182,6 +183,7 @@ void main() {
         'invalidCount': AppError.invalidSlides,
         'voiceDisabled': AppError.voiceUnavailable,
         'prereadPending': AppError.prereadPending,
+        'conversationUnavailable': AppError.conversationUnavailable,
       };
       for (final entry in keys.entries) {
         final exception = _TestFunctionsException(

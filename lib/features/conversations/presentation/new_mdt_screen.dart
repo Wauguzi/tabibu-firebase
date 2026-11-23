@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/constants/enums.dart';
+import 'package:tabibu/core/utils/text_fold.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
@@ -21,6 +22,8 @@ import 'package:tabibu/features/conversations/presentation/widgets/mdt_invite_pi
 import 'package:tabibu/features/practitioners/blocs/directory_bloc/directory_bloc.dart';
 import 'package:tabibu/features/practitioners/blocs/directory_bloc/directory_event.dart';
 import 'package:tabibu/features/practitioners/blocs/directory_bloc/directory_state.dart';
+import 'package:tabibu/features/practitioners/data/models/practitioner_model.dart';
+import 'package:tabibu/features/reports/presentation/widgets/workspace_step_section.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
@@ -29,6 +32,9 @@ const mdtMaxMembers = 10;
 
 /// The longest subject the server takes.
 const mdtSubjectMaxLength = 1000;
+
+/// About five rows at the default text size. A larger size scrolls inside.
+const mdtPickerListHeight = 360.0;
 
 /// D-MDT and PA-MDT · New consult. Pick one of my cases, say what the
 /// consult is about (the server requires it), choose who to invite, and
@@ -50,8 +56,10 @@ class _NewMdtScreenState extends State<NewMdtScreen> {
   late final List<String> _ownSpecialties;
   late String _caseUid = widget.caseUid;
   final _about = TextEditingController();
+  final _caseQuery = TextEditingController();
   final Set<String> _invitees = {};
-  var _showAboutError = false;
+  var _pickOpen = true;
+  var _inviteOpen = true;
 
   /// This screen sent the request, so a success belongs to it.
   var _sent = false;
@@ -65,6 +73,7 @@ class _NewMdtScreenState extends State<NewMdtScreen> {
     };
     _uid = doctor?.uid ?? '';
     _ownSpecialties = doctor?.specialties ?? const [];
+    _pickOpen = widget.caseUid.isEmpty;
     final cases = context.read<CasesBloc>();
     if (cases.state.cases.isEmpty) {
       cases.add(CasesRequested(uid: _uid, role: widget.role));
@@ -75,14 +84,15 @@ class _NewMdtScreenState extends State<NewMdtScreen> {
   @override
   void dispose() {
     _about.dispose();
+    _caseQuery.dispose();
     super.dispose();
   }
 
-  /// My cases a consult can be about: the pathologist has accepted and the
-  /// case is not over, as the server requires.
+  /// My cases a consult can be about: the pathologist has accepted, the
+  /// case is not over, and it does not already have an open consult.
   List<CaseModel> _eligible(List<CaseModel> all) => [
     for (final c in all)
-      if (c.pathologistUid.isNotEmpty && !c.isDone)
+      if (c.pathologistUid.isNotEmpty && !c.isDone && c.openMdtUid.isEmpty)
         if (widget.role == .pathologist
             ? c.pathologistUid == _uid
             : c.doctorUid == _uid)
@@ -107,17 +117,16 @@ class _NewMdtScreenState extends State<NewMdtScreen> {
   }
 
   void _send() {
-    if (_caseUid.isEmpty || _invitees.isEmpty) return;
     final about = _about.text.trim();
-    if (about.isEmpty) {
-      setState(() => _showAboutError = true);
-      return;
-    }
+    final chosen = _eligible(
+      context.read<CasesBloc>().state.cases,
+    ).firstWhereOrNull((c) => c.uid == _caseUid);
+    if (chosen == null || _invitees.isEmpty || about.isEmpty) return;
     _sent = true;
     context.read<MdtBloc>().add(
       MdtOpenRequested(
         uid: _uid,
-        caseUid: _caseUid,
+        caseUid: chosen.uid,
         specialty: _specialty(),
         description: about,
         inviteeUids: _invitees.toList(),
@@ -150,17 +159,48 @@ class _NewMdtScreenState extends State<NewMdtScreen> {
     }
   }
 
+  /// The step strings already carry their number. The section adds it again.
+  String _stepName(String numbered) {
+    const mark = ' · ';
+    final at = numbered.indexOf(mark);
+    return at < 0 ? numbered : numbered.substring(at + mark.length);
+  }
+
+  List<CaseModel> _matching(List<CaseModel> cases, String needle) {
+    if (needle.isEmpty) return cases;
+    return [
+      for (final c in cases)
+        if (_caseHaystack(c).contains(needle)) c,
+    ];
+  }
+
+  String _caseHaystack(CaseModel c) => [
+    c.orderNumber,
+    c.patientName,
+    for (final test in c.tests) test.name,
+  ].map(foldForSearch).join(' ');
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final textTheme = Theme.of(context).textTheme;
     final cases = _eligible(context.watch<CasesBloc>().state.cases);
+    final chosen = cases.firstWhereOrNull((c) => c.uid == _caseUid);
+    final caseUid = chosen?.uid ?? '';
     final directory = context.watch<DirectoryBloc>().state;
     final writing = context.watch<MdtBloc>().state is MdtWriteInProgress;
     final candidates = mdtInvitable(directory.all, myUid: _uid);
     final background = widget.role == .pathologist
         ? RoleBackground.pathologist
         : RoleBackground.doctor;
+    final about = _about.text.trim();
+    final ready =
+        caseUid.isNotEmpty && _invitees.isNotEmpty && about.isNotEmpty;
+    final needle = foldForSearch(_caseQuery.text);
+    final shown = _matching(cases, needle);
+    final caseHeading = chosen == null
+        ? ''
+        : l10n.mdtCasePatient(chosen.orderNumber, chosen.patientName);
 
     return BlocListener<MdtBloc, MdtState>(
       listenWhen: (_, current) =>
@@ -191,22 +231,17 @@ class _NewMdtScreenState extends State<NewMdtScreen> {
                     keyboardDismissBehavior: .onDrag,
                     padding: const EdgeInsets.all(AppSpacing.screenMargin),
                     children: [
-                      Text(l10n.mdtPickCase, style: textTheme.titleMedium),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (cases.isEmpty)
-                        EmptyState(
-                          title: l10n.doctorCasesEmptyTitle,
-                          body: l10n.doctorCasesEmptyBody,
-                        )
-                      else
-                        for (final c in cases) ...[
-                          _CaseOption(
-                            caseModel: c,
-                            selected: c.uid == _caseUid,
-                            onTap: () => setState(() => _caseUid = c.uid),
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                        ],
+                      WorkspaceStepSection(
+                        number: 1,
+                        title: _stepName(l10n.mdtPickCase),
+                        status: chosen == null ? .toDo : .done,
+                        statusLabel: chosen == null
+                            ? l10n.workspaceStepToDo
+                            : caseHeading,
+                        expanded: chosen == null || _pickOpen,
+                        onToggle: () => setState(() => _pickOpen = !_pickOpen),
+                        child: _caseStep(l10n, cases, shown, needle),
+                      ),
                       const SizedBox(height: AppSpacing.md),
                       TabibuTextField(
                         label: l10n.mdtAboutLabel,
@@ -219,33 +254,27 @@ class _NewMdtScreenState extends State<NewMdtScreen> {
                         inputFormatters: [
                           FilteringTextInputFormatter.deny('<'),
                         ],
-                        errorText: _showAboutError && _about.text.trim().isEmpty
+                        errorText:
+                            caseUid.isNotEmpty &&
+                                _invitees.isNotEmpty &&
+                                about.isEmpty
                             ? l10n.mdtAboutRequired
                             : null,
                         onChanged: (_) => setState(() {}),
                       ),
                       const SizedBox(height: AppSpacing.md),
-                      Text(l10n.mdtInviteStep, style: textTheme.titleMedium),
-                      const SizedBox(height: AppSpacing.sm),
-                      if (directory.all.isEmpty &&
-                          (directory is DirectoryInitial ||
-                              directory is DirectoryLoadInProgress))
-                        SizedBox(
-                          height: 160,
-                          child: LoadingView(
-                            semanticLabel: l10n.findDoctorLoadingLabel,
-                          ),
-                        )
-                      else
-                        MdtInvitePicker(
-                          candidates: candidates,
-                          selected: _invitees,
-                          // The owner takes one place.
-                          limit: mdtMaxMembers - 1,
-                          onToggle: (uid) => setState(() {
-                            if (!_invitees.remove(uid)) _invitees.add(uid);
-                          }),
-                        ),
+                      WorkspaceStepSection(
+                        number: 2,
+                        title: _stepName(l10n.mdtInviteStep),
+                        status: _invitees.isEmpty ? .toDo : .done,
+                        statusLabel: _invitees.isEmpty
+                            ? l10n.workspaceStepToDo
+                            : l10n.workspaceStepDone,
+                        expanded: _inviteOpen,
+                        onToggle: () =>
+                            setState(() => _inviteOpen = !_inviteOpen),
+                        child: _inviteStep(l10n, directory, candidates),
+                      ),
                       const SizedBox(height: AppSpacing.md),
                       Text(l10n.mdtStaysOpen, style: textTheme.bodySmall),
                     ],
@@ -255,7 +284,7 @@ class _NewMdtScreenState extends State<NewMdtScreen> {
                   primary: TabibuButton.primary(
                     label: l10n.mdtSendInvite,
                     isLoading: writing,
-                    onTap: _caseUid.isEmpty || _invitees.isEmpty ? null : _send,
+                    onTap: ready && !writing ? _send : null,
                   ),
                 ),
               ],
@@ -263,6 +292,83 @@ class _NewMdtScreenState extends State<NewMdtScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _caseStep(
+    AppLocalizations l10n,
+    List<CaseModel> cases,
+    List<CaseModel> shown,
+    String needle,
+  ) {
+    if (cases.isEmpty) {
+      return EmptyState(
+        title: l10n.doctorCasesEmptyTitle,
+        body: l10n.doctorCasesEmptyBody,
+      );
+    }
+    return Column(
+      crossAxisAlignment: .stretch,
+      children: [
+        SearchField(
+          hint: l10n.doctorCasesSearchHint,
+          clearLabel: MaterialLocalizations.of(context).deleteButtonTooltip,
+          controller: _caseQuery,
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: AppSpacing.md),
+        if (shown.isEmpty)
+          EmptyState(
+            title: l10n.findDoctorNoResultsTitle(_caseQuery.text.trim()),
+            body: l10n.findDoctorNoResultsBody,
+          )
+        else
+          SizedBox(
+            key: const Key('mdt-case-list'),
+            height: mdtPickerListHeight,
+            child: ListView(
+              primary: false,
+              padding: EdgeInsets.zero,
+              children: [
+                for (final c in shown) ...[
+                  _CaseOption(
+                    caseModel: c,
+                    selected: c.uid == _caseUid,
+                    onTap: () => setState(() {
+                      _caseUid = c.uid;
+                      _pickOpen = false;
+                    }),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                ],
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _inviteStep(
+    AppLocalizations l10n,
+    DirectoryState directory,
+    List<PractitionerModel> candidates,
+  ) {
+    if (directory.all.isEmpty &&
+        (directory is DirectoryInitial ||
+            directory is DirectoryLoadInProgress)) {
+      return SizedBox(
+        height: 160,
+        child: LoadingView(semanticLabel: l10n.findDoctorLoadingLabel),
+      );
+    }
+    return MdtInvitePicker(
+      candidates: candidates,
+      selected: _invitees,
+      limit: mdtMaxMembers - 1,
+      listMaxHeight: mdtPickerListHeight,
+      onToggle: (uid) => setState(() {
+        if (!_invitees.remove(uid)) _invitees.add(uid);
+      }),
     );
   }
 }

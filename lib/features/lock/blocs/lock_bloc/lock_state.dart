@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:tabibu/core/constants/enums.dart';
+import 'package:tabibu/features/lock/data/lock_storage.dart';
 
 /// The wrong-PIN allowance; the sixth screen is a sign-out.
 const lockMaxAttempts = 5;
@@ -8,6 +9,7 @@ const lockMaxAttempts = 5;
 /// lock screen. Nothing here holds a PIN or a biometric result.
 sealed class LockState extends Equatable {
   const LockState({
+    this.method = LockMethod.none,
     this.enabled = false,
     this.locked = false,
     this.biometricsEnabled = false,
@@ -18,6 +20,9 @@ sealed class LockState extends Equatable {
     this.error,
   });
 
+  /// The one lock. [enabled] stays true for both a PIN and fingerprint/face
+  /// so screens outside this feature, which only read [enabled], stay right.
+  final LockMethod method;
   final bool enabled;
 
   /// What `App`'s overlay reads: true covers every screen.
@@ -35,6 +40,7 @@ sealed class LockState extends Equatable {
 
   @override
   List<Object?> get props => [
+    method,
     enabled,
     locked,
     biometricsEnabled,
@@ -53,6 +59,7 @@ final class LockInitial extends LockState {
 /// Always locked: until the stored settings are read, the app is covered.
 final class LockLoadInProgress extends LockState {
   const LockLoadInProgress({
+    super.method,
     super.enabled,
     super.biometricsEnabled,
     super.lockAfterSeconds,
@@ -66,6 +73,7 @@ final class LockLoadInProgress extends LockState {
 /// change.
 final class LockLoadSuccess extends LockState {
   const LockLoadSuccess({
+    super.method,
     super.enabled,
     super.locked,
     super.biometricsEnabled,
@@ -81,6 +89,7 @@ final class LockLoadSuccess extends LockState {
 final class LockLoadFailure extends LockState {
   const LockLoadFailure({
     required AppError super.error,
+    super.method,
     super.enabled,
     super.locked,
     super.biometricsEnabled,
@@ -93,6 +102,7 @@ final class LockLoadFailure extends LockState {
 
 final class LockWriteInProgress extends LockState {
   const LockWriteInProgress({
+    super.method,
     super.enabled,
     super.locked,
     super.biometricsEnabled,
@@ -106,6 +116,7 @@ final class LockWriteInProgress extends LockState {
 final class LockWriteFailure extends LockState {
   const LockWriteFailure({
     required AppError super.error,
+    super.method,
     super.enabled,
     super.locked,
     super.biometricsEnabled,
@@ -117,24 +128,36 @@ final class LockWriteFailure extends LockState {
 }
 
 final class LockPinCreateSuccess extends LockState {
-  const LockPinCreateSuccess({super.biometricsEnabled, super.lockAfterSeconds})
-    : super(enabled: true);
+  const LockPinCreateSuccess({super.lockAfterSeconds})
+    : super(enabled: true, method: LockMethod.pin);
+}
+
+/// The fingerprint/face prompt succeeded. The method stays biometric until
+/// the new PIN is saved.
+final class LockPinCreateAllowed extends LockState {
+  const LockPinCreateAllowed({super.locked, super.lockAfterSeconds})
+    : super(
+        enabled: true,
+        biometricsEnabled: true,
+        method: LockMethod.biometric,
+      );
 }
 
 /// The two entries differ.
 final class LockPinMismatch extends LockState {
-  const LockPinMismatch({super.enabled, super.locked});
+  const LockPinMismatch({super.method, super.enabled, super.locked});
 }
 
 /// Not four digits.
 final class LockPinMalformed extends LockState {
-  const LockPinMalformed({super.enabled, super.locked});
+  const LockPinMalformed({super.method, super.enabled, super.locked});
 }
 
 /// A wrong PIN, counted; [attemptsRemaining] says how many are left.
 final class LockPinWrong extends LockState {
   const LockPinWrong({
     required super.attemptsRemaining,
+    super.method,
     super.enabled,
     super.locked,
     super.biometricsEnabled,
@@ -146,6 +169,7 @@ final class LockPinWrong extends LockState {
 final class LockOutActive extends LockState {
   const LockOutActive({
     required DateTime super.lockoutUntil,
+    super.method,
     super.enabled,
     super.locked,
     super.biometricsEnabled,
@@ -161,6 +185,7 @@ final class LockOutActive extends LockState {
 final class LockSignOutRequired extends LockState {
   const LockSignOutRequired({
     super.lockoutUntil,
+    super.method,
     super.enabled = true,
     super.locked = true,
     super.biometricsEnabled,
@@ -171,6 +196,7 @@ final class LockSignOutRequired extends LockState {
 /// Biometrics are not enrolled or usable on this device.
 final class LockBiometricUnavailable extends LockState {
   const LockBiometricUnavailable({
+    super.method,
     super.enabled,
     super.locked,
     super.lockAfterSeconds,
@@ -181,6 +207,7 @@ final class LockBiometricUnavailable extends LockState {
 /// still the way in.
 final class LockBiometricFailed extends LockState {
   const LockBiometricFailed({
+    super.method,
     super.enabled,
     super.locked,
     super.biometricsEnabled,

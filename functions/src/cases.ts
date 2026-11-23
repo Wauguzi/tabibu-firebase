@@ -201,7 +201,8 @@ export async function createOrderHandler(
   const now = nowOf(deps);
   const at = timestamp(now);
   const caseUid = uuidOf(raw.caseUid, 'invalidCase');
-  const appointmentUid = idOf(raw.appointmentUid, 'invalidAppointment');
+  // Empty for a walk-in: the patient is already in this doctor's care, so no visit is required.
+  const appointmentUid = optionalId(raw.appointmentUid, 'invalidAppointment');
   const patientId = idOf(raw.patientId, 'notInCare');
   const ordered = orderedTests(raw.labTestIds);
   const priority = oneOf(raw.priority ?? 'Routine', PRIORITIES, 'invalidPriority');
@@ -226,14 +227,16 @@ export async function createOrderHandler(
     if (!patient || !strings(patient.doctorUids).includes(c.uid)) {
       throw refuse('failed-precondition', 'notInCare');
     }
-    const appointment = (await tx.get(db.collection('appointments').doc(appointmentUid))).data();
-    if (
-      !appointment ||
-      appointment.doctorUid !== c.uid ||
-      appointment.patientId !== patientId ||
-      !['Accepted', 'Completed'].includes(str(appointment.status))
-    ) {
-      throw refuse('failed-precondition', 'invalidAppointment');
+    if (appointmentUid !== '') {
+      const appointment = (await tx.get(db.collection('appointments').doc(appointmentUid))).data();
+      if (
+        !appointment ||
+        appointment.doctorUid !== c.uid ||
+        appointment.patientId !== patientId ||
+        !['Accepted', 'Completed'].includes(str(appointment.status))
+      ) {
+        throw refuse('failed-precondition', 'invalidAppointment');
+      }
     }
     const requested = pathologistUid
       ? await requestablePathologist(tx, deps, pathologistUid, c.uid, [])
@@ -329,10 +332,12 @@ export async function createOrderHandler(
 
     commitCase(tx, caseRef, s, now);
     tx.create(caseRef.collection('private').doc('payment'), payment);
-    tx.update(db.collection('appointments').doc(appointmentUid), {
-      caseUids: FieldValue.arrayUnion(caseUid),
-      lastUpdatedAt: at,
-    });
+    if (appointmentUid !== '') {
+      tx.update(db.collection('appointments').doc(appointmentUid), {
+        caseUids: FieldValue.arrayUnion(caseUid),
+        lastUpdatedAt: at,
+      });
+    }
     sendNotes(tx, notes, now);
     return { status: 'created' as const, caseUid };
   });

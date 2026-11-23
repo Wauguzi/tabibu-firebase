@@ -37,6 +37,11 @@ import {
   PREREAD_PROMPT_VERSION,
   PREREAD_TILES_PER_REQUEST,
   PREREAD_TILE_PX,
+  PREREAD_CALL_TIMEOUT_MS,
+  PREREAD_TILE_MAX_OUTPUT_TOKENS,
+  PREREAD_TILE_MAX_RETRIES,
+  PREREAD_TILE_RETRY_BACKOFF_MS,
+  PREREAD_UNCLEAR_TILE_LIMIT,
   PREREAD_WORKER_TIMEOUT_MS,
   TILE_THINKING_LEVEL,
   TILE_UPSCALE_FACTOR,
@@ -55,7 +60,9 @@ import {
   upscaleTilePng,
   type ClassifiedTile,
   type PrereadCache,
+  type PrereadTileCallLog,
   type PrereadFailureLog,
+  type PrereadUnclearLog,
   type PrereadVision,
   type TileCrop,
   PrereadCallError,
@@ -74,6 +81,34 @@ function solidPng(width: number, height: number, rgb: [number, number, number]):
 function solidJpeg(width: number, height: number, rgb: [number, number, number]): Buffer {
   return encodeJpeg(solidRaster(width, height, rgb), 95);
 }
+
+function tileIdsOf(req: GeminiGenerateRequest): string[] {
+  const parts = (req.contents as { parts: { text?: string }[] }[])[0].parts;
+  const ids: string[] = [];
+  for (const part of parts) {
+    const match = typeof part.text === 'string' ? /tile id=(\S+)/.exec(part.text) : null;
+    if (match) ids.push(match[1]);
+  }
+  return ids;
+}
+
+/** Stays open until the tile timeout aborts the signal on the request. */
+function hangUntilAbort(req: GeminiGenerateRequest, signals: AbortSignal[]): Promise<{ text: string }> {
+  const signal = req.config?.abortSignal;
+  if (!signal) return Promise.reject(new Error('missing abort signal'));
+  signals.push(signal);
+  return new Promise((_, reject) => {
+    signal.addEventListener('abort', () => reject(new Error('aborted')), { once: true });
+  });
+}
+
+const oneTile = {
+  bytes: solidPng(96, 96, [1, 2, 3]),
+  contentType: 'image/png',
+  name: 'slide-0.png',
+  width: 96,
+  height: 96,
+};
 
 function fakeVision(label = 'Normal'): PrereadVision {
   return {
@@ -204,6 +239,13 @@ describe('processQueuedPreread', () => {
     /** Two or more slides; overrides `slide` when present. */
     slides?: { bytes: Buffer; contentType: string; name: string }[];
     micronsPerPixel?: number;
+    generate?: GeminiGenerate;
+    callTimeoutMs?: number;
+    workerTimeoutMs?: number;
+    fewShot?: false;
+    retryLog?: (entry: { reason: string; attempt: number }) => void;
+    callLog?: (entry: PrereadTileCallLog) => void;
+    unclearLog?: (entry: PrereadUnclearLog) => void;
   }): Promise<{ caseUid: string; runUid: string }> {
     const caseUid = randomUUID();
     const runUid = randomUUID();
@@ -268,8 +310,15 @@ describe('processQueuedPreread', () => {
       runUid,
       {
         enabled: opts?.enabled ?? true,
-        vision: opts?.vision ?? fakeVision('Normal'),
+        vision: opts?.generate ? opts.vision : (opts?.vision ?? fakeVision('Normal')),
         cache: opts?.cache,
+        generate: opts?.generate,
+        callTimeoutMs: opts?.callTimeoutMs,
+        workerTimeoutMs: opts?.workerTimeoutMs,
+        fewShot: opts?.fewShot,
+        retryLog: opts?.retryLog,
+        callLog: opts?.callLog,
+        unclearLog: opts?.unclearLog,
       },
     );
     return { caseUid, runUid };
@@ -535,6 +584,226 @@ describe('processQueuedPreread', () => {
     assert.ok(!JSON.stringify(run).includes('data:image'));
   });
 
+  it('a hung tile is aborted and three timeouts fail the run', async () => {
+    const signals: AbortSignal[] = [];
+    const retries: { reason: string; attempt: number }[] = [];
+    let calls = 0;
+    const generate: GeminiGenerate = (req) => {
+      calls += 1;
+      return hangUntilAbort(req, signals);
+    };
+    const { caseUid, runUid } = await queuedRun({
+      generate,
+      callTimeoutMs: 30,
+      workerTimeoutMs: 5_000,
+      fewShot: false,
+      retryLog: (entry) => retries.push(entry),
+      slide: oneTile,
+    });
+    assert.equal(calls, 3);
+    assert.equal(signals.length, 3);
+    assert.ok(signals.every((signal) => signal.aborted));
+    assert.deepEqual(retries, [
+      { reason: 'Timeout', attempt: 2 },
+      { reason: 'Timeout', attempt: 3 },
+    ]);
+    for (const entry of retries) {
+      const serialised = JSON.stringify(entry);
+      assert.deepEqual(Object.keys(entry).sort(), ['attempt', 'reason']);
+      assert.ok(!serialised.includes('data:image'));
+      assert.ok(!serialised.includes('Normal'));
+      assert.ok(!serialised.includes('Tumour'));
+    }
+    const run = (
+      await w.deps.db.collection('cases').doc(caseUid).collection('preread').doc(runUid).get()
+    ).data();
+    assert.equal(run?.status, 'Failed');
+    assert.equal(run?.failureReason, 'Timeout');
+  });
+
+  function sixTiles(rgb: [number, number, number]) {
+    return {
+      bytes: solidPng(6 * PREREAD_TILE_PX, PREREAD_TILE_PX, rgb),
+      contentType: 'image/png',
+      name: 'slide-0.png',
+      width: 6 * PREREAD_TILE_PX,
+      height: PREREAD_TILE_PX,
+    };
+  }
+
+  it('a tile that fails every try is Unclear and the run stays Ready', async () => {
+    assert.ok(1 / 6 <= PREREAD_UNCLEAR_TILE_LIMIT);
+    for (const reason of ['Timeout', 'ServiceError', 'OffSchema'] as const) {
+      const unclear: PrereadUnclearLog[] = [];
+      const store = new Map<string, ClassifiedTile[]>();
+      const cache: PrereadCache = {
+        async get(key) {
+          return store.get(key);
+        },
+        async set(key, labels) {
+          store.set(key, labels);
+        },
+      };
+      const asked: string[] = [];
+      let failStubborn = true;
+      const vision: PrereadVision = {
+        async classify(crops) {
+          const id = crops[0]?.id ?? '';
+          asked.push(id);
+          if (failStubborn && id.endsWith('tile-0-0')) throw new AiError(reason);
+          return crops.map((crop) => ({ id: crop.id, label: 'Tumour', probability: 0.8 }));
+        },
+      };
+      const slide = sixTiles([9, 8, reason.length]);
+      const first = await queuedRun({
+        vision,
+        cache,
+        fewShot: false,
+        slide,
+        unclearLog: (entry) => unclear.push(entry),
+        workerTimeoutMs: 30_000,
+      });
+      const run = (
+        await w.deps.db.collection('cases').doc(first.caseUid).collection('preread').doc(first.runUid).get()
+      ).data();
+      assert.equal(run?.status, 'Ready', reason);
+      assert.equal(run?.measurements?.unknownTiles, 1, reason);
+      assert.equal(run?.labelCounts?.Tumour, 5, reason);
+      assert.equal(run?.labelCounts?.Unknown, 1, reason);
+      assert.equal(unclear.length, 1, reason);
+      assert.equal(unclear[0].reason, reason);
+      assert.equal(unclear[0].attempts, reason === 'OffSchema' ? 1 : PREREAD_TILE_MAX_RETRIES + 1);
+      assert.deepEqual(Object.keys(unclear[0]).sort(), ['attempts', 'batchIndex', 'reason']);
+      const serialised = JSON.stringify(unclear[0]);
+      assert.equal(serialised.includes('tile-0-0'), false);
+      assert.equal(serialised.includes('data:image'), false);
+      assert.equal(serialised.includes(first.caseUid), false);
+
+      const cached = [...store.values()][0] ?? [];
+      assert.equal(cached.length, 5, reason);
+      assert.equal(
+        cached.some((tile) => tile.id.endsWith('tile-0-0')),
+        false,
+        reason,
+      );
+      assert.ok(
+        cached.every((tile) => tile.label === 'Tumour'),
+        reason,
+      );
+
+      failStubborn = false;
+      const before = asked.length;
+      await queuedRun({
+        vision,
+        cache,
+        fewShot: false,
+        slide,
+        workerTimeoutMs: 30_000,
+      });
+      const again = asked.slice(before);
+      assert.deepEqual(again, ['img0-tile-0-0'], reason);
+    }
+  }).timeout(60_000);
+
+  it('more than a fifth of the tiles Unclear fails the run', async () => {
+    assert.ok(2 / 6 > PREREAD_UNCLEAR_TILE_LIMIT);
+    const vision: PrereadVision = {
+      async classify(crops) {
+        const id = crops[0]?.id ?? '';
+        if (id.endsWith('tile-0-0') || id.endsWith('tile-0-1')) throw new AiError('Timeout');
+        return crops.map((crop) => ({ id: crop.id, label: 'Normal', probability: 0.9 }));
+      },
+    };
+    const { caseUid, runUid } = await queuedRun({
+      vision,
+      fewShot: false,
+      slide: sixTiles([4, 5, 6]),
+      workerTimeoutMs: 30_000,
+    });
+    const run = (
+      await w.deps.db.collection('cases').doc(caseUid).collection('preread').doc(runUid).get()
+    ).data();
+    assert.equal(run?.status, 'Failed');
+    assert.equal(run?.failureReason, 'Timeout');
+  }).timeout(30_000);
+
+  it('Stale still fails the run at once', async () => {
+    let calls = 0;
+    const vision: PrereadVision = {
+      async classify(crops) {
+        calls += 1;
+        const id = crops[0]?.id ?? '';
+        if (id.endsWith('tile-0-0')) throw new AiError('Stale');
+        return crops.map((crop) => ({ id: crop.id, label: 'Normal', probability: 0.9 }));
+      },
+    };
+    const { caseUid, runUid } = await queuedRun({
+      vision,
+      fewShot: false,
+      slide: sixTiles([7, 1, 2]),
+      workerTimeoutMs: 30_000,
+    });
+    const run = (
+      await w.deps.db.collection('cases').doc(caseUid).collection('preread').doc(runUid).get()
+    ).data();
+    assert.equal(run?.status, 'Failed');
+    assert.equal(run?.failureReason, 'Stale');
+    assert.ok(calls <= PREREAD_BATCH_CONCURRENCY);
+    assert.ok(calls >= 1);
+  });
+
+  it('a later success after aborted timeouts keeps the run', async () => {
+    const signals: AbortSignal[] = [];
+    let calls = 0;
+    const generate: GeminiGenerate = (req) => {
+      calls += 1;
+      if (calls < 3) return hangUntilAbort(req, signals);
+      const signal = req.config?.abortSignal;
+      assert.ok(signal);
+      signals.push(signal);
+      return Promise.resolve({
+        text: JSON.stringify({
+          tiles: tileIdsOf(req).map((id) => ({ id, label: 'Normal', probability: 0.9 })),
+        }),
+      });
+    };
+    const { caseUid, runUid } = await queuedRun({
+      generate,
+      callTimeoutMs: 30,
+      workerTimeoutMs: 5_000,
+      fewShot: false,
+      slide: oneTile,
+    });
+    assert.equal(calls, 3);
+    assert.equal(signals[0].aborted, true);
+    assert.equal(signals[1].aborted, true);
+    assert.equal(signals[2].aborted, false);
+    const run = (
+      await w.deps.db.collection('cases').doc(caseUid).collection('preread').doc(runUid).get()
+    ).data();
+    assert.equal(run?.status, 'Ready');
+  });
+
+  it('an OffSchema answer is not retried', async () => {
+    let calls = 0;
+    const generate: GeminiGenerate = () => {
+      calls += 1;
+      return Promise.resolve({ text: 'not-json' });
+    };
+    const { caseUid, runUid } = await queuedRun({
+      generate,
+      fewShot: false,
+      slide: oneTile,
+      workerTimeoutMs: 5_000,
+    });
+    assert.equal(calls, 1);
+    const run = (
+      await w.deps.db.collection('cases').doc(caseUid).collection('preread').doc(runUid).get()
+    ).data();
+    assert.equal(run?.status, 'Failed');
+    assert.equal(run?.failureReason, 'OffSchema');
+  });
+
   it('a real JPEG slide reaches Ready', async () => {
     const { caseUid, runUid } = await queuedRun({
       slide: {
@@ -591,6 +860,90 @@ describe('processQueuedPreread', () => {
       draftNumbersMatch(run?.draft, run?.measurements as Record<string, number>, seenCrops),
       true,
     );
+  });
+
+  it('logs each settled tile call and never the image, the label or an id', async () => {
+    const logs: PrereadTileCallLog[] = [];
+    const generate: GeminiGenerate = async (req) => ({
+      text: JSON.stringify({
+        tiles: tileIdsOf(req).map((id) => ({ id, label: 'Normal', probability: 0.9 })),
+      }),
+    });
+    const { caseUid, runUid } = await queuedRun({
+      generate,
+      fewShot: false,
+      slide: oneTile,
+      callLog: (entry) => logs.push(entry),
+    });
+    assert.equal(logs.length, 1);
+    const entry = logs[0];
+    assert.equal(entry.outcome, 'ok');
+    assert.equal(entry.attempt, 1);
+    assert.equal(entry.batchIndex, 0);
+    assert.equal(entry.batches, 1);
+    assert.equal(entry.inFlight, 1);
+    assert.equal(entry.imageCount, 1);
+    assert.equal(entry.model, GEMINI_TEXT_MODEL);
+    assert.equal(entry.location, 'global');
+    assert.ok(entry.elapsedMs >= 0);
+    assert.ok(entry.requestBytes > 0);
+    assert.ok(entry.firstCallAfterMs >= 0);
+    assert.equal(entry.errorName, undefined);
+    assert.equal(entry.status, undefined);
+    assert.equal(entry.code, undefined);
+    const serialised = JSON.stringify(entry);
+    assert.equal(serialised.includes('data:image'), false);
+    assert.equal(serialised.includes('Normal'), false);
+    assert.equal(serialised.includes('Tumour'), false);
+    assert.equal(serialised.includes(caseUid), false);
+    assert.equal(serialised.includes(runUid), false);
+    assert.equal(serialised.includes('img'), false);
+  });
+
+  it('logs a failed tile call with its name, status and code', async () => {
+    const logs: PrereadTileCallLog[] = [];
+    const generate: GeminiGenerate = async () => {
+      const error = new AiError('Stale') as AiError & { status: number; code: string };
+      error.status = 429;
+      error.code = 'RESOURCE_EXHAUSTED';
+      throw error;
+    };
+    await queuedRun({
+      generate,
+      fewShot: false,
+      slide: oneTile,
+      callLog: (entry) => logs.push(entry),
+    });
+    assert.equal(logs.length, 1);
+    assert.equal(logs[0].outcome, 'error');
+    assert.equal(logs[0].attempt, 1);
+    assert.equal(logs[0].errorName, 'AiError');
+    assert.equal(logs[0].status, 429);
+    assert.equal(logs[0].code, 'RESOURCE_EXHAUSTED');
+    assert.equal(JSON.stringify(logs[0]).includes('Stale'), false);
+  });
+
+  it('logs a timed-out tile call once per try', async () => {
+    const logs: PrereadTileCallLog[] = [];
+    const generate: GeminiGenerate = (req) => hangUntilAbort(req, []);
+    await queuedRun({
+      generate,
+      fewShot: false,
+      slide: oneTile,
+      callTimeoutMs: 30,
+      workerTimeoutMs: 5_000,
+      callLog: (entry) => logs.push(entry),
+    });
+    assert.deepEqual(
+      logs.map((entry) => entry.outcome),
+      ['timeout', 'timeout', 'timeout'],
+    );
+    assert.deepEqual(
+      logs.map((entry) => entry.attempt),
+      [1, 2, 3],
+    );
+    assert.ok(logs.every((entry) => entry.errorName === 'AiError' && entry.status === undefined));
+    assert.equal(logs[0].firstCallAfterMs, logs[2].firstCallAfterMs);
   });
 });
 
@@ -705,6 +1058,9 @@ describe('upscale and confidence cap', () => {
 });
 
 describe('parallel batches and thinking level', () => {
+  function crop(): TileCrop {
+    return { id: 'tile-0', row: 0, col: 0, png: Buffer.from([1]) };
+  }
   it('runs up to 4 classify batches at a time', async () => {
     const delayMs = 80;
     let inFlight = 0;
@@ -740,6 +1096,123 @@ describe('parallel batches and thinking level', () => {
   it('worker budget is 240 s and tiles think at the lowest accepted level', () => {
     assert.equal(TILE_THINKING_LEVEL, ThinkingLevel.LOW);
     assert.equal(PREREAD_WORKER_TIMEOUT_MS, 240_000);
+  });
+
+  it('a tile call times out at 25 s and may be tried twice more', () => {
+    assert.equal(PREREAD_CALL_TIMEOUT_MS, 25_000);
+    assert.equal(PREREAD_TILE_MAX_RETRIES, 2);
+  });
+
+  it('OffSchema and Stale are not retried', async () => {
+    for (const reason of ['OffSchema', 'Stale'] as const) {
+      let calls = 0;
+      const vision: PrereadVision = {
+        async classify() {
+          calls += 1;
+          throw new AiError(reason);
+        },
+      };
+      await assert.rejects(
+        classifyInBatches(vision, [crop()], 'Cancer', 1, { deadlineMs: Date.now() + 60_000 }),
+        (error: unknown) => failureReasonOf(error) === reason,
+      );
+      assert.equal(calls, 1, reason);
+    }
+  });
+
+  it('retries stop when the budget cannot fit another try', async () => {
+    let calls = 0;
+    const vision: PrereadVision = {
+      async classify() {
+        calls += 1;
+        throw new AiError('Timeout');
+      },
+    };
+    await assert.rejects(
+      classifyInBatches(vision, [crop()], 'Cancer', 1, {
+        // The backoff plus a full tile timeout does not fit in this window.
+        deadlineMs: Date.now() + PREREAD_TILE_RETRY_BACKOFF_MS,
+        callTimeoutMs: PREREAD_CALL_TIMEOUT_MS,
+      }),
+      (error: unknown) => failureReasonOf(error) === 'Timeout',
+    );
+    assert.equal(calls, 1);
+  });
+
+  it('a past deadline starts no call', async () => {
+    let calls = 0;
+    const vision: PrereadVision = {
+      async classify() {
+        calls += 1;
+        return [{ id: 'tile-0', label: 'Normal', probability: 0.9 }];
+      },
+    };
+    const crops: TileCrop[] = Array.from({ length: 6 }, (_, i) => ({
+      id: `tile-${i}`,
+      row: 0,
+      col: i,
+      png: Buffer.from([1]),
+    }));
+    await assert.rejects(
+      classifyInBatches(vision, crops, 'Cancer', PREREAD_BATCH_CONCURRENCY, {
+        deadlineMs: Date.now() - 1,
+      }),
+      (error: unknown) => failureReasonOf(error) === 'Timeout',
+    );
+    assert.equal(calls, 0);
+  });
+
+  it('a halted run starts no further call', async () => {
+    const halted = { current: false };
+    let calls = 0;
+    const crops: TileCrop[] = Array.from({ length: 8 }, (_, i) => ({
+      id: `tile-${i}`,
+      row: 0,
+      col: i,
+      png: Buffer.from([1]),
+    }));
+    const vision: PrereadVision = {
+      async classify(batch) {
+        calls += 1;
+        halted.current = true;
+        return batch.map((crop) => ({ id: crop.id, label: 'Normal', probability: 0.9 }));
+      },
+    };
+    await assert.rejects(
+      classifyInBatches(vision, crops, 'Cancer', PREREAD_BATCH_CONCURRENCY, {
+        deadlineMs: Date.now() + 60_000,
+        halted,
+      }),
+      (error: unknown) => failureReasonOf(error) === 'Timeout',
+    );
+    assert.equal(calls, 1);
+    assert.ok(calls < crops.length);
+  });
+
+  it('a near deadline does not start the next wave', async () => {
+    let calls = 0;
+    const crops: TileCrop[] = Array.from({ length: 8 }, (_, i) => ({
+      id: `tile-${i}`,
+      row: 0,
+      col: i,
+      png: Buffer.from([1]),
+    }));
+    const vision: PrereadVision = {
+      async classify(batch) {
+        calls += 1;
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        return batch.map((crop) => ({ id: crop.id, label: 'Normal', probability: 0.9 }));
+      },
+    };
+    await assert.rejects(
+      classifyInBatches(vision, crops, 'Cancer', PREREAD_BATCH_CONCURRENCY, {
+        deadlineMs: Date.now() + 40,
+      }),
+      (error: unknown) => failureReasonOf(error) === 'Timeout',
+    );
+    assert.ok(calls > 0);
+    assert.ok(calls <= PREREAD_BATCH_CONCURRENCY);
+    assert.ok(calls < crops.length);
   });
 
   it('httpStatusClass maps status codes without leaking bodies', () => {
@@ -1035,6 +1508,8 @@ describe('few-shot classify request', () => {
     assert.equal(built.body.model, GEMINI_TEXT_MODEL);
     assert.equal(built.body.config?.responseMimeType, 'application/json');
     assert.ok(built.body.config?.responseSchema);
+    assert.equal(built.body.config?.maxOutputTokens, PREREAD_TILE_MAX_OUTPUT_TOKENS);
+    assert.equal(built.body.config?.thinkingConfig?.thinkingLevel, ThinkingLevel.LOW);
   });
 
   it('with no few-shot holds case tiles only', () => {

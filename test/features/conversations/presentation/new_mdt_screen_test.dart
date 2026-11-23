@@ -1,3 +1,4 @@
+// cspell:ignore Aminá
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
@@ -85,26 +86,46 @@ void main() {
     );
   });
 
-  Future<void> pumpNew(WidgetTester tester, {String caseUid = 'c1'}) async {
+  Future<void> pumpNew(
+    WidgetTester tester, {
+    String caseUid = 'c1',
+    Role role = .doctor,
+    Locale? locale,
+    double textScale = 1,
+  }) async {
     tester.view.physicalSize = const Size(1170, 5000);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
+    if (role == .pathologist) {
+      final base = RoleSessions.pathologist;
+      when(() => authBloc.state).thenReturn(
+        SignInSuccess(
+          session: PractitionerSession(
+            doctor: base.doctor.copyWith(uid: 'me'),
+            roles: base.roles,
+          ),
+        ),
+      );
+    }
     final router = GoRouter(
       initialLocation: '/mdt/new',
       routes: [
         GoRoute(
           path: '/mdt/new',
-          builder: (_, _) => MultiBlocProvider(
-            providers: [
-              BlocProvider<AuthBloc>.value(value: authBloc),
-              ...blocs.providers,
-            ],
-            child: NewMdtScreen(role: .doctor, caseUid: caseUid),
+          builder: (_, _) => MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(textScale)),
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider<AuthBloc>.value(value: authBloc),
+                ...blocs.providers,
+              ],
+              child: NewMdtScreen(role: role, caseUid: caseUid),
+            ),
           ),
         ),
       ],
     );
-    await tester.pumpRouterApp(router);
+    await tester.pumpRouterApp(router, locale: locale);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
   }
@@ -155,6 +176,246 @@ void main() {
       expect(open.caseUid, 'c1');
       expect(open.description, 'Second opinion');
       expect(open.inviteeUids, ['dr-2']);
+    });
+
+    testWidgets('a case that already has a consult is not offered', (
+      tester,
+    ) async {
+      when(() => blocs.cases.state).thenReturn(
+        const CasesLoadSuccess(
+          cases: [
+            CaseModel(
+              uid: 'c1',
+              orderNumber: 'TB-0224',
+              doctorUid: 'me',
+              pathologistUid: 'path-1',
+              patientName: 'Amina',
+            ),
+            CaseModel(
+              uid: 'c2',
+              orderNumber: 'TB-HIDDEN',
+              doctorUid: 'me',
+              pathologistUid: 'path-1',
+              patientName: 'Other',
+              openMdtUid: 'mdt-9',
+            ),
+          ],
+        ),
+      );
+      await pumpNew(tester, caseUid: '');
+
+      expect(find.textContaining('TB-0224'), findsWidgets);
+      expect(find.textContaining('TB-HIDDEN'), findsNothing);
+    });
+
+    testWidgets('a pathologist is offered only their own open cases', (
+      tester,
+    ) async {
+      when(() => blocs.cases.state).thenReturn(
+        const CasesLoadSuccess(
+          cases: [
+            CaseModel(
+              uid: 'mine',
+              orderNumber: 'TB-MINE',
+              doctorUid: 'dr-2',
+              pathologistUid: 'me',
+              patientName: 'Amina',
+            ),
+            CaseModel(
+              uid: 'theirs',
+              orderNumber: 'TB-THEIRS',
+              doctorUid: 'dr-2',
+              pathologistUid: 'other-path',
+              patientName: 'Other',
+            ),
+            CaseModel(
+              uid: 'busy',
+              orderNumber: 'TB-BUSY',
+              doctorUid: 'dr-2',
+              pathologistUid: 'me',
+              patientName: 'Busy',
+              openMdtUid: 'mdt-9',
+            ),
+          ],
+        ),
+      );
+      await pumpNew(tester, caseUid: '', role: .pathologist);
+
+      expect(find.textContaining('TB-MINE'), findsWidgets);
+      expect(find.textContaining('TB-THEIRS'), findsNothing);
+      expect(find.textContaining('TB-BUSY'), findsNothing);
+    });
+
+    testWidgets('picking a case collapses the step and the header reopens it', (
+      tester,
+    ) async {
+      when(() => blocs.cases.state).thenReturn(
+        const CasesLoadSuccess(
+          cases: [
+            CaseModel(
+              uid: 'c1',
+              orderNumber: 'TB-0224',
+              doctorUid: 'me',
+              pathologistUid: 'path-1',
+              patientName: 'Amina',
+            ),
+            CaseModel(
+              uid: 'c2',
+              orderNumber: 'TB-0999',
+              doctorUid: 'me',
+              pathologistUid: 'path-1',
+              patientName: 'Other',
+            ),
+          ],
+        ),
+      );
+      await pumpNew(tester, caseUid: '');
+
+      expect(find.textContaining('TB-0224'), findsOneWidget);
+      expect(find.textContaining('TB-0999'), findsOneWidget);
+
+      await tester.tap(find.textContaining('TB-0999'));
+      await tester.pump();
+
+      expect(find.textContaining('TB-0224'), findsNothing);
+      expect(find.textContaining('TB-0999'), findsOneWidget);
+
+      await tester.tap(find.text(l10n.mdtPickCase));
+      await tester.pump();
+
+      expect(find.textContaining('TB-0224'), findsOneWidget);
+      expect(find.textContaining('TB-0999'), findsWidgets);
+    });
+
+    testWidgets('the case search folds accents', (tester) async {
+      when(() => blocs.cases.state).thenReturn(
+        const CasesLoadSuccess(
+          cases: [
+            CaseModel(
+              uid: 'c1',
+              orderNumber: 'TB-0224',
+              doctorUid: 'me',
+              pathologistUid: 'path-1',
+              patientName: 'Aminá',
+            ),
+            CaseModel(
+              uid: 'c2',
+              orderNumber: 'TB-0999',
+              doctorUid: 'me',
+              pathologistUid: 'path-1',
+              patientName: 'Zawadi',
+            ),
+          ],
+        ),
+      );
+      await pumpNew(tester, caseUid: '');
+
+      await tester.enterText(find.byType(TextField).first, 'amina');
+      await tester.pump();
+
+      expect(find.textContaining('Aminá'), findsOneWidget);
+      expect(find.textContaining('Zawadi'), findsNothing);
+    });
+
+    testWidgets('both lists scroll inside a capped height', (tester) async {
+      when(() => blocs.cases.state).thenReturn(
+        CasesLoadSuccess(
+          cases: [
+            for (var i = 0; i < 8; i++)
+              CaseModel(
+                uid: 'c$i',
+                orderNumber: 'TB-100$i',
+                doctorUid: 'me',
+                pathologistUid: 'path-1',
+                patientName: 'Person $i',
+              ),
+          ],
+        ),
+      );
+      when(() => blocs.directory.state).thenReturn(
+        DirectoryLoadSuccess(
+          all: [
+            for (var i = 0; i < 8; i++) _doc('dr-$i', 'Colleague', 'Number$i'),
+            meInDirectory,
+          ],
+          visible: [
+            for (var i = 0; i < 8; i++) _doc('dr-$i', 'Colleague', 'Number$i'),
+          ],
+        ),
+      );
+      await pumpNew(tester, caseUid: '');
+
+      final cases = tester.getSize(find.byKey(const Key('mdt-case-list')));
+      final invite = tester.getSize(find.byKey(const Key('mdt-invite-list')));
+      expect(cases.height, mdtPickerListHeight);
+      expect(invite.height, mdtPickerListHeight);
+      expect(
+        tester
+            .state<ScrollableState>(
+              find.descendant(
+                of: find.byKey(const Key('mdt-case-list')),
+                matching: find.byType(Scrollable),
+              ),
+            )
+            .position
+            .maxScrollExtent,
+        greaterThan(0),
+      );
+      expect(
+        tester
+            .state<ScrollableState>(
+              find.descendant(
+                of: find.byKey(const Key('mdt-invite-list')),
+                matching: find.byType(Scrollable),
+              ),
+            )
+            .position
+            .maxScrollExtent,
+        greaterThan(0),
+      );
+    });
+
+    testWidgets('send stays off until the case, a colleague and the question '
+        'are set', (tester) async {
+      when(() => blocs.cases.state).thenReturn(
+        const CasesLoadSuccess(
+          cases: [
+            CaseModel(
+              uid: 'c1',
+              orderNumber: 'TB-0224',
+              doctorUid: 'me',
+              pathologistUid: 'path-1',
+              patientName: 'Amina',
+            ),
+          ],
+        ),
+      );
+      await pumpNew(tester, caseUid: '');
+
+      await tester.enterText(find.byType(TextField).at(1), 'Second opinion');
+      await tester.tap(find.textContaining('Mary Njeri'));
+      await tester.pump();
+      await tester.ensureVisible(find.byType(TabibuButton).last);
+      await tester.tap(find.byType(TabibuButton).last);
+      await tester.pump();
+      verifyNever(() => blocs.mdt.add(any(that: isA<MdtOpenRequested>())));
+
+      await tester.tap(find.textContaining('TB-0224'));
+      await tester.pump();
+      await tester.ensureVisible(find.byType(TabibuButton).last);
+      await tester.tap(find.byType(TabibuButton).last);
+      await tester.pump();
+
+      verify(() => blocs.mdt.add(any(that: isA<MdtOpenRequested>()))).called(1);
+    });
+
+    testWidgets('the form holds at 2.0x in Kiswahili', (tester) async {
+      final sw = lookupAppLocalizations(const Locale('sw'));
+      await pumpNew(tester, locale: const Locale('sw'), textScale: 2);
+
+      expect(find.text(sw.mdtNewTitle), findsOneWidget);
+      expect(find.text(sw.mdtPickCase), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
   });
 }

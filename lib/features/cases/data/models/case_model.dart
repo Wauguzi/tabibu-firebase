@@ -85,6 +85,11 @@ abstract class CaseModel with _$CaseModel {
     @JsonKey(name: 'cancelReason') @Default('') String cancelReason,
     @JsonKey(name: 'createdAt') @Default('') String createdAt,
     @JsonKey(name: 'lastUpdatedAt') @Default('') String lastUpdatedAt,
+
+    /// The open consult on this case. The server writes it and clears it
+    /// when that consult closes, so a case is offered for a new one only
+    /// while this is empty.
+    @JsonKey(name: 'openMdtUid') @Default('') String openMdtUid,
     @JsonKey(includeFromJson: false, includeToJson: false)
     @Default(true)
     bool synced,

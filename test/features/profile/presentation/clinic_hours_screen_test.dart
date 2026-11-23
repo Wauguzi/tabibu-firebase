@@ -1,6 +1,6 @@
 import 'dart:async';
-import 'dart:math' as math;
 
+import 'package:cupertino_ui/cupertino_ui.dart' show CupertinoDatePicker;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
@@ -173,47 +173,26 @@ void main() {
       await tester.pumpRoleApp(weekdays(), '/doctor/profile/hours');
       await tester.pumpAndSettle();
 
-      // The dial paints its numbers, so the taps land by angle from its
-      // rendered center: hour h at h o'clock, minute m at m minutes.
-      Future<void> tapDial(int hour12, int minute) async {
-        Offset at(double oClockMinutes) {
-          final dial = find.descendant(
-            of: find.byType(TimePickerDialog),
-            matching: find.byWidgetPredicate(
-              (widget) => widget is AspectRatio && widget.aspectRatio == 1,
-            ),
-          );
-          final box = tester.element(dial).renderObject! as RenderBox;
-          final origin = box.localToGlobal(box.size.center(Offset.zero));
-          final angle = oClockMinutes / 60 * 2 * math.pi;
-          final radius = box.size.shortestSide * 0.3;
-          return origin +
-              Offset(radius * math.sin(angle), -radius * math.cos(angle));
-        }
-
-        await tester.tapAt(at((hour12 % 12 * 5).toDouble()));
-        await tester.pump();
-        await tester.tapAt(at(minute.toDouble()));
-        await tester.pump();
-      }
-
-      Future<void> pickTime(String button, int hour12, String period) async {
+      // The Cupertino wheel: set it as a turn would, then close it by
+      // tapping above it.
+      Future<void> pickTime(String button, int hour24) async {
         await tester.tap(find.text(button));
         await settleOverlaid(tester);
-        await tapDial(hour12, 0);
-        await tester.tap(find.text(period));
+        tester
+            .widget<CupertinoDatePicker>(find.byType(CupertinoDatePicker))
+            .onDateTimeChanged(DateTime(2026, 11, 17, hour24));
         await tester.pump();
-        await tester.tap(find.text('OK'));
+        await tester.tapAt(const Offset(20, 20));
         await settleOverlaid(tester);
       }
 
       // A 4 PM opening against the 5 PM close is fine, then the 9 AM
       // close breaks the range.
       await openSheet(tester, 'Monday to Friday');
-      await pickTime('8:00 AM', 4, 'PM');
+      await pickTime('8:00 AM', 16);
       expect(find.text('4:00 PM'), findsOneWidget);
 
-      await pickTime('5:00 PM', 9, 'AM');
+      await pickTime('5:00 PM', 9);
 
       await tester.tap(find.text('Save').last);
       await tester.pump();

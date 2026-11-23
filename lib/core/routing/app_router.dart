@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:tabibu/core/helpers/role_helper.dart';
 import 'package:tabibu/core/routing/app_routes.dart';
 import 'package:tabibu/core/routing/landing.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
@@ -19,7 +20,7 @@ abstract final class TabibuRouter {
     navigatorKey: navigatorKey,
     initialLocation: const DecisionRoute().location,
     routes: $appRoutes,
-    refreshListenable: _SessionChanges(authBloc),
+    refreshListenable: SessionChanges(authBloc),
     redirect: (context, state) => guardLocation(
       location: state.uri.toString(),
       session: authBloc.state.session,
@@ -29,15 +30,29 @@ abstract final class TabibuRouter {
   );
 }
 
-class _SessionChanges extends ChangeNotifier {
-  _SessionChanges(AuthBloc bloc) {
+/// Tells the router to run its guard again.
+@visibleForTesting
+class SessionChanges extends ChangeNotifier {
+  SessionChanges(AuthBloc bloc) {
+    // Only what guardLocation reads: who is signed in and their claims. A
+    // profile save changes the session too, and refreshing on it could put
+    // back a screen the save had just popped.
     _subscription = bloc.stream
-        .map((state) => state.session)
+        .map((state) => _guardKey(state.session))
         .distinct()
         .listen((_) => notifyListeners());
   }
 
-  late final StreamSubscription<AuthSession> _subscription;
+  late final StreamSubscription<(Type, RoleHelper?)> _subscription;
+
+  static (Type, RoleHelper?) _guardKey(AuthSession session) => (
+    session.runtimeType,
+    switch (session) {
+      PatientSession(:final roles) => roles,
+      PractitionerSession(:final roles) => roles,
+      _ => null,
+    },
+  );
 
   @override
   void dispose() {

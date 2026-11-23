@@ -11,9 +11,8 @@ abstract final class RemoteConfigDefaults {
     'alerts_delivery_enabled': true,
     'symptom_intake_enabled': true,
     'report_translation_enabled': true,
-    // Off until a device run has heard the transcription template; the
-    // server takes no audio.
-    'voice_input_enabled': false,
+    // The server takes no audio, and fails closed on its own template.
+    'voice_input_enabled': true,
     'alert_drafting_enabled': true,
   };
 
@@ -28,9 +27,8 @@ abstract final class RemoteConfigDefaults {
 
   /// AI Logic calls: symptom speech, explanation speech, the region read.
   /// Template ids match `prompts/` without the extension. Limited-use tokens
-  /// stay off until a live call has proved them, and the region read until a
-  /// device run has checked it; the narration reads approved text, so it is
-  /// on.
+  /// stay off until a live call has proved them; the calls match the live
+  /// project, on.
   static const ai = <String, Object>{
     'ai_location': 'global',
     'ai_template_symptom_transcribe': 'symptom-transcribe-v1-0-0',
@@ -38,7 +36,7 @@ abstract final class RemoteConfigDefaults {
     'ai_tts_model': 'gemini-3.8-flash-tts',
     'ai_tts_voice': 'Achernar',
     'ai_template_slide_region': 'slide-region-read-v1-0-0',
-    'region_read_enabled': false,
+    'region_read_enabled': true,
     'explanation_listen_enabled': true,
   };
 

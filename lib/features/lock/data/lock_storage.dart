@@ -7,6 +7,9 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:injectable/injectable.dart';
 import 'package:tabibu/features/lock/data/pbkdf2.dart';
 
+/// The one lock. A PIN and fingerprint/face are never on together.
+enum LockMethod { none, pin, biometric }
+
 /// The app lock's whole persisted state, in secure storage and nowhere else
 /// (never Hive, preferences or a log). The PIN itself is never kept: only a
 /// random salt and the PBKDF2 hash of the PIN with it.
@@ -35,6 +38,10 @@ class LockStorage {
   static const _pinSalt = 'tabibu.lock.pinSalt';
   static const _iterations = 'tabibu.lock.iterations';
   static const _lockEnabled = 'tabibu.lock.enabled';
+  static const _method = 'tabibu.lock.method';
+
+  /// Older builds. Read, then dropped on the next write so it cannot
+  /// disagree with [_method].
   static const _biometricsEnabled = 'tabibu.lock.biometricsEnabled';
   static const _lockAfterSeconds = 'tabibu.lock.lockAfterSeconds';
   static const _failedAttempts = 'tabibu.lock.failedAttempts';
@@ -45,6 +52,7 @@ class LockStorage {
     _pinSalt,
     _iterations,
     _lockEnabled,
+    _method,
     _biometricsEnabled,
     _lockAfterSeconds,
     _failedAttempts,
@@ -55,13 +63,54 @@ class LockStorage {
 
   static bool isValidPin(String pin) => _pinPattern.hasMatch(pin);
 
-  /// On only when a hash exists to check a PIN against.
-  Future<bool> isEnabled() async =>
-      await _storage.read(key: _lockEnabled) == 'true' &&
-      await _storage.read(key: _pinHash) != null;
+  /// On when a PIN or fingerprint/face is the method.
+  Future<bool> isEnabled() async => await method() != LockMethod.none;
+
+  /// One value. An older store that has a PIN and the biometrics flag reads
+  /// as [LockMethod.pin]: the PIN is the stronger claim.
+  Future<LockMethod> method() async {
+    switch (await _storage.read(key: _method)) {
+      case 'pin':
+        if (await _storage.read(key: _pinHash) == null) return .none;
+        return .pin;
+      case 'biometric':
+        return .biometric;
+      case 'none':
+        return .none;
+      default:
+        final pinOn =
+            await _storage.read(key: _lockEnabled) == 'true' &&
+            await _storage.read(key: _pinHash) != null;
+        if (pinOn) return .pin;
+        return .none;
+    }
+  }
+
+  /// Writes the one method and drops the old biometrics flag.
+  Future<void> setMethod(LockMethod value) async {
+    await _storage.delete(key: _biometricsEnabled);
+    if (value == .biometric) {
+      // The new method first: a switch that dies part-way leaves a lock,
+      // never a PIN method whose hash is already gone.
+      await _storage.write(key: _method, value: value.name);
+      await _storage.delete(key: _pinHash);
+      await _storage.delete(key: _pinSalt);
+      await _storage.delete(key: _iterations);
+      await resetFailures();
+      await _storage.write(key: _lockEnabled, value: 'false');
+      return;
+    }
+    if (value == .none) {
+      await clearAll();
+      return;
+    }
+    await _storage.write(key: _method, value: value.name);
+    await _storage.write(key: _lockEnabled, value: 'true');
+  }
 
   /// Replaces any earlier PIN and clears the failure count. The enabled flag
-  /// is written last, so a write that dies half way leaves the lock off.
+  /// is written only after the hash, so a write that dies before it leaves
+  /// the lock off.
   Future<void> setPin(String pin) async {
     // A fixed message: the argument must never reach an error log.
     if (!isValidPin(pin)) throw ArgumentError('The PIN must be four digits.');
@@ -73,7 +122,13 @@ class LockStorage {
     await _storage.write(key: _iterations, value: '$iterations');
     await _storage.write(key: _pinHash, value: base64Encode(hash));
     await resetFailures();
+    // The flag goes on this write, including when an older store had both.
+    // The enabled flag is before the method key: a write that dies before
+    // the flag leaves the lock off, and an older reader still sees a PIN
+    // once the flag is there.
+    await _storage.delete(key: _biometricsEnabled);
     await _storage.write(key: _lockEnabled, value: 'true');
+    await _storage.write(key: _method, value: LockMethod.pin.name);
   }
 
   /// A pure check: counting the failure is [recordFailure]'s job.
@@ -95,12 +150,6 @@ class LockStorage {
       await _storage.delete(key: key);
     }
   }
-
-  Future<bool> biometricsEnabled() async =>
-      await _storage.read(key: _biometricsEnabled) == 'true';
-
-  Future<void> setBiometrics({required bool enabled}) =>
-      _storage.write(key: _biometricsEnabled, value: '$enabled');
 
   /// Seconds in the background before the lock returns; 0 is straight away,
   /// which is also what an unreadable value means.

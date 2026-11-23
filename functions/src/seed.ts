@@ -145,7 +145,8 @@ export async function picture(uid: string, bucketName: string): Promise<string> 
 
 /**
  * A demo practitioner's photo: a Pexels stock model (Pexels License, no attribution required),
- * set after sign-up because sign-up accepts only a Storage URL. Not a picture of the named person.
+ * copied into Storage because the profile rules accept only the project's own download URL, on
+ * every save. Not a picture of the named person.
  */
 const DEMO_PHOTOS = {
   // https://www.pexels.com/photo/portrait-of-an-african-woman-in-medical-apron-18788957/
@@ -154,8 +155,47 @@ const DEMO_PHOTOS = {
   pathologist: 'https://images.pexels.com/photos/8770727/pexels-photo-8770727.jpeg?auto=compress&cs=tinysrgb&w=512&h=512&fit=crop',
 };
 
-export async function setDemoPhoto(db: Firestore, uid: string, url: string): Promise<void> {
-  await db.collection('doctors').doc(uid).update({ profilePictureUrl: url, lastUpdatedAt: new Date().toISOString() });
+/** The only photo URL the profile rules accept (`isStorageUrl` in firestore.rules). */
+export function isProfileStorageUrl(url: string, uid: string): boolean {
+  const prefix =
+    '^https://firebasestorage\\.googleapis\\.com/v0/b/(tabibu-86ea2\\.firebasestorage\\.app|demo-tabibu\\.appspot\\.com)/o/';
+  const owner = uid.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return url.length <= 2048 && new RegExp(`${prefix}profilePictures%2F${owner}%2F[^?]+[?].*`).test(url);
+}
+
+/** Under storage.rules' 3 MB limit for a profile photo. */
+const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
+
+/** Copies a stock photo into `profilePictures/{uid}/` and returns its download URL. */
+export async function storeDemoPhoto(
+  sourceUrl: string,
+  uid: string,
+  bucketName: string,
+  fetchPhoto: typeof fetch = fetch,
+): Promise<string> {
+  const response = await fetchPhoto(sourceUrl);
+  if (!response.ok) throw new Error(`Photo download failed (${response.status}) for ${uid}.`);
+  const type = response.headers.get('content-type') ?? '';
+  if (type !== 'image/jpeg' && type !== 'image/png') {
+    throw new Error(`Photo for ${uid} is ${type || 'untyped'}, not a JPEG or PNG.`);
+  }
+  const bytes = Buffer.from(await response.arrayBuffer());
+  if (bytes.length === 0 || bytes.length > MAX_PHOTO_BYTES) {
+    throw new Error(`Photo for ${uid} is ${bytes.length} bytes, outside 1 B to 3 MB.`);
+  }
+  const token = randomUUID();
+  const path = `profilePictures/${uid}/photo.${type === 'image/png' ? 'png' : 'jpg'}`;
+  await getStorage()
+    .bucket(bucketName)
+    .file(path)
+    .save(bytes, { contentType: type, metadata: { metadata: { firebaseStorageDownloadTokens: token } } });
+  return `https://firebasestorage.googleapis.com/v0/b/${bucketName}/o/${encodeURIComponent(path)}?alt=media&token=${token}`;
+}
+
+/** Stores [url] in Storage first unless it is already there or empty. */
+export async function setDemoPhoto(db: Firestore, uid: string, url: string, bucketName: string): Promise<void> {
+  const stored = url === '' || isProfileStorageUrl(url, uid) ? url : await storeDemoPhoto(url, uid, bucketName);
+  await db.collection('doctors').doc(uid).update({ profilePictureUrl: stored, lastUpdatedAt: new Date().toISOString() });
   await syncPractitionerHandler(db, uid);
 }
 
@@ -241,7 +281,7 @@ export async function seedAccounts(
       lastUpdatedAt: seededAt,
     });
   }
-  await setDemoPhoto(deps.db, doctorUid, DEMO_PHOTOS.doctor);
+  await setDemoPhoto(deps.db, doctorUid, DEMO_PHOTOS.doctor, deps.bucket);
   await markDemo(doctorUid);
   await writeDemoAccount(doctorUid, 'doctor');
 
@@ -260,7 +300,7 @@ export async function seedAccounts(
       kmpdcNumber: 'DEMO-P-0001',
     },
   });
-  await setDemoPhoto(deps.db, pathologistUid, DEMO_PHOTOS.pathologist);
+  await setDemoPhoto(deps.db, pathologistUid, DEMO_PHOTOS.pathologist, deps.bucket);
   await markDemo(pathologistUid);
   await writeDemoAccount(pathologistUid, 'pathologist');
 
