@@ -5878,6 +5878,22 @@
     "@alertReviewRejectSub": {
         "description": "Reject options row subtitle"
     },
+    "alertReviewAskNewDraft": "Ask for a new draft",
+    "@alertReviewAskNewDraft": {
+        "description": "Review screen More menu: asks the server for a fresh draft"
+    },
+    "alertReviewAskNewDraftSub": "Replaces both languages. Up to 3 per alert.",
+    "@alertReviewAskNewDraftSub": {
+        "description": "Supporting line under Ask for a new draft"
+    },
+    "errorAlertRedraftLimit": "This alert has had its 3 new drafts.",
+    "@errorAlertRedraftLimit": {
+        "description": "Refusal: the alert has used its redrafts"
+    },
+    "errorAlertRedraftClosed": "This alert can no longer be redrafted.",
+    "@errorAlertRedraftClosed": {
+        "description": "Refusal: the alert is no longer in a state that can be redrafted"
+    },
     "alertReviewSettings": "Alert settings",
     "@alertReviewSettings": {
         "description": "Options row"

@@ -311,6 +311,9 @@ enum AppError implements Exception {
   prereadPending,
   // Appointment chat before the doctor accepts (`conversationUnavailable`).
   conversationUnavailable,
+  // requestAlertDraft refusals.
+  redraftLimit,
+  invalidState,
   unknown;
 
   /// Maps a callable's `message` reason key to its [AppError], falling back
@@ -376,6 +379,8 @@ enum AppError implements Exception {
       'voiceDisabled' => AppError.voiceUnavailable,
       'prereadPending' => AppError.prereadPending,
       'conversationUnavailable' => AppError.conversationUnavailable,
+      'redraftLimit' => AppError.redraftLimit,
+      'invalidState' => AppError.invalidState,
       _ => null,
     };
     return reason ?? fromFirebaseCode(e.code);
@@ -489,6 +494,8 @@ enum AppError implements Exception {
     .voiceUnavailable => l10n.symptomVoiceUnavailable,
     .prereadPending => l10n.errorPrereadPending,
     .conversationUnavailable => l10n.errorConversationUnavailable,
+    .redraftLimit => l10n.errorAlertRedraftLimit,
+    .invalidState => l10n.errorAlertRedraftClosed,
     .unknown => l10n.errorUnknown,
   };
 }

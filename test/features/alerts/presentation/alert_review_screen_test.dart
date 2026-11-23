@@ -273,8 +273,11 @@ void main() {
           }
           final english = frames.at(0);
           final swahili = frames.at(1);
+          final sw = lookupAppLocalizations(const Locale('sw'));
           for (final text in [
             l10n.languageEn,
+            l10n.alertReviewForDoctors('Embakasi'),
+            l10n.alertReviewForPatients('Embakasi'),
             'Malaria rise in Embakasi',
             'Test every febrile patient.',
             'More malaria than usual',
@@ -293,6 +296,8 @@ void main() {
           }
           for (final text in [
             l10n.languageSw,
+            sw.alertReviewForDoctors('Embakasi'),
+            sw.alertReviewForPatients('Embakasi'),
             'Ongezeko la malaria',
             'Pima kila mgonjwa mwenye homa.',
             'Malaria zaidi ya kawaida',
@@ -335,8 +340,69 @@ void main() {
           await settleSheet(tester);
           expect(find.text(l10n.alertReviewReject), findsOneWidget);
           expect(find.text(l10n.alertReviewRejectSub), findsOneWidget);
+          expect(find.text(l10n.alertReviewAskNewDraft), findsOneWidget);
+          expect(find.text(l10n.alertReviewAskNewDraftSub), findsOneWidget);
+          expect(
+            tester.getTopLeft(find.text(l10n.alertReviewAskNewDraft)).dy,
+            lessThan(tester.getTopLeft(find.text(l10n.alertReviewReject)).dy),
+          );
         },
       );
+
+      testWidgets('Ask for a new draft asks the bloc once', (tester) async {
+        mockState(AlertReviewLoadSuccess(current: _alert()));
+        await pumpScreen(tester);
+        clearInteractions(mockBloc);
+
+        await tester.tap(find.byType(MoreButton));
+        await settleSheet(tester);
+        await tester.tap(find.text(l10n.alertReviewAskNewDraft));
+        await settleSheet(tester);
+
+        verify(
+          () => mockBloc.add(const AlertRedraftRequested(alertUid: 'a1')),
+        ).called(1);
+      });
+
+      testWidgets('a redraft limit shows its message and keeps the draft', (
+        tester,
+      ) async {
+        when(() => alerts.fetchAlert('a1')).thenAnswer((_) async => _alert());
+        when(
+          () => alerts.requestAlertDraft(alertUid: any(named: 'alertUid')),
+        ).thenThrow(AppError.redraftLimit);
+        await pumpScreen(tester, bloc: realBloc());
+
+        await tester.tap(find.byType(MoreButton));
+        await settleSheet(tester);
+        await tester.tap(find.text(l10n.alertReviewAskNewDraft));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 300));
+
+        expect(
+          find.text(AppError.redraftLimit.description(l10n)),
+          findsOneWidget,
+        );
+        expect(find.text('More malaria than usual'), findsOneWidget);
+        // Opened once. The refusal does not read the alert again.
+        verify(() => alerts.fetchAlert('a1')).called(1);
+        await drainNotification(tester);
+      });
+
+      testWidgets('while a decision is in flight Ask for a new draft does '
+          'not fire', (tester) async {
+        mockState(AlertDecisionInProgress(current: _alert()));
+        await pumpScreen(tester);
+        clearInteractions(mockBloc);
+
+        await tester.tap(find.byType(MoreButton), warnIfMissed: false);
+        await settleSheet(tester);
+
+        expect(find.text(l10n.alertReviewAskNewDraft), findsNothing);
+        verifyNever(
+          () => mockBloc.add(const AlertRedraftRequested(alertUid: 'a1')),
+        );
+      });
 
       testWidgets('Approve as is asks the bloc to approve this alert and '
           'nothing else', (tester) async {
@@ -825,6 +891,7 @@ void main() {
         expect(find.byType(TabibuButton), findsNothing);
         expect(find.byType(TopBar), findsNothing);
         expect(allText(tester).trim(), isEmpty);
+        expect(find.text(l10n.alertReviewAskNewDraft), findsNothing);
         verifyNever(() => mockBloc.add(any()));
       });
 
@@ -877,6 +944,17 @@ void main() {
         verify(
           () => mockBloc.add(const AlertReviewOpened(alertUid: 'a1')),
         ).called(1);
+      });
+
+      testWidgets('a drafting alert shows the loading view, not a draft', (
+        tester,
+      ) async {
+        mockState(AlertReviewLoadSuccess(current: _alert(status: 'Drafting')));
+        await pumpScreen(tester);
+
+        expect(find.byType(LoadingView), findsOneWidget);
+        expect(find.byType(AiDraftFrame), findsNothing);
+        expect(find.text('More malaria than usual'), findsNothing);
       });
 
       for (final status in ['Approved', 'Rejected', 'Withdrawn', 'Expired']) {

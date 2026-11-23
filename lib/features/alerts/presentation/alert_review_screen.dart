@@ -28,7 +28,7 @@ import 'package:tabibu/l10n/l10n.dart';
 
 /// D-ALERT. The approver's review of an AI-drafted area alert: both
 /// languages' drafts in [AiDraftFrame], the evidence as plain facts, then
-/// Approve as is, Edit and (in the `•••` menu) Reject.
+/// Approve as is, Edit and (in the `•••` menu) a new draft, then Reject.
 ///
 /// The bloc decides what a decision sends: it takes the revisions of the
 /// alert on screen, never fresh ones. A person without the approver claim
@@ -84,8 +84,13 @@ class _AlertReviewScreenState extends State<AlertReviewScreen> {
         _showError(context, error);
         // A changed draft or evidence is refused by the server; reading it
         // again puts the new text, and its revisions, in front of the
-        // approver. Offline there is nothing newer to read.
-        if (error != .noInternet) _reload(context);
+        // approver. Offline there is nothing newer to read. A refused
+        // redraft leaves the draft on screen: the server did not replace it.
+        if (error != .noInternet &&
+            error != .redraftLimit &&
+            error != .invalidState) {
+          _reload(context);
+        }
       case AlertReviewLoadFailure(:final error) when ours:
         _showError(context, error);
       case _:
@@ -106,13 +111,22 @@ class _AlertReviewScreenState extends State<AlertReviewScreen> {
   }
 
   Future<void> _more(BuildContext context) async {
+    final bloc = context.read<AlertReviewBloc>();
+    // More itself is off while a decision runs; this is the second guard.
+    if (bloc.state is AlertDecisionInProgress) return;
     final l10n = context.l10n;
-    final chosen = await showOptionsSheet<bool>(
+    final chosen = await showOptionsSheet<_ReviewMore>(
       context,
       title: l10n.alertReviewTitle,
       actions: [
         OptionsAction(
-          value: true,
+          value: .redraft,
+          icon: Assets.icons.refreshIcon,
+          label: l10n.alertReviewAskNewDraft,
+          supporting: l10n.alertReviewAskNewDraftSub,
+        ),
+        OptionsAction(
+          value: .reject,
           icon: Assets.icons.cancelCircleIcon,
           label: l10n.alertReviewReject,
           supporting: l10n.alertReviewRejectSub,
@@ -120,12 +134,17 @@ class _AlertReviewScreenState extends State<AlertReviewScreen> {
         ),
       ],
     );
-    if (chosen != true || !context.mounted) return;
-    final reason = await showAlertRejectSheet(context);
-    if (reason == null || !context.mounted) return;
-    context.read<AlertReviewBloc>().add(
-      AlertRejectRequested(alertUid: widget.alertUid, reason: reason),
-    );
+    if (!context.mounted || chosen == null) return;
+    switch (chosen) {
+      case .redraft:
+        bloc.add(AlertRedraftRequested(alertUid: widget.alertUid));
+      case .reject:
+        final reason = await showAlertRejectSheet(context);
+        if (reason == null || !context.mounted) return;
+        context.read<AlertReviewBloc>().add(
+          AlertRejectRequested(alertUid: widget.alertUid, reason: reason),
+        );
+    }
   }
 
   Future<void> _edit(
@@ -255,6 +274,21 @@ class _AlertReviewScreenState extends State<AlertReviewScreen> {
                 ),
               );
             }
+            if (alert.statusValue == .drafting) {
+              // The new draft is not written yet. The same spinner a load uses.
+              return Padding(
+                padding: const EdgeInsets.all(AppSpacing.screenMargin),
+                child: Column(
+                  crossAxisAlignment: .stretch,
+                  children: [
+                    topBar,
+                    Expanded(
+                      child: LoadingView(semanticLabel: l10n.alertReviewTitle),
+                    ),
+                  ],
+                ),
+              );
+            }
             if (!alert.isAwaitingDecision) {
               // Decided, withdrawn or expired: there is nothing to approve,
               // and its drafts are no longer "not sent" to show.
@@ -290,6 +324,8 @@ class _AlertReviewScreenState extends State<AlertReviewScreen> {
     );
   }
 }
+
+enum _ReviewMore { redraft, reject }
 
 class _Review extends StatelessWidget {
   const _Review({

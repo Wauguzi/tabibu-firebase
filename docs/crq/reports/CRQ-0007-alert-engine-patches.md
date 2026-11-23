@@ -66,6 +66,10 @@ read on the way. Each entry is filled in as its patch lands.
    from the card's own language ("Kwa madaktari wa Nairobi na karibu"), on the review card, the
    edit sheet and the sent screen; the language heading and the AI label stay in the app's
    language, since they speak to the approver.
+8. **An approver could not ask for a new draft from the phone,** though the server offers it.
+   The review screen's More menu now starts with "Ask for a new draft" (up to 3 per alert); the
+   screen follows the alert until the new draft is in (every 3 s, up to 90 s), and the two
+   refusals, the limit and an alert past drafting, each say so and keep the current draft.
 
 ## 2. Business justification
 

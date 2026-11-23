@@ -43,6 +43,16 @@ final class AlertApproveRequested extends AlertReviewEvent {
   List<Object?> get props => [alertUid, audience, editedText];
 }
 
+/// Ask the server for another draft of this alert. One at a time.
+final class AlertRedraftRequested extends AlertReviewEvent {
+  const AlertRedraftRequested({required this.alertUid});
+
+  final String alertUid;
+
+  @override
+  List<Object?> get props => [alertUid];
+}
+
 final class AlertRejectRequested extends AlertReviewEvent {
   const AlertRejectRequested({required this.alertUid, required this.reason});
 

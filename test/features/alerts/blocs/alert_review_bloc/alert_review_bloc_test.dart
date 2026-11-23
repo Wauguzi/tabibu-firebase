@@ -50,8 +50,13 @@ void main() {
   late _MockInternet internet;
   late _MockAnalytics analytics;
 
-  AlertReviewBloc build() =>
-      AlertReviewBloc(alerts: alerts, internet: internet, analytics: analytics);
+  AlertReviewBloc build() => AlertReviewBloc(
+    alerts: alerts,
+    internet: internet,
+    analytics: analytics,
+    // No real waiting between polls.
+    delay: (_) async {},
+  );
 
   void stubApprove() => when(
     () => alerts.approveAlert(
@@ -360,6 +365,115 @@ void main() {
       verify: (_) => verify(
         () => analytics.logAlertReviewed(decision: ApprovalDecision.approve),
       ).called(1),
+    );
+
+    final drafting = _alert('a1').copyWith(status: AlertStatus.drafting.value);
+    final redrafted = _alert('a1').copyWith(draftRevision: 2);
+
+    blocTest<AlertReviewBloc, AlertReviewState>(
+      'a redraft calls the callable, then reloads until the new draft is in',
+      setUp: () {
+        when(
+          () => alerts.requestAlertDraft(alertUid: 'a1'),
+        ).thenAnswer((_) async => {'status': 'redrafting'});
+        var reads = 0;
+        when(
+          () => alerts.fetchAlert('a1'),
+        ).thenAnswer((_) async => reads++ == 0 ? drafting : redrafted);
+      },
+      build: build,
+      seed: () => AlertReviewLoadSuccess(current: _alert('a1')),
+      act: (bloc) => bloc.add(const AlertRedraftRequested(alertUid: 'a1')),
+      expect: () => [
+        AlertDecisionInProgress(current: _alert('a1')),
+        AlertReviewLoadSuccess(current: drafting),
+        AlertReviewLoadSuccess(current: redrafted),
+      ],
+      verify: (_) {
+        verify(() => alerts.requestAlertDraft(alertUid: 'a1')).called(1);
+        verify(() => alerts.fetchAlert('a1')).called(2);
+      },
+    );
+
+    blocTest<AlertReviewBloc, AlertReviewState>(
+      'a draft that never arrives stops the polling after its budget',
+      setUp: () {
+        when(
+          () => alerts.requestAlertDraft(alertUid: 'a1'),
+        ).thenAnswer((_) async => {'status': 'redrafting'});
+        when(() => alerts.fetchAlert('a1')).thenAnswer((_) async => drafting);
+      },
+      build: build,
+      seed: () => AlertReviewLoadSuccess(current: _alert('a1')),
+      act: (bloc) => bloc.add(const AlertRedraftRequested(alertUid: 'a1')),
+      expect: () => [
+        AlertDecisionInProgress(current: _alert('a1')),
+        AlertReviewLoadSuccess(current: drafting),
+      ],
+      verify: (_) => verify(() => alerts.fetchAlert('a1')).called(
+        AlertReviewBloc.redraftPollFor.inSeconds ~/
+                AlertReviewBloc.redraftPollEvery.inSeconds +
+            1,
+      ),
+    );
+
+    blocTest<AlertReviewBloc, AlertReviewState>(
+      'a redraft limit keeps the draft that is on screen',
+      setUp: () => when(
+        () => alerts.requestAlertDraft(alertUid: any(named: 'alertUid')),
+      ).thenThrow(AppError.redraftLimit),
+      build: build,
+      seed: () => AlertReviewLoadSuccess(current: _alert('a1')),
+      act: (bloc) => bloc.add(const AlertRedraftRequested(alertUid: 'a1')),
+      expect: () => [
+        AlertDecisionInProgress(current: _alert('a1')),
+        AlertDecisionFailure(
+          error: AppError.redraftLimit,
+          current: _alert('a1'),
+        ),
+      ],
+      verify: (_) => verifyNever(() => alerts.fetchAlert(any())),
+    );
+
+    blocTest<AlertReviewBloc, AlertReviewState>(
+      'an alert that can no longer be redrafted keeps its draft',
+      setUp: () => when(
+        () => alerts.requestAlertDraft(alertUid: any(named: 'alertUid')),
+      ).thenThrow(AppError.invalidState),
+      build: build,
+      seed: () => AlertReviewLoadSuccess(current: _alert('a1')),
+      act: (bloc) => bloc.add(const AlertRedraftRequested(alertUid: 'a1')),
+      expect: () => [
+        AlertDecisionInProgress(current: _alert('a1')),
+        AlertDecisionFailure(
+          error: AppError.invalidState,
+          current: _alert('a1'),
+        ),
+      ],
+    );
+
+    blocTest<AlertReviewBloc, AlertReviewState>(
+      'a second redraft while one is running does not call again',
+      setUp: () {
+        when(
+          () => alerts.requestAlertDraft(alertUid: any(named: 'alertUid')),
+        ).thenAnswer((_) async {
+          await Future<void>.delayed(const Duration(milliseconds: 30));
+          return {'status': 'redrafting'};
+        });
+        when(
+          () => alerts.fetchAlert('a1'),
+        ).thenAnswer((_) async => _alert('a1'));
+      },
+      build: build,
+      seed: () => AlertReviewLoadSuccess(current: _alert('a1')),
+      act: (bloc) {
+        bloc
+          ..add(const AlertRedraftRequested(alertUid: 'a1'))
+          ..add(const AlertRedraftRequested(alertUid: 'a1'));
+      },
+      verify: (_) =>
+          verify(() => alerts.requestAlertDraft(alertUid: 'a1')).called(1),
     );
 
     blocTest<AlertReviewBloc, AlertReviewState>(

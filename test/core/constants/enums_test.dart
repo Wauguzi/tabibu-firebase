@@ -184,6 +184,8 @@ void main() {
         'voiceDisabled': AppError.voiceUnavailable,
         'prereadPending': AppError.prereadPending,
         'conversationUnavailable': AppError.conversationUnavailable,
+        'redraftLimit': AppError.redraftLimit,
+        'invalidState': AppError.invalidState,
       };
       for (final entry in keys.entries) {
         final exception = _TestFunctionsException(
@@ -293,11 +295,28 @@ void main() {
       }
     });
 
+    // cspell:ignore imepata haiwezi kupata
     test('spot-checks', () {
       expect(
         AppError.kmpdcNumberInUse.description(en),
         'This KMPDC number is already registered. '
         'Check it, or contact support.',
+      );
+      expect(
+        AppError.redraftLimit.description(en),
+        'This alert has had its 3 new drafts.',
+      );
+      expect(
+        AppError.redraftLimit.description(sw),
+        'Arifa hii imepata rasimu 3 mpya.',
+      );
+      expect(
+        AppError.invalidState.description(en),
+        'This alert can no longer be redrafted.',
+      );
+      expect(
+        AppError.invalidState.description(sw),
+        'Arifa hii haiwezi kupata rasimu mpya tena.',
       );
       expect(
         AppError.unknown.description(en),
