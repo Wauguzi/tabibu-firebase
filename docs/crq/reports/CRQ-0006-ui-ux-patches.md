@@ -348,6 +348,10 @@ branch as it is found, certified on the phone, then recorded here.
     itself on open (the consult syncs when it is not on the phone). A case chat (`case_`) has no
     screen yet and still opens the inbox. Push and banner taps use the same routing. Pending the
     device run.
+45. **Sharing a result ended on an empty screen.** The done screen showed nothing when the new share
+    was not yet in the bloc. Sharing now returns to the report it was shared from with "Shared with
+    {name}", and the done screen and its route are removed; Stop sharing stays on the shared-reports
+    list. Pending the device run.
 
 ## 2. Business justification
 

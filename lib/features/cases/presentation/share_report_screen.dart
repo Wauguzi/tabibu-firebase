@@ -1,11 +1,11 @@
 import 'dart:async';
 
+import 'package:collection/collection.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
 import 'package:tabibu/core/constants/enums.dart';
-import 'package:tabibu/core/routing/app_routes.dart';
 import 'package:tabibu/core/utils/settle_refresh.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
@@ -83,7 +83,29 @@ class _ShareReportScreenState extends State<ShareReportScreen> {
   void _onShareState(BuildContext context, ShareState state) {
     switch (state) {
       case ShareCreateSuccess():
-        ShareDoneRoute(caseUid: widget.caseUid).pushReplacement(context);
+        // Back to the report it was shared from, with a notice; the shares
+        // list keeps Stop sharing.
+        final l10n = context.l10n;
+        final name =
+            context
+                .read<DirectoryBloc>()
+                .state
+                .all
+                .firstWhereOrNull((p) => p.uid == _selectedUid)
+                ?.fullName ??
+            '';
+        final root = Navigator.of(context, rootNavigator: true).context;
+        context.pop();
+        unawaited(
+          showTabibuNotification(
+            root,
+            message: l10n.shareSharedWith(
+              name.isNotEmpty ? name : l10n.roleDoctor,
+            ),
+            isError: false,
+            dismissLabel: l10n.commonDismiss,
+          ),
+        );
       case ShareWriteFailure(:final error):
         unawaited(
           showTabibuNotification(
