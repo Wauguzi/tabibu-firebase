@@ -280,6 +280,8 @@ export interface PrereadWorkerOptions {
   callTimeoutMs?: number;
   /** Epoch ms when the worker budget ends. Set by the worker; tests shrink it via `workerTimeoutMs`. */
   deadlineMs?: number;
+  /** Set when the whole run has timed out, so every worker stops taking tiles. */
+  halted?: { current: boolean };
   /** Structured failure log (tests inject a spy). */
   log?: PrereadLog;
   /** Structured retry log (tests inject a spy). */
@@ -324,13 +326,20 @@ export async function processQueuedPreread(
 
   try {
     const workerTimeoutMs = options.workerTimeoutMs ?? PREREAD_WORKER_TIMEOUT_MS;
+    const halted = options.halted ?? { current: false };
+    const abort = new AbortController();
+    abort.signal.addEventListener('abort', () => {
+      halted.current = true;
+    });
     const result = await withTimeout(
       runPreread(deps, caseUid, runUid, claimed, {
         ...options,
         log,
         deadlineMs: Date.now() + workerTimeoutMs,
+        halted,
       }),
       workerTimeoutMs,
+      abort,
     );
     await commitIfStillRunning(runRef, {
       status: 'Ready',
@@ -522,6 +531,7 @@ async function runPreread(
           callTimeoutMs: options.callTimeoutMs ?? PREREAD_CALL_TIMEOUT_MS,
           retryLog: options.retryLog,
           unclearLog: options.unclearLog,
+          halted: options.halted,
           runTiles,
           unclearKept,
         },
@@ -811,6 +821,14 @@ export function assertPathsUnder(caseUid: string, runUid: string, paths: string[
   }
 }
 
+/** The worker budget is already gone: this try must not call the model. */
+class PrereadBudgetStop extends Error {
+  constructor() {
+    super('Timeout');
+    this.name = 'PrereadBudgetStop';
+  }
+}
+
 /** Up to two further tries when a call fails in transit. A malformed or stale answer stops at once. */
 async function classifyWithRetry(
   vision: PrereadVision,
@@ -822,11 +840,18 @@ async function classifyWithRetry(
     retryLog: PrereadRetryLog;
     batchIndex: number;
     batches: number;
+    halted?: { current: boolean };
   },
 ): Promise<ClassifiedTile[]> {
   const attempts = PREREAD_TILE_MAX_RETRIES + 1;
   let last: unknown;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    // Before every try, including the first of a later batch. A retry that
+    // cannot finish is still decided below, so a short window keeps its one call.
+    if (limits.halted?.current || Date.now() >= limits.deadlineMs) {
+      if (limits.halted) limits.halted.current = true;
+      throw new PrereadBudgetStop();
+    }
     if (attempt > 1) {
       // A retry that cannot finish before the worker budget is another hung call.
       const room =
@@ -882,6 +907,8 @@ export async function classifyInBatches(
     callTimeoutMs?: number;
     retryLog?: PrereadRetryLog;
     unclearLog?: PrereadUnclearLogger;
+    /** Set once the whole run has timed out. Every worker stops. */
+    halted?: { current: boolean };
     /** Tiles in the whole run. Defaults to this call's crops. */
     runTiles?: number;
     /** Unclear tiles already kept earlier in this run. */
@@ -900,21 +927,34 @@ export async function classifyInBatches(
   const unclear: PrereadUnclearLog[] = [];
   let lastUnclear: PrereadCallError | undefined;
 
+  const deadlineMs = limits.deadlineMs ?? Number.POSITIVE_INFINITY;
   const runOne = async (): Promise<void> => {
     for (;;) {
       if (firstError) return;
+      if (next >= batches.length) return;
+      // The budget is already gone: do not start another tile call.
+      if (limits.halted?.current || Date.now() >= deadlineMs) {
+        if (limits.halted) limits.halted.current = true;
+        firstError = new PrereadCallError('Timeout', 'none');
+        return;
+      }
       const index = next;
       next += 1;
-      if (index >= batches.length) return;
       try {
         results[index] = await classifyWithRetry(vision, batches[index], profile, {
-          deadlineMs: limits.deadlineMs ?? Number.POSITIVE_INFINITY,
+          deadlineMs,
           callTimeoutMs: limits.callTimeoutMs ?? PREREAD_CALL_TIMEOUT_MS,
           retryLog: limits.retryLog ?? defaultTileRetryLog,
           batchIndex: index,
           batches: batches.length,
+          halted: limits.halted,
         });
       } catch (e) {
+        if (e instanceof PrereadBudgetStop) {
+          if (limits.halted) limits.halted.current = true;
+          firstError = new PrereadCallError('Timeout', 'none', index);
+          throw firstError;
+        }
         const statusClass = e instanceof PrereadCallError ? e.statusClass : 'none';
         const reason = failureReasonOf(e);
         const known =

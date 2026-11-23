@@ -1139,6 +1139,82 @@ describe('parallel batches and thinking level', () => {
     assert.equal(calls, 1);
   });
 
+  it('a past deadline starts no call', async () => {
+    let calls = 0;
+    const vision: PrereadVision = {
+      async classify() {
+        calls += 1;
+        return [{ id: 'tile-0', label: 'Normal', probability: 0.9 }];
+      },
+    };
+    const crops: TileCrop[] = Array.from({ length: 6 }, (_, i) => ({
+      id: `tile-${i}`,
+      row: 0,
+      col: i,
+      png: Buffer.from([1]),
+    }));
+    await assert.rejects(
+      classifyInBatches(vision, crops, 'Cancer', PREREAD_BATCH_CONCURRENCY, {
+        deadlineMs: Date.now() - 1,
+      }),
+      (error: unknown) => failureReasonOf(error) === 'Timeout',
+    );
+    assert.equal(calls, 0);
+  });
+
+  it('a halted run starts no further call', async () => {
+    const halted = { current: false };
+    let calls = 0;
+    const crops: TileCrop[] = Array.from({ length: 8 }, (_, i) => ({
+      id: `tile-${i}`,
+      row: 0,
+      col: i,
+      png: Buffer.from([1]),
+    }));
+    const vision: PrereadVision = {
+      async classify(batch) {
+        calls += 1;
+        halted.current = true;
+        return batch.map((crop) => ({ id: crop.id, label: 'Normal', probability: 0.9 }));
+      },
+    };
+    await assert.rejects(
+      classifyInBatches(vision, crops, 'Cancer', PREREAD_BATCH_CONCURRENCY, {
+        deadlineMs: Date.now() + 60_000,
+        halted,
+      }),
+      (error: unknown) => failureReasonOf(error) === 'Timeout',
+    );
+    assert.equal(calls, 1);
+    assert.ok(calls < crops.length);
+  });
+
+  it('a near deadline does not start the next wave', async () => {
+    let calls = 0;
+    const crops: TileCrop[] = Array.from({ length: 8 }, (_, i) => ({
+      id: `tile-${i}`,
+      row: 0,
+      col: i,
+      png: Buffer.from([1]),
+    }));
+    const vision: PrereadVision = {
+      async classify(batch) {
+        calls += 1;
+        await new Promise((resolve) => setTimeout(resolve, 80));
+        return batch.map((crop) => ({ id: crop.id, label: 'Normal', probability: 0.9 }));
+      },
+    };
+    await assert.rejects(
+      classifyInBatches(vision, crops, 'Cancer', PREREAD_BATCH_CONCURRENCY, {
+        deadlineMs: Date.now() + 40,
+      }),
+      (error: unknown) => failureReasonOf(error) === 'Timeout',
+    );
+    assert.ok(calls > 0);
+    assert.ok(calls <= PREREAD_BATCH_CONCURRENCY);
+    assert.ok(calls < crops.length);
+  });
+
   it('httpStatusClass maps status codes without leaking bodies', () => {
     assert.equal(httpStatusClass(200), '2xx');
     assert.equal(httpStatusClass(404), '4xx');
