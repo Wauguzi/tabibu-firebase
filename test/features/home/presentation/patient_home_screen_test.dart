@@ -12,6 +12,7 @@ import 'package:tabibu/features/alerts/blocs/public_alerts_bloc/public_alerts_ev
 import 'package:tabibu/features/alerts/blocs/public_alerts_bloc/public_alerts_state.dart';
 import 'package:tabibu/features/alerts/data/models/alert_text_model.dart';
 import 'package:tabibu/features/alerts/data/models/public_alert_model.dart';
+import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_bloc.dart';
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_event.dart';
 import 'package:tabibu/features/appointments/blocs/appointments_bloc/appointments_state.dart';
@@ -393,6 +394,35 @@ void main() {
         ),
         findsOneWidget,
       );
+    });
+
+    testWidgets('a demo notice carries the Demo pill; a real one does not', (
+      tester,
+    ) async {
+      final l10n = lookupAppLocalizations(const Locale('en'));
+      stubDefault(
+        appointments: appointments(),
+        cases: [_case(uid: 'case-1')],
+        alerts: [_alert().copyWith(synthetic: true)],
+      );
+      await tester.pumpApp(screen());
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AlertDemoPill), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(RegExp('^${l10n.alertDemoPillSemantics}, ')),
+        findsOneWidget,
+      );
+
+      stubDefault(
+        appointments: appointments(),
+        cases: [_case(uid: 'case-1')],
+        alerts: [_alert()],
+      );
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpApp(screen());
+      await tester.pumpAndSettle();
+      expect(find.byType(AlertDemoPill), findsNothing);
     });
 
     testWidgets('hides the notice when no alert exists', (tester) async {

@@ -165,6 +165,13 @@ found these, each fixed with a test that fails without the fix:
 - **The two refusals had generic names** (`invalidState`), mapped app-wide to alert copy; they
   are now `alertRedraftLimit` and `alertRedraftClosed`, from the same server reason keys.
 
+**Greptile round 1 (PR #30, 4/5).** Three findings, each fixed with a test that fails
+without the fix:
+
+- **P2: a demo alert looked real on the patient's home.** The home notice strip showed the stored
+  headline with no mark once the text lost its prefix. It now carries the Demo pill, and a screen
+  reader hears "Demo alert, not a real alert" first.
+
 ## 10. Related records
 
 - [CRQ-0006](./CRQ-0006-ui-ux-patches.md): the device run that first took the alert loop end to end.
