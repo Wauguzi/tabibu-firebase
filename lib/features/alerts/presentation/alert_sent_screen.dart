@@ -188,7 +188,7 @@ class _SentText extends StatelessWidget {
           for (final key in keys) ...[
             const SizedBox(height: AppSpacing.md),
             Text(
-              alertDraftAudience(l10n, key, alert.countyName),
+              alertDraftAudience(key, alert.countyName),
               style: textTheme.labelMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
               ),

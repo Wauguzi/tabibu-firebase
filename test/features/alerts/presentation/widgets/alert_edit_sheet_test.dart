@@ -34,6 +34,7 @@ void main() {
       ThemeMode themeMode = ThemeMode.light,
       Locale? locale,
       String language = 'en',
+      Map<String, AlertTextModel>? segments,
     }) async {
       if (tester.view.physicalSize.height < 2000) {
         tester.view.physicalSize = const Size(1170, 4000);
@@ -47,7 +48,7 @@ void main() {
               context,
               language: language,
               area: 'Embakasi',
-              segments: _segments,
+              segments: segments ?? _segments,
             ).then(results.add),
             child: const Text('Open'),
           ),
@@ -81,6 +82,35 @@ void main() {
         find.text(l10n.alertReviewForPatients('Embakasi')),
         findsNWidgets(2),
       );
+    });
+
+    // cspell:ignore Mwili
+    testWidgets('a Kiswahili sheet labels each segment in Kiswahili', (
+      tester,
+    ) async {
+      final sw = lookupAppLocalizations(const Locale('sw'));
+      await open(
+        tester,
+        language: 'sw',
+        segments: const {
+          'clinician_sw': AlertTextModel(
+            headline: 'Kichwa cha madaktari',
+            body: 'Mwili wa madaktari',
+          ),
+          'patient_sw': AlertTextModel(
+            headline: 'Kichwa cha wagonjwa',
+            body: 'Mwili wa wagonjwa',
+          ),
+        },
+      );
+
+      expect(find.text(l10n.languageSw), findsOneWidget);
+      expect(find.text(sw.alertReviewForDoctors('Embakasi')), findsNWidgets(2));
+      expect(
+        find.text(sw.alertReviewForPatients('Embakasi')),
+        findsNWidgets(2),
+      );
+      expect(find.text(l10n.alertReviewForDoctors('Embakasi')), findsNothing);
     });
 
     testWidgets('does not open the keyboard on arrival', (tester) async {

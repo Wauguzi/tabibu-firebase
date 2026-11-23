@@ -62,6 +62,10 @@ read on the way. Each entry is filled in as its patch lands.
    only its count changed after. `functions/scripts/redraft-alert.ts` asks for a new draft as the
    approver would, through the same handler (dry run by default); run once on 23 Nov, the alert
    came back drafted by the current template.
+7. **The Kiswahili draft card named its readers in English.** Each card's audience lines now come
+   from the card's own language ("Kwa madaktari wa Nairobi na karibu"), on the review card, the
+   edit sheet and the sent screen; the language heading and the AI label stay in the app's
+   language, since they speak to the approver.
 
 ## 2. Business justification
 

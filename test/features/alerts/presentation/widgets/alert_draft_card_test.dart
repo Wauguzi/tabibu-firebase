@@ -86,6 +86,67 @@ void main() {
       expect(find.text('Ongezeko la malaria'), findsNothing);
     });
 
+    testWidgets('audience lines follow the card, headings follow the app', (
+      tester,
+    ) async {
+      final en = lookupAppLocalizations(const Locale('en'));
+      final sw = lookupAppLocalizations(const Locale('sw'));
+
+      for (final locale in [const Locale('en'), const Locale('sw')]) {
+        final app = lookupAppLocalizations(locale);
+        await pump(tester, language: 'sw', locale: locale);
+
+        expect(find.text(sw.alertReviewForDoctors('Embakasi')), findsOneWidget);
+        expect(
+          find.text(sw.alertReviewForPatients('Embakasi')),
+          findsOneWidget,
+        );
+        expect(find.text(en.alertReviewForDoctors('Embakasi')), findsNothing);
+        expect(find.text(en.alertReviewForPatients('Embakasi')), findsNothing);
+        expect(find.text(app.languageSw), findsOneWidget);
+        expect(find.text(app.alertReviewAiDraftNotSent), findsOneWidget);
+
+        await pump(tester, locale: locale);
+
+        expect(find.text(en.alertReviewForDoctors('Embakasi')), findsOneWidget);
+        expect(
+          find.text(en.alertReviewForPatients('Embakasi')),
+          findsOneWidget,
+        );
+        expect(find.text(sw.alertReviewForDoctors('Embakasi')), findsNothing);
+        expect(find.text(app.languageEn), findsOneWidget);
+        expect(find.text(app.alertReviewAiDraftNotSent), findsOneWidget);
+      }
+    });
+
+    testWidgets('both cards at 2.0x on 360 dp do not overflow', (tester) async {
+      tester.view.physicalSize = const Size(360, 2400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+
+      for (final locale in [const Locale('en'), const Locale('sw')]) {
+        await tester.pumpApp(
+          Column(
+            children: [
+              for (final language in ['en', 'sw'])
+                AlertDraftCard(
+                  language: language,
+                  drafts: _drafts,
+                  area: 'Embakasi',
+                  busy: false,
+                  onEdit: () {},
+                ),
+            ],
+          ),
+          locale: locale,
+        );
+        expect(tester.takeException(), isNull);
+      }
+    });
+
     testWidgets('Kiswahili shows its own keys and language name', (
       tester,
     ) async {
