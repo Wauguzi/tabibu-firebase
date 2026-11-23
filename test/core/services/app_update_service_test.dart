@@ -64,6 +64,17 @@ void main() {
     expect(service('1.0.0').remoteText('update_title', 'ARB'), 'Update now');
     expect(service('1.0.0').remoteText('update_message', 'ARB'), 'ARB');
 
+    // Typed in the console as a JSON string, quotes and all.
+    when(
+      () => config.getString('update_title'),
+    ).thenReturn('"Update Available"');
+    expect(
+      service('1.0.0').remoteText('update_title', 'ARB'),
+      'Update Available',
+    );
+    when(() => config.getString('update_message')).thenReturn('""');
+    expect(service('1.0.0').remoteText('update_message', 'ARB'), 'ARB');
+
     when(() => config.getString('update_title')).thenThrow(StateError('x'));
     expect(service('1.0.0').remoteText('update_title', 'ARB'), 'ARB');
   });

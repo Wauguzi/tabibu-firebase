@@ -764,6 +764,14 @@
     "@updateStoreUnavailable": {
         "description": "Shown when the store link fails to open"
     },
+    "updateWhereIos": "Get it from the App Store.",
+    "@updateWhereIos": {
+        "description": "Update screen on iOS when no store link is set; follows the update message"
+    },
+    "updateWhereAndroid": "Get it from Google Play.",
+    "@updateWhereAndroid": {
+        "description": "Update screen on Android when no store link is set; follows the update message"
+    },
     "commonDismiss": "Dismiss",
     "@commonDismiss": {
         "description": "Screen-reader hint on dismissable notifications"

@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
@@ -114,6 +115,66 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Update now'), findsNothing);
+      // Without a store link, the message names this device's store.
+      expect(
+        find.text(
+          'This version is no longer supported. Update to keep using Tabibu. '
+          'Get it from Google Play.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('on iOS it names the App Store', (tester) async {
+      when(
+        () => updateService.storeUrl(isIos: any(named: 'isIos')),
+      ).thenReturn(null);
+      debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+      try {
+        await tester.pumpApp(const UpdateRequiredScreen());
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining('Get it from the App Store.'),
+          findsOneWidget,
+        );
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('a store button replaces the where-to line', (tester) async {
+      await tester.pumpApp(const UpdateRequiredScreen());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Update now'), findsOneWidget);
+      expect(find.textContaining('Get it from'), findsNothing);
+    });
+
+    testWidgets('without a store, the logo, title and message sit at the '
+        'centre', (tester) async {
+      // No full-width button to widen the column, as on the phone, and a
+      // wide screen so no line of the test font fills it on its own.
+      when(
+        () => updateService.storeUrl(isIos: any(named: 'isIos')),
+      ).thenReturn(null);
+      tester.view.physicalSize = const Size(2400, 1600);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpApp(const UpdateRequiredScreen());
+      await tester.pumpAndSettle();
+
+      final screen = tester.getCenter(find.byType(UpdateRequiredScreen)).dx;
+      for (final finder in [
+        find.byType(SvgPicture),
+        find.text('Please update Tabibu'),
+        find.textContaining('Get it from'),
+      ]) {
+        expect(
+          tester.getCenter(finder).dx,
+          moreOrLessEquals(screen, epsilon: 1),
+          reason: '$finder',
+        );
+      }
     });
 
     testWidgets('a failed launch shows its message', (tester) async {

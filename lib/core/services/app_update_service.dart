@@ -45,7 +45,11 @@ class AppUpdateService {
   /// string) when it is unset or cannot be read.
   String remoteText(String key, String fallback) {
     try {
-      final value = _config.getString(key).trim();
+      var value = _config.getString(key).trim();
+      // The console's JSON-style entry can wrap a value in quotes.
+      if (value.length >= 2 && value.startsWith('"') && value.endsWith('"')) {
+        value = value.substring(1, value.length - 1).trim();
+      }
       return value.isEmpty ? fallback : value;
     } on Object catch (_) {
       return fallback;

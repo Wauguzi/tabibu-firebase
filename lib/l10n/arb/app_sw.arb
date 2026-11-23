@@ -189,6 +189,8 @@
     "updateMessage": "Toleo hili halitumiki tena. Sasisha ili uendelee kutumia Tabibu.",
     "updateButton": "Sasisha sasa",
     "updateStoreUnavailable": "Imeshindwa kufungua duka. Tafadhali jaribu tena.",
+    "updateWhereIos": "Lipate kutoka App Store.",
+    "updateWhereAndroid": "Lipate kutoka Google Play.",
     "commonDismiss": "Ondoa",
     "signInTitle": "Karibu tena",
     "signInSubtitle": "Ingia ili uendelee ulipoishia.",

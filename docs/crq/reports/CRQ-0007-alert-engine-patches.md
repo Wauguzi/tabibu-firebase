@@ -87,6 +87,11 @@ read on the way. Each entry is filled in as its patch lands.
     the machine text, which delivery fills on the server; the sent screen showed it as stored. It
     now fills it the same way, from the evidence approved with it, so it reads as the approver saw
     it and as it was delivered. Certified on the iOS Simulator, 23 Nov.
+13. **The update screen sat off-centre, showed quote marks and did not say where to update.** Its
+    column now fills the width, so the logo (the Tabibu mark, in place of the shield tile), title
+    and message share one centre. A Remote Config value typed with surrounding quotes is read
+    without them. With no store link set, the message ends by naming the device's store: "Get it
+    from the App Store" or "from Google Play". Certified on the iOS Simulator, 23 Nov.
 
 ## 2. Business justification
 
