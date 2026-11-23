@@ -42,7 +42,7 @@ Numbers are zero-padded and sequential from `0001`, separately for each type.
 
 | Report | Date | CRQ | Status |
 |---|---|---|---|
-| [UAT-ITR-0001](./UAT-ITR-0001-three-roles-end-to-end-2026-11-23.md) | 2026-11-23 | CRQ-0003 to CRQ-0007 | ⚠️ Partial: every demo flow passes; six stories not run, four in part |
+| [UAT-ITR-0001](./UAT-ITR-0001-three-roles-end-to-end-2026-11-23.md) | 2026-11-23 | CRQ-0003 to CRQ-0007 | ✅ Pass |
 
 ## Evaluation reports
 

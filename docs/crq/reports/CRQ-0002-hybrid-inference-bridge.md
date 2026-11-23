@@ -107,7 +107,7 @@ release; reverting the branch's commits removes the bridge.
 | iOS simulator build | Pass |
 | Android plugin | Pass — compiles; 5 JVM contract tests (routing, cut-off, failure codes, the model option); a signed release APK builds locally and in CI on the upgraded toolchain |
 | CI on the merged head (`fc5f445`) | Pass — `functions`, `test` and `build` side by side, then `distribute`, in 28 minutes; the build reached App Distribution and its Dart symbols Crashlytics |
-| Manual run | Partial: the cloud fallback on the iPhone 14 and the Android phone ([UAT-ITR-0001](../../testing/reports/UAT-ITR-0001-three-roles-end-to-end-2026-11-23.md) US-AI-04). Pending: on-device in airplane mode on an Apple Intelligence device |
+| Manual run | The symptom tidy passes on the iOS Simulator (iPhone 18 Pro; [UAT-ITR-0001](../../testing/reports/UAT-ITR-0001-three-roles-end-to-end-2026-11-23.md) US-AI-04). The notes summary follows the guardrail change in CRQ-0007 entry 11; the airplane-mode run on an Apple Intelligence device is still to do |
 | Certification | Pending |
 
 ## 8. Approval
