@@ -4,7 +4,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:tabibu/core/constants/app_status_colors.dart';
 import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/core/helpers/reference_data_helper.dart';
 import 'package:tabibu/core/widgets/widgets.dart';
@@ -16,6 +15,7 @@ import 'package:tabibu/features/alerts/data/models/guidance_source_model.dart';
 import 'package:tabibu/features/alerts/data/models/public_alert_model.dart';
 import 'package:tabibu/features/alerts/data/models/public_health_guidance_model.dart';
 import 'package:tabibu/features/alerts/presentation/health_notice_screen.dart';
+import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
 import 'package:tabibu/l10n/l10n.dart';
 
 import '../../../helpers/helpers.dart';
@@ -141,27 +141,17 @@ void main() {
       ).called(1);
     });
 
-    testWidgets('uses the alertNotice tone, never attention or error', (
+    testWidgets('a real notice shows neither the pill nor a county chip', (
       tester,
     ) async {
       _useTallSurface(tester);
       final l10n = lookupAppLocalizations(const Locale('en'));
       await pumpScreen(tester);
 
-      final status = Theme.of(
-        tester.element(find.byType(HealthNoticeScreen)),
-      ).extension<AppStatusColors>()!;
-      expect(
-        find.byWidgetPredicate(
-          (w) => w is Text && w.style?.color == status.alertNotice,
-        ),
-        findsWidgets,
-      );
-      expect(
-        find.text(l10n.patientHomeNoticeLabel('Embakasi')),
-        findsOneWidget,
-      );
+      expect(find.byType(AlertDemoPill), findsNothing);
       expect(find.byType(StatusChip), findsNothing);
+      expect(find.text(l10n.patientHomeNoticeLabel('Embakasi')), findsNothing);
+      expect(find.textContaining('Demo:'), findsNothing);
       expect(
         find.byWidgetPredicate(
           (w) =>
@@ -239,7 +229,7 @@ void main() {
       );
     });
 
-    testWidgets('a demo alert starts Demo: and carries the banner', (
+    testWidgets('a synthetic notice shows the pill once and no Demo: prefix', (
       tester,
     ) async {
       _useTallSurface(tester);
@@ -249,8 +239,15 @@ void main() {
         state: PublicAlertsLoadSuccess(alerts: [_alert(synthetic: true)]),
       );
 
-      expect(find.text('Demo: Malaria in Embakasi'), findsOneWidget);
-      expect(find.text(l10n.alertReviewDemoBanner), findsOneWidget);
+      expect(find.byType(AlertDemoPill), findsOneWidget);
+      expect(find.text(l10n.alertDemoPill), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(l10n.alertDemoPillSemantics),
+        findsOneWidget,
+      );
+      expect(find.text('Malaria in Embakasi'), findsOneWidget);
+      expect(find.textContaining('Demo:'), findsNothing);
+      expect(find.text(l10n.patientHomeNoticeLabel('Embakasi')), findsNothing);
     });
 
     testWidgets('the headline is the released text from the bloc', (
@@ -272,10 +269,7 @@ void main() {
 
       final l10n = lookupAppLocalizations(const Locale('en'));
       expect(find.text('Dengue in Westlands'), findsOneWidget);
-      expect(
-        find.text(l10n.patientHomeNoticeLabel('Westlands')),
-        findsOneWidget,
-      );
+      expect(find.text(l10n.patientHomeNoticeLabel('Westlands')), findsNothing);
       expect(
         find.text(l10n.healthNoticePublished('27 Oct', 'Westlands')),
         findsOneWidget,
@@ -353,6 +347,27 @@ void main() {
           const PublicAlertReadRequested(alertUid: 'no-such-alert'),
         ),
       );
+    });
+
+    testWidgets('a synthetic notice at 2.0x in Kiswahili on 360 dp does not '
+        'overflow', (tester) async {
+      tester.view.physicalSize = const Size(360 * 3, 6000);
+      tester.view.devicePixelRatio = 3;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final l10n = lookupAppLocalizations(const Locale('sw'));
+      await pumpScreen(
+        tester,
+        state: PublicAlertsLoadSuccess(alerts: [_alert(synthetic: true)]),
+        locale: const Locale('sw'),
+      );
+
+      expect(find.text(l10n.alertDemoPill), findsOneWidget);
+      expect(find.text('Malaria huko Embakasi'), findsOneWidget);
+      expect(find.textContaining('Demo:'), findsNothing);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('renders in Swahili, dark, at 1.3x', (tester) async {

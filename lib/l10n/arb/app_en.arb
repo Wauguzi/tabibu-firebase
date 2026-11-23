@@ -5733,13 +5733,13 @@
     "@alertReviewBackToToday": {
         "description": "Alert sent button"
     },
-    "alertReviewDemoPrefix": "Demo:",
-    "@alertReviewDemoPrefix": {
-        "description": "Prefix on demo alert text; also the patient notice"
+    "alertDemoPill": "Demo",
+    "@alertDemoPill": {
+        "description": "Pill on a demo alert: review, sent and the patient notice"
     },
-    "alertReviewDemoBanner": "Demonstration only, not a real alert.",
-    "@alertReviewDemoBanner": {
-        "description": "Demo alert banner; also the patient notice"
+    "alertDemoPillSemantics": "Demo alert, not a real alert",
+    "@alertDemoPillSemantics": {
+        "description": "Screen reader label of the demo pill"
     },
     "alertReviewWhyThisAlert": "Why this alert",
     "@alertReviewWhyThisAlert": {

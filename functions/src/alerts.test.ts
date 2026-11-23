@@ -26,7 +26,7 @@ import {
 } from './alerts';
 import type { Caller } from './common';
 import { allOff, allOn } from './domain.test-support';
-import { ALERT_TEMPLATE_SW, DEMO_PREFIX_SW } from './copy/alerts.sw';
+import { ALERT_TEMPLATE_SW } from './copy/alerts.sw';
 import { account, emulatorDeps, refusedWith, resetEmulators } from './emulator.test-support';
 import { caseDoc, fillDraft, receivedCase, seedWorld, signaturePng, type World } from './case.test-support';
 import { signReportHandler, startReportHandler } from './reports';
@@ -1063,7 +1063,7 @@ describe('alerts', () => {
           seen.calls++;
           seen.input = input;
           const texts = modelTexts();
-          const own = templateDraft(false);
+          const own = templateDraft();
           texts.patient_en.body = own.patient_en.body;
           texts.patient_sw.body = own.patient_sw.body;
           texts.clinician_en.body = own.clinician_en.body;
@@ -1160,7 +1160,7 @@ describe('alerts', () => {
       // Every poisoned fixture below starts from a clean draft, so the
       // OffSchema comes only from the poisoned segment.
       const first = (body: string): string => body.split(/(?<=[.!?])\s+/)[0];
-      const own = templateDraft(false);
+      const own = templateDraft();
       const cleanDraft = () => {
         const texts = modelTexts();
         texts.patient_en.body = `${first(own.patient_en.body)} Seek care promptly for fever.`;
@@ -1309,7 +1309,7 @@ describe('alerts', () => {
       assert.equal(row?.templateKey, 'alertDrafted');
     });
 
-    it('synthetic alerts use the demo template without calling the model', async () => {
+    it('synthetic alerts use the template, unprefixed, without calling the model', async () => {
       await approver(w, 'approver@example.com');
       const signalUid = await draftingAlert({ synthetic: true });
       const seen: { calls: number; input?: AlertDraftInput } = { calls: 0 };
@@ -1322,9 +1322,11 @@ describe('alerts', () => {
       assert.equal(seen.calls, 0);
       const alert = (await db.collection('alerts').doc(signalUid).get()).data();
       assert.equal(alert?.draftSource, 'Template');
-      assert.ok((alert?.machineText.patient_en.headline as string).startsWith('Demo: '));
-      assert.ok((alert?.machineText.patient_sw.headline as string).startsWith(DEMO_PREFIX_SW));
-      assert.deepEqual(templateDraft(false).patient_en.headline, 'Health alert: {disease} in {county} County');
+      // A demo alert is marked by its flag, never by its text.
+      assert.equal(alert?.synthetic, true);
+      assert.deepEqual(alert?.machineText, templateDraft());
+      assert.equal(alert?.machineText.patient_en.headline, 'Health alert: {disease} in {county} County');
+      assert.equal(alert?.machineText.patient_sw.headline, ALERT_TEMPLATE_SW.headline);
     });
 
     it('a late answer after Withdrawn is dropped', async () => {
@@ -2456,8 +2458,7 @@ describe('alerts', () => {
       const drafted = (await db.collection('alerts').doc(signalUid).get()).data();
       assert.equal(drafted?.status, 'Draft');
       assert.equal(drafted?.draftSource, 'Template');
-      assert.ok((drafted?.machineText.patient_en.headline as string).startsWith('Demo: '));
-      assert.ok((drafted?.machineText.patient_sw.headline as string).startsWith(DEMO_PREFIX_SW));
+      assert.deepEqual(drafted?.machineText, templateDraft());
       const paged = (
         await db.collection('notifications').doc(`alertDrafted:${signalUid}-r0:${approverCaller.uid}`).get()
       ).data();

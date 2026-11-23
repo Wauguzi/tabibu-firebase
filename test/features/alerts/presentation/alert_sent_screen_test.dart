@@ -11,7 +11,7 @@ import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_stat
 import 'package:tabibu/features/alerts/data/models/alert_model.dart';
 import 'package:tabibu/features/alerts/data/models/alert_text_model.dart';
 import 'package:tabibu/features/alerts/presentation/alert_sent_screen.dart';
-import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_banner.dart';
+import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_state.dart';
 import 'package:tabibu/l10n/l10n.dart';
@@ -173,18 +173,17 @@ void main() {
       expect(find.text(l10n.alertReviewAiDraftNotSent), findsNothing);
     });
 
-    testWidgets('a demo alert has the banner and the demo prefix once', (
+    testWidgets('a synthetic alert shows the pill and the headline as stored', (
       tester,
     ) async {
-      final prefix = l10n.alertReviewDemoPrefix;
       mockState(
         AlertReviewLoadSuccess(
           current: _alert(
             synthetic: true,
             approvedText: {
               ..._approved,
-              'clinician_en': AlertTextModel(
-                headline: '$prefix Malaria rise in Embakasi',
+              'clinician_en': const AlertTextModel(
+                headline: 'Demo: Malaria rise in Embakasi',
                 body: 'Test every febrile patient.',
               ),
             },
@@ -193,19 +192,41 @@ void main() {
       );
       await pumpScreen(tester);
 
-      expect(find.byType(AlertDemoBanner), findsOneWidget);
-      // Already prefixed by the server: not doubled. An edit that removed
-      // the prefix gets it back.
-      expect(find.text('$prefix Malaria rise in Embakasi'), findsOneWidget);
-      expect(find.text('$prefix More malaria than usual'), findsOneWidget);
+      expect(find.byType(AlertDemoPill), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(l10n.alertDemoPillSemantics),
+        findsOneWidget,
+      );
+      // Stored as the server wrote it. A headline without the prefix
+      // stays without one.
+      expect(find.text('Demo: Malaria rise in Embakasi'), findsOneWidget);
+      expect(find.text('More malaria than usual'), findsOneWidget);
+      expect(find.text('Demo: More malaria than usual'), findsNothing);
     });
 
-    testWidgets('a real alert has no banner and no prefix', (tester) async {
+    testWidgets('a real alert has no pill', (tester) async {
       mockState(AlertReviewLoadSuccess(current: _alert()));
       await pumpScreen(tester);
 
-      expect(find.byType(AlertDemoBanner), findsNothing);
-      expect(find.textContaining(l10n.alertReviewDemoPrefix), findsNothing);
+      expect(find.byType(AlertDemoPill), findsNothing);
+      expect(find.text(l10n.alertDemoPill), findsNothing);
+    });
+
+    testWidgets('a synthetic alert at 2.0x in Kiswahili on 360 dp does not '
+        'overflow', (tester) async {
+      tester.platformDispatcher.textScaleFactorTestValue = 2;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      mockState(AlertReviewLoadSuccess(current: _alert(synthetic: true)));
+      final sw = lookupAppLocalizations(const Locale('sw'));
+      await pumpScreen(
+        tester,
+        locale: const Locale('sw'),
+        surface: const Size(360 * 3, 6000),
+      );
+
+      expect(find.byType(AlertDemoPill), findsOneWidget);
+      expect(find.text(sw.alertDemoPill), findsOneWidget);
+      expect(tester.takeException(), isNull);
     });
 
     testWidgets('Back to today goes to the doctor home', (tester) async {
@@ -287,7 +308,7 @@ void main() {
             l10n.alertReviewSentBody,
             l10n.alertReviewSentTitle,
             l10n.alertReviewBackToToday,
-            l10n.alertReviewDemoBanner,
+            l10n.alertDemoPill,
           ]) {
             expect(text, isNot(contains(english)));
           }

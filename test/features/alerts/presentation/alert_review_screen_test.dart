@@ -22,6 +22,7 @@ import 'package:tabibu/features/alerts/data/models/alert_text_model.dart';
 import 'package:tabibu/features/alerts/data/models/notifiable_disease_model.dart';
 import 'package:tabibu/features/alerts/data/models/notifiable_lab_test_model.dart';
 import 'package:tabibu/features/alerts/presentation/alert_review_screen.dart';
+import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_state.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
@@ -755,7 +756,7 @@ void main() {
         await pumpScreen(tester, themeMode: ThemeMode.dark);
 
         expect(find.byType(AiDraftFrame), findsNWidgets(2));
-        expect(find.text(l10n.alertReviewDemoBanner), findsOneWidget);
+        expect(find.byType(AlertDemoPill), findsOneWidget);
         expect(approveButton(), findsOneWidget);
         expect(tester.takeException(), isNull);
       });
@@ -891,17 +892,17 @@ void main() {
         expect(tester.widget<TabibuButton>(approveButton()).onTap, isNull);
       });
 
-      testWidgets('a demo alert carries the banner; a real one does not', (
+      testWidgets('a demo alert carries the pill; a real one does not', (
         tester,
       ) async {
         mockState(AlertReviewLoadSuccess(current: _alert(synthetic: true)));
         await pumpScreen(tester);
-        expect(find.text(l10n.alertReviewDemoBanner), findsOneWidget);
+        expect(find.byType(AlertDemoPill), findsOneWidget);
 
         mockState(AlertReviewLoadSuccess(current: _alert()));
         await tester.pumpWidget(const SizedBox());
         await pumpScreen(tester);
-        expect(find.text(l10n.alertReviewDemoBanner), findsNothing);
+        expect(find.byType(AlertDemoPill), findsNothing);
       });
 
       testWidgets('the disease register failing does not stop the review', (

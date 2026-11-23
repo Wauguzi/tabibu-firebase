@@ -15,7 +15,7 @@ import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_even
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_state.dart';
 import 'package:tabibu/features/alerts/data/models/alert_model.dart';
 import 'package:tabibu/features/alerts/data/models/notifiable_disease_model.dart';
-import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_banner.dart';
+import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
 import 'package:tabibu/features/alerts/presentation/widgets/alert_draft_card.dart';
 import 'package:tabibu/features/alerts/presentation/widgets/alert_edit_sheet.dart';
 import 'package:tabibu/features/alerts/presentation/widgets/alert_evidence_card.dart';
@@ -330,7 +330,7 @@ class _Review extends StatelessWidget {
               ),
               if (alert.synthetic) ...[
                 const SizedBox(height: AppSpacing.md),
-                const AlertDemoBanner(),
+                const AlertDemoPill(),
               ],
               const SizedBox(height: AppSpacing.md),
               FutureBuilder<List<NotifiableDiseaseModel>>(

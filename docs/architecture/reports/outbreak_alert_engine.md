@@ -304,9 +304,9 @@ Two cases show the rules, all synthetic:
    signal on its own (Rule A). Ebola is confirmed by a nucleic-acid test, not
    microscopy, so this needs no Ebola image dataset.
 
-**Demo alerts are marked.** A synthetic alert uses the demo templates, whose
-every headline and body begins "Demo:" ("Majaribio:"), carries a banner in the
-app, and reaches only the seeded demo accounts and the demo topics
+**Demo alerts are marked.** A synthetic alert carries a "Demo" pill on every
+screen that shows it, its pushes say "Demo:" ("Majaribio:") because a lock
+screen has no pill, and it reaches only the seeded demo accounts and the demo topics
 (`alerts_patient_demo_{countyId}_{lang}`). The functions run with
 `ALERTS_SYNTHETIC=true` (`functions/.env`, from `functions/.env.example`), so
 every event signed in this project is synthetic.

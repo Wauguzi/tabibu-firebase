@@ -222,7 +222,7 @@ function isGroundedHeadline(headline: string): boolean {
  */
 function templateSentences(): Set<string> {
   const out = new Set<string>();
-  const template = templateDraft(false);
+  const template = templateDraft();
   for (const key of DRAFT_KEYS) {
     for (const sentence of template[key].body.split(/(?<=[.!?])\s+/)) {
       out.add(normalizeClaim(sentence));
@@ -292,26 +292,27 @@ function cleanedModelOutput(
   }
 }
 
-/** The template draft, used whenever the model cannot be. Demo alerts prefix every line. */
-export function templateDraft(synthetic: boolean): MachineText {
-  const demoEn = synthetic ? 'Demo: ' : '';
-  const demoSw = synthetic ? 'Majaribio: ' : '';
+/**
+ * The template draft, used whenever the model cannot be. A demo alert is marked by its
+ * `synthetic` flag (the app's pill, the demo pushes), never by its text.
+ */
+export function templateDraft(): MachineText {
   return {
     patient_en: {
-      headline: `${demoEn}Health alert: {disease} in {county} County`,
-      body: `${demoEn}Cases of {disease} have been confirmed in {county} County. Follow the Ministry of Health guidance below, and visit a health facility if you feel unwell.`,
+      headline: 'Health alert: {disease} in {county} County',
+      body: 'Cases of {disease} have been confirmed in {county} County. Follow the Ministry of Health guidance below, and visit a health facility if you feel unwell.',
     },
     patient_sw: {
-      headline: `${demoSw}${ALERT_TEMPLATE_SW.headline}`,
-      body: `${demoSw}${ALERT_TEMPLATE_SW.patientBody}`,
+      headline: ALERT_TEMPLATE_SW.headline,
+      body: ALERT_TEMPLATE_SW.patientBody,
     },
     clinician_en: {
-      headline: `${demoEn}Health alert: {disease} in {county} County`,
-      body: `${demoEn}Confirmed {disease} results in {county} County, week of {weekStart}: {count}. Watch for suspected cases and follow the Ministry of Health guidance below.`,
+      headline: 'Health alert: {disease} in {county} County',
+      body: 'Confirmed {disease} results in {county} County, week of {weekStart}: {count}. Watch for suspected cases and follow the Ministry of Health guidance below.',
     },
     clinician_sw: {
-      headline: `${demoSw}${ALERT_TEMPLATE_SW.headline}`,
-      body: `${demoSw}${ALERT_TEMPLATE_SW.clinicianBody}`,
+      headline: ALERT_TEMPLATE_SW.headline,
+      body: ALERT_TEMPLATE_SW.clinicianBody,
     },
   };
 }
@@ -363,7 +364,7 @@ function expiryHours(category: string): number {
 }
 
 export interface DraftWrite {
-  /** Undefined renders the (synthetic-aware) template inside the transaction. */
+  /** Undefined renders the template inside the transaction. */
   texts?: MachineText;
   models: Record<string, string>;
   draftSource: string;
@@ -397,8 +398,7 @@ export async function writeDraftTx(
     const requestedAt = Date.parse(str(current.requestedAt));
     if (!Number.isFinite(requestedAt) || requestedAt > staleAfter.getTime()) return 'dropped';
   }
-  const synthetic = current.synthetic === true;
-  const texts = draft.texts ?? templateDraft(synthetic);
+  const texts = draft.texts ?? templateDraft();
   const approvers = await readAlertApprovers(tx, db);
   const at = timestamp(now);
   const expiresAt = timestamp(

@@ -8,7 +8,6 @@ import 'package:material_ui/material_ui.dart';
 import 'package:tabibu/core/constants/app_radii.dart';
 import 'package:tabibu/core/constants/app_shadows.dart';
 import 'package:tabibu/core/constants/app_spacing.dart';
-import 'package:tabibu/core/constants/app_status_colors.dart';
 import 'package:tabibu/core/constants/app_styles.dart';
 import 'package:tabibu/core/helpers/get_it_helper.dart';
 import 'package:tabibu/core/helpers/reference_data_helper.dart';
@@ -22,6 +21,7 @@ import 'package:tabibu/features/alerts/data/models/guidance_bullet_model.dart';
 import 'package:tabibu/features/alerts/data/models/guidance_source_model.dart';
 import 'package:tabibu/features/alerts/data/models/public_alert_model.dart';
 import 'package:tabibu/features/alerts/data/models/public_health_guidance_model.dart';
+import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
 import 'package:tabibu/features/alerts/presentation/widgets/source_link.dart';
 import 'package:tabibu/gen/assets.gen.dart';
 import 'package:tabibu/l10n/l10n.dart';
@@ -119,19 +119,12 @@ class _Body extends StatelessWidget {
       padding: const EdgeInsets.all(AppSpacing.md),
       children: [
         TopBar(backLabel: l10n.commonBack, onBack: context.pop),
-        if (alert.synthetic) ...[
-          const SizedBox(height: AppSpacing.md),
-          _DemoBanner(),
-        ],
         const SizedBox(height: AppSpacing.md),
-        _NoticeChip(county: alert.countyName),
-        const SizedBox(height: AppSpacing.sm),
-        Text(
-          alert.synthetic
-              ? '${l10n.alertReviewDemoPrefix} $headline'
-              : headline,
-          style: Theme.of(context).textTheme.displaySmall,
-        ),
+        if (alert.synthetic) ...[
+          const AlertDemoPill(),
+          const SizedBox(height: AppSpacing.sm),
+        ],
+        Text(headline, style: Theme.of(context).textTheme.displaySmall),
         const SizedBox(height: AppSpacing.xs),
         Text(
           l10n.healthNoticePublished(date, alert.countyName),
@@ -240,81 +233,6 @@ class _Guidance extends StatelessWidget {
           ],
         );
       },
-    );
-  }
-}
-
-/// The notice's chip in the alertNotice tone.
-class _NoticeChip extends StatelessWidget {
-  const _NoticeChip({required this.county});
-
-  final String county;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final status = Theme.of(context).extension<AppStatusColors>()!;
-    final textTheme = Theme.of(context).textTheme;
-    return Align(
-      alignment: .centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.sm,
-          vertical: AppSpacing.xs,
-        ),
-        decoration: BoxDecoration(
-          color: scheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(AppRadii.pill),
-        ),
-        child: Row(
-          mainAxisSize: .min,
-          children: [
-            Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: status.alertNotice,
-                shape: .circle,
-              ),
-            ),
-            const SizedBox(width: AppSpacing.xs),
-            Flexible(
-              child: Text(
-                context.l10n.patientHomeNoticeLabel(county),
-                style: textTheme.bodySmall?.copyWith(
-                  color: status.alertNotice,
-                  fontWeight: .w600,
-                ),
-                maxLines: 2,
-                overflow: .ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// The demo banner in the alertNotice tone.
-class _DemoBanner extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final status = Theme.of(context).extension<AppStatusColors>()!;
-    final textTheme = Theme.of(context).textTheme;
-    return Container(
-      padding: const EdgeInsets.all(AppSpacing.sm),
-      decoration: BoxDecoration(
-        border: Border.all(color: status.alertNotice),
-        borderRadius: BorderRadius.circular(AppRadii.card),
-      ),
-      child: Text(
-        context.l10n.alertReviewDemoBanner,
-        style: textTheme.bodyMedium?.copyWith(
-          color: status.alertNotice,
-          fontWeight: .w600,
-        ),
-      ),
     );
   }
 }

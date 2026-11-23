@@ -11,7 +11,7 @@ import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_bloc.dart';
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_event.dart';
 import 'package:tabibu/features/alerts/data/models/alert_model.dart';
-import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_banner.dart';
+import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
 import 'package:tabibu/features/alerts/presentation/widgets/alert_draft_card.dart';
 import 'package:tabibu/features/auth/blocs/auth_bloc/auth_bloc.dart';
 import 'package:tabibu/features/auth/data/models/auth_session.dart';
@@ -125,7 +125,7 @@ class _Sent extends StatelessWidget {
         ),
         if (alert.synthetic) ...[
           const SizedBox(height: AppSpacing.lg),
-          const AlertDemoBanner(),
+          const AlertDemoPill(),
         ],
         const SizedBox(height: AppSpacing.lg),
         _SentText(alert: alert, language: language, when: when),
@@ -153,7 +153,6 @@ class _SentText extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final isDark = scheme.brightness == .dark;
-    final prefix = l10n.alertReviewDemoPrefix;
     final shown = alert.approvedText.containsKey('patient_$language')
         ? language
         : 'en';
@@ -196,12 +195,7 @@ class _SentText extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.xxs),
             Text(
-              // The server prefixes a demo alert's text itself; add the
-              // prefix only where an edit has removed it.
-              alert.synthetic &&
-                      !alert.approvedText[key]!.headline.startsWith(prefix)
-                  ? '$prefix ${alert.approvedText[key]!.headline}'
-                  : alert.approvedText[key]!.headline,
+              alert.approvedText[key]!.headline,
               style: textTheme.titleSmall,
             ),
             const SizedBox(height: AppSpacing.xxs),

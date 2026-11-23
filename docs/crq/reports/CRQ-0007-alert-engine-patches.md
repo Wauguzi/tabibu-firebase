@@ -42,6 +42,10 @@ read on the way. Each entry is filled in as its patch lands.
    measles move off a 2023 heavy-rains release; cholera's lines, held back as OCR, now ship from
    WHO's fact sheet; anthrax's newspaper-sourced lines are removed, as no standing source exists
    online. A test refuses a press release, statement, advisory or non-WHO, non-MoH publisher.
+   "Demo: Demo:" was the template's own prefix plus the screen's. The template no longer prefixes
+   anything; a synthetic alert carries a "Demo" pill instead (the timeline's Now tone) on the
+   review, sent and notice screens, and its pushes keep "Demo:" since a lock screen has no pill.
+   The "Health notice · {county}" chip above the title is gone: the title names the county.
 
 ## 2. Business justification
 
