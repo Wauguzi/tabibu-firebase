@@ -845,17 +845,16 @@ void main() {
     Future<StreamController<AppointmentsState>> pumpBooking(
       WidgetTester tester, {
       Role role = .doctor,
+      List<AppointmentModel> appointments = const [
+        AppointmentModel(uid: 'appt-1', patientName: 'Amina Otieno'),
+      ],
     }) async {
       final states = StreamController<AppointmentsState>.broadcast();
       addTearDown(states.close);
       whenListen(
         blocs.appointments,
         states.stream,
-        initialState: const AppointmentsLoadSuccess(
-          appointments: [
-            AppointmentModel(uid: 'appt-1', patientName: 'Amina Otieno'),
-          ],
-        ),
+        initialState: AppointmentsLoadSuccess(appointments: appointments),
       );
       when(
         () => blocs.notifications.state,
@@ -907,6 +906,77 @@ void main() {
       );
       await tester.pump();
       expect(find.text('Accept'), findsNothing);
+      verify(
+        () => blocs.appointments.add(
+          const AppointmentsRefreshed(uid: 'doc-1', role: .doctor),
+        ),
+      ).called(1);
+    });
+
+    testWidgets('the inbox syncs the appointments even when a list is cached', (
+      tester,
+    ) async {
+      asDoctor();
+      await pumpBooking(tester);
+      verify(
+        () => blocs.appointments.add(
+          const AppointmentsRequested(uid: 'doc-1', role: .doctor),
+        ),
+      ).called(1);
+    });
+
+    testWidgets('a booking not on the phone offers no answer until it loads', (
+      tester,
+    ) async {
+      asDoctor();
+      final states = await pumpBooking(
+        tester,
+        appointments: const [AppointmentModel(uid: 'appt-other')],
+      );
+      expect(find.text('Accept'), findsNothing);
+
+      states.add(
+        const AppointmentsLoadSuccess(
+          appointments: [AppointmentModel(uid: 'appt-1')],
+        ),
+      );
+      // The provider marks the screen on one frame and rebuilds on the next.
+      await tester.pump();
+      await tester.pump();
+      expect(find.text('Accept'), findsOneWidget);
+      expect(find.text('Decline'), findsOneWidget);
+    });
+
+    testWidgets('a booking already answered elsewhere offers no answer', (
+      tester,
+    ) async {
+      asDoctor();
+      await pumpBooking(
+        tester,
+        appointments: const [
+          AppointmentModel(uid: 'appt-1', status: 'Accepted'),
+        ],
+      );
+      expect(find.text('Accept'), findsNothing);
+      expect(find.text('Decline'), findsNothing);
+    });
+
+    testWidgets('a booking the phone cannot find stays answerable and syncs', (
+      tester,
+    ) async {
+      asDoctor();
+      final states = await pumpBooking(tester);
+      await tester.tap(find.byKey(const ValueKey('mdt-accept-booking-1')));
+      await tester.pump();
+      states.add(
+        const AppointmentWriteFailure(
+          error: .dataNotFound,
+          appointments: [AppointmentModel(uid: 'appt-1')],
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text('Accept'), findsOneWidget);
       verify(
         () => blocs.appointments.add(
           const AppointmentsRefreshed(uid: 'doc-1', role: .doctor),

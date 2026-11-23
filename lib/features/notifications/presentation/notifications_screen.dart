@@ -78,11 +78,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       _ => RoleHelper.none,
     };
     context.read<NotificationsBloc>().add(NotificationsRequested(uid: _uid));
-    // A booking request answered here needs its patient's name for the
-    // decline sheet, so the doctor's appointments load with the inbox.
-    final appointments = context.read<AppointmentsBloc>();
-    if (widget.role == .doctor && appointments.state.appointments.isEmpty) {
-      appointments.add(AppointmentsRequested(uid: _uid, role: widget.role));
+    // A booking is answered only once it is on the phone, and a new one
+    // may not be in an older list, so the appointments always sync here.
+    if (widget.role == .doctor) {
+      context.read<AppointmentsBloc>().add(
+        AppointmentsRequested(uid: _uid, role: widget.role),
+      );
     }
   }
 
@@ -139,8 +140,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         row.templateKey == NotificationTemplate.appointmentRequested.value &&
         widget.role == .doctor;
     if (!invite && !booking) return false;
+    if (booking && !_bookingPending(row.resourceUid)) return false;
     return row.isActionable(DateTime.now().toUtc());
   }
+
+  bool _bookingPending(String appointmentUid) =>
+      context
+          .read<AppointmentsBloc>()
+          .state
+          .appointments
+          .firstWhereOrNull((a) => a.uid == appointmentUid)
+          ?.isRequested ??
+      false;
 
   Future<void> _answer(NotificationModel row, {required bool accept}) async {
     if (_answeringUid != null || row.resourceUid.isEmpty) return;
@@ -214,12 +225,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           AppointmentsRefreshed(uid: _uid, role: widget.role),
         );
       case AppointmentWriteFailure(:final error):
+        // Not on the phone yet: sync and let the doctor try again.
+        final missing = error == AppError.dataNotFound;
         setState(() {
           _answeringUid = null;
-          if (error != AppError.noInternet) {
+          if (error != AppError.noInternet && !missing) {
             _settled[uid] = NotificationActionStatus.cancelled;
           }
         });
+        if (missing) {
+          context.read<AppointmentsBloc>().add(
+            AppointmentsRefreshed(uid: _uid, role: widget.role),
+          );
+        }
       default:
         break;
     }
@@ -287,6 +305,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Booking rows offer answers once their booking loads.
+    context.select<AppointmentsBloc, Object>((b) => b.state.appointments);
     final body = SafeArea(
       child: MultiBlocListener(
         listeners: [
