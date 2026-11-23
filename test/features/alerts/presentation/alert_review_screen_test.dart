@@ -260,7 +260,8 @@ void main() {
     group('rules', () {
       testWidgets(
         'English and Kiswahili drafts each sit in their own AI frame, '
-        'verbatim, with the evidence outside the frames',
+        'worded as drafted with the facts filled in, with the evidence '
+        'outside the frames',
         (tester) async {
           mockState(AlertReviewLoadSuccess(current: _alert()));
           await pumpScreen(tester);
@@ -274,7 +275,7 @@ void main() {
           final swahili = frames.at(1);
           for (final text in [
             l10n.languageEn,
-            'Malaria rise in {county}',
+            'Malaria rise in Embakasi',
             'Test every febrile patient.',
             'More malaria than usual',
             'Sleep under a treated net.',
@@ -430,6 +431,14 @@ void main() {
         ).called(1);
       });
 
+      testWidgets('the drafts read with their facts filled in', (tester) async {
+        mockState(AlertReviewLoadSuccess(current: _alert()));
+        await pumpScreen(tester);
+
+        expect(find.text('Malaria rise in Embakasi'), findsOneWidget);
+        expect(find.textContaining('{county}'), findsNothing);
+      });
+
       testWidgets('the English sheet carries the English drafts', (
         tester,
       ) async {
@@ -444,7 +453,8 @@ void main() {
               .widgetList<TextField>(find.byType(TextField))
               .map((f) => f.controller?.text),
           [
-            'Malaria rise in {county}',
+            // Filled in as the readers will see it.
+            'Malaria rise in Embakasi',
             'Test every febrile patient.',
             'More malaria than usual',
             'Sleep under a treated net.',
@@ -513,10 +523,12 @@ void main() {
                 ).captured.single
                 as Map<String, dynamic>;
         expect(sent.keys, unorderedEquals(_texts.keys));
+        // The edited key goes as typed; the untouched ones as drafted.
         expect(sent['clinician_en'], {
-          'headline': 'Malaria rise in {county}',
+          'headline': 'Malaria rise in Embakasi',
           'body': 'Test all fevers.',
         });
+        expect(sent['patient_en'], _texts['patient_en']!.toJson());
         expect(find.text('stub sent a1'), findsOneWidget);
         await releaseRouter(tester);
       });

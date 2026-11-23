@@ -183,6 +183,10 @@ Cloud Functions draft `alerts/{uid}` with Gemini:
   or age band; it writes `{disease}` and `{county}` (and, for clinicians,
   `{count}` and `{weekStart}`), and code fills them in from the approved
   evidence at delivery. A draft with a digit is refused.
+- **The approver reads it filled in.** The review screen fills the same
+  placeholders from the alert's own fields, as delivery will, so nobody types
+  the disease name by hand. Approving unchanged still sends the machine text;
+  an edited segment is sent as typed.
 - **Grounded in the bundled guidance**, which it receives as data and may
   not rewrite. The guidance is delivered verbatim beside the text.
 - Wording that diagnoses, reassures or predicts is refused by code checks

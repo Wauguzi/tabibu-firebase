@@ -13,6 +13,7 @@ import 'package:tabibu/core/widgets/widgets.dart';
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_bloc.dart';
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_event.dart';
 import 'package:tabibu/features/alerts/blocs/alert_review_bloc/alert_review_state.dart';
+import 'package:tabibu/features/alerts/data/alert_text_render.dart';
 import 'package:tabibu/features/alerts/data/models/alert_model.dart';
 import 'package:tabibu/features/alerts/data/models/notifiable_disease_model.dart';
 import 'package:tabibu/features/alerts/presentation/widgets/alert_demo_pill.dart';
@@ -133,6 +134,10 @@ class _AlertReviewScreenState extends State<AlertReviewScreen> {
     String language,
   ) async {
     final bloc = context.read<AlertReviewBloc>();
+    // The approver edits what readers will see; untouched keys go back as
+    // the machine wrote them.
+    final rendered = renderAlertDrafts(alert, await _register);
+    if (!context.mounted) return;
     final keys = [
       for (final clinician in [true, false])
         alertDraftKey(clinician: clinician, language: language),
@@ -143,7 +148,7 @@ class _AlertReviewScreenState extends State<AlertReviewScreen> {
       area: alert.countyName,
       segments: {
         for (final key in keys)
-          if (alert.machineText.containsKey(key)) key: alert.machineText[key]!,
+          if (rendered.containsKey(key)) key: rendered[key]!,
       },
     );
     if (edited == null || !context.mounted) return;
@@ -161,7 +166,14 @@ class _AlertReviewScreenState extends State<AlertReviewScreen> {
     bloc.add(
       AlertApproveRequested(
         alertUid: alert.uid,
-        editedText: {...alert.machineText, ...edited},
+        editedText: {
+          ...alert.machineText,
+          ...restoreUntouched(
+            machine: alert.machineText,
+            rendered: rendered,
+            edited: edited,
+          ),
+        },
       ),
     );
   }
@@ -352,12 +364,18 @@ class _Review extends StatelessWidget {
               ),
               for (final draftLanguage in alertDraftLanguages) ...[
                 const SizedBox(height: AppSpacing.sm),
-                AlertDraftCard(
-                  language: draftLanguage,
-                  drafts: alert.machineText,
-                  area: alert.countyName,
-                  busy: deciding,
-                  onEdit: () => onEdit(draftLanguage),
+                FutureBuilder<List<NotifiableDiseaseModel>>(
+                  future: register,
+                  builder: (context, snapshot) => AlertDraftCard(
+                    language: draftLanguage,
+                    drafts: renderAlertDrafts(
+                      alert,
+                      snapshot.data ?? const <NotifiableDiseaseModel>[],
+                    ),
+                    area: alert.countyName,
+                    busy: deciding,
+                    onEdit: () => onEdit(draftLanguage),
+                  ),
                 ),
               ],
               const SizedBox(height: AppSpacing.md),

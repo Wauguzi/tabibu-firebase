@@ -33,7 +33,13 @@ read on the way. Each entry is filled in as its patch lands.
    in its own style. Unsent or refused still offers Attach pathologist; no order, a cancelled one
    or an earlier visit's case still offers Order a test.
 3. **The approver had to replace `{disease}` and the other placeholders by hand, and a long box
-   marked the demo.** Pending.
+   marked the demo.** The model writes placeholders by design and never sees case data; code
+   filled them only at delivery. The review screen and the edit sheet now fill the same values
+   (the disease in each language, the county, the count, the week) from the alert's own fields,
+   so the approver reads "Ebola virus disease in Nairobi County" and types nothing. Approving
+   unchanged still sends the machine text, so it stays an approval as is; an edited segment is
+   sent as typed, and a changed evidence revision is still refused. The demo box became the pill
+   of entry 4.
 4. **The patient read "Demo: Demo: …", a county chip the title repeats, and guidance credited to a
    press release about Ituri Province in the DRC.** A notice's footer and "Read the guidance" use
    its first patient source. Patient guidance now cites only a standing WHO or MoH source, each
