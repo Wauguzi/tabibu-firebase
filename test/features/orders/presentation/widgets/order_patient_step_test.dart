@@ -70,6 +70,45 @@ void main() {
     expect(picked, [pending]);
   });
 
+  testWidgets("another doctor's patients never show in the picker", (
+    tester,
+  ) async {
+    final bloc = _MockPatientsBloc();
+    final theirs = PatientModel.empty().copyWith(
+      patientId: 'p-a',
+      firstName: 'Amina',
+      lastName: 'Mwangi',
+      doctorUids: const ['doc-a'],
+    );
+    when(
+      () => bloc.state,
+    ).thenReturn(PatientsLoadSuccess(patients: [theirs], doctorUid: 'doc-a'));
+    when(() => bloc.stream).thenAnswer((_) => const Stream.empty());
+
+    await tester.pumpApp(
+      BlocProvider<PatientsBloc>.value(
+        value: bloc,
+        child: SizedBox(
+          height: 800,
+          child: OrderPatientStep(
+            appointments: const [],
+            doctorUid: 'doc-1',
+            now: DateTime.utc(2026, 11, 18),
+            selectedAppointmentUid: '',
+            onPick: (_) {},
+            canAdd: true,
+            county: 'Nairobi',
+            subCounty: 'Kibra',
+            onPickAdded: (_) {},
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('Amina Mwangi'), findsNothing);
+  });
+
   testWidgets('load and pull-to-refresh ask the bloc to sync the list', (
     tester,
   ) async {

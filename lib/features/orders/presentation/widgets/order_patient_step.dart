@@ -195,7 +195,9 @@ class _OrderPatientStepState extends State<OrderPatientStep> {
       doctorUid: widget.doctorUid,
       now: widget.now,
     );
-    final addedPatients = context.watch<PatientsBloc>().state.patients;
+    final addedPatients = context.watch<PatientsBloc>().state.patientsFor(
+      widget.doctorUid,
+    );
     // A visit does not carry a photo. The care row does, and an empty url
     // is no photo: initials, as on the home header.
     final photoOf = {
