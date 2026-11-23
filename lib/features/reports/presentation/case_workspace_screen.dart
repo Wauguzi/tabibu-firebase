@@ -797,7 +797,12 @@ class _CaseWorkspaceScreenState extends State<CaseWorkspaceScreen> {
             !locked &&
             !isRevision &&
             ready &&
-            draft.diagnosis.isEmpty &&
+            // Only an untouched draft: nothing saved, nothing typed.
+            draft.diagnosis.trim().isEmpty &&
+            draft.comments.trim().isEmpty &&
+            draft.responses.isEmpty &&
+            _diagnosis.text.trim().isEmpty &&
+            _comments.text.trim().isEmpty &&
             !draft.startedFromPreread &&
             _aiFilledFor != draft.uid) {
           _aiFilledFor = draft.uid;

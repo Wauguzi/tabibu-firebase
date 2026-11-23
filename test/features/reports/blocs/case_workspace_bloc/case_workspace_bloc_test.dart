@@ -928,6 +928,24 @@ void main() {
     );
 
     blocTest<CaseWorkspaceBloc, CaseWorkspaceState>(
+      'is a no-op when only the comments are saved',
+      build: build,
+      seed: () => loaded(
+        score: _score,
+        draft: _draft.copyWith(comments: 'My own note on the margins'),
+      ),
+      act: (bloc) => bloc.add(const CaseDraftStartedFromPreread()),
+      expect: () => <CaseWorkspaceState>[],
+      verify: (_) => verifyNever(
+        () => reports.saveDraftFields(
+          caseUid: any(named: 'caseUid'),
+          pathologistUid: any(named: 'pathologistUid'),
+          fields: any(named: 'fields'),
+        ),
+      ),
+    );
+
+    blocTest<CaseWorkspaceBloc, CaseWorkspaceState>(
       'is a no-op when the diagnosis is already set',
       build: build,
       seed: () => loaded(

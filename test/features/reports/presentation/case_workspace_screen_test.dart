@@ -1415,6 +1415,25 @@ void main() {
         );
       });
 
+      testWidgets("the pathologist's saved comments are never replaced", (
+        tester,
+      ) async {
+        await pumpScreen(
+          tester,
+          _loaded(
+            draft: _draft(comments: 'My own note on the margins'),
+            preread: _preread(),
+            score: _score,
+          ),
+        );
+        await tester.pump();
+
+        verifyNever(
+          () => blocs.caseWorkspace.add(const CaseDraftStartedFromPreread()),
+        );
+        expect(find.text('My own note on the margins'), findsOneWidget);
+      });
+
       testWidgets('AI-filled fields say they are there to be edited', (
         tester,
       ) async {

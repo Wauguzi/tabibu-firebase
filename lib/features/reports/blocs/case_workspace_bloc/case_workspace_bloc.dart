@@ -332,11 +332,14 @@ class CaseWorkspaceBloc extends Bloc<CaseWorkspaceEvent, CaseWorkspaceState> {
   CaseDraftEdited _fromPreread() {
     final preread = state.preread;
     final draft = state.draft;
+    // Only an untouched draft: the AI never replaces anything the
+    // pathologist wrote, the comments included.
     if (preread == null ||
         !preread.isReady ||
         draft == null ||
         draft.startedFromPreread ||
-        draft.diagnosis.isNotEmpty) {
+        draft.diagnosis.trim().isNotEmpty ||
+        draft.comments.trim().isNotEmpty) {
       return const CaseDraftEdited(fields: {});
     }
     return CaseDraftEdited(
