@@ -148,7 +148,13 @@ sequenceDiagram
     F-->>P: Result and approved explanation
     P->>A: Listen (speech, read verbatim)
     A-->>P: Audio
-    Note over F,G: A confirmed notifiable finding becomes an anonymous count, then an alert draft that only an approver releases
+    X->>F: Sign a confirmed notifiable finding
+    F->>F: Add it to the county's anonymous count
+    F->>G: Draft an alert when the count calls for it
+    G-->>D: Alert draft, for a doctor who approves alerts
+    D->>F: Approve
+    F-->>D: Alert to the county's clinicians
+    F-->>P: Then a health notice to its patients
 ```
 
 > [!IMPORTANT]
