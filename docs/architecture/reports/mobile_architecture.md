@@ -750,15 +750,10 @@ In summary:
   Firebase Auth custom claims**, set by an admin-only Cloud Function or seeding
   script. They are never a field a client can write.
 - **App Check**: Play Integrity on Android, App Attest on iOS, reCAPTCHA
-  Enterprise for a web build. Enforced on Firebase AI Logic; Firestore,
-  Storage and Authentication are enforced once their metrics show the app's
-  requests verified (threat model T-7), and the callables once they set
-  `enforceAppCheck`.
+  Enterprise for a web build. Enforced on Firebase AI Logic (§16 item 7).
   Activated in `bootstrap`: release builds use the attestation
   providers, debug and profile builds the debug provider, with a token from
   the Keychain (`make app-check-token`, injected by `make run-dev`).
-  **Not yet enforced**: enforcement applies per API to every client, so it
-  waits until each platform's release build can attest (§16 item 7).
 - **RASP**: freeRASP (`RaspService`, configured in
   `core/constants/rasp_config.dart`), started in bootstrap after
   notifications. Enforcement follows the build mode: release
@@ -1015,11 +1010,10 @@ to see. Greptile is pointed at this section.
    at demo volumes; a pilot with real caseloads needs delta sync that
    survives sign-out, which in turn needs a policy decision on health data
    at rest on shared devices.
-7. **App Check is active but not enforced.** Play Integrity needs a Play
-   Console app record with at least one upload; App Attest needs an Apple
-   Developer team registered in Firebase; a web build would need a reCAPTCHA
-   Enterprise key. Until each exists, that platform's release build cannot
-   attest, and enforcing would reject it, App Distribution builds included.
+7. **App Check is enforced on Firebase AI Logic.** Release builds attest on
+   both platforms, the App Distribution APK included: Play Integrity on
+   Android, App Attest on iOS. A web build would need a reCAPTCHA Enterprise
+   key (item 8).
 8. **Web is outside this submission, and unfinished.** The entry is iOS,
    with an Android APK; the code still builds for the web. The web app is registered (`flutterfire configure`), and
    `DefaultFirebaseOptions.web` now exists. Still open:

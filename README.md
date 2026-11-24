@@ -180,7 +180,8 @@ You are done when the app launches on a simulator or device without a build erro
 - A missing `*.g.dart`, `*.freezed.dart` or `gen/` import means step 2 has not run; run `make gen`.
 - A missing `AppLocalizations` string means the localizations are stale; run `make l10n`.
 - `make run-dev` passes the App Check debug token from the macOS Keychain. Without one the app
-  still builds and runs, because App Check is active but not enforced.
+  still builds and runs, but its Firebase AI Logic calls (voice booking, Ask AI, the cloud tidy and
+  Listen) are refused: App Check is enforced on AI Logic.
 
 There are three flavors, `development`, `staging` and `production`, each with its own entry point
 in `lib/main_<flavor>.dart`.
