@@ -8,6 +8,10 @@
 [![style: very good analysis][very_good_analysis_badge]][very_good_analysis_link]
 [![License: MIT][license_badge]][license_link]
 
+<a href="https://youtu.be/xFvhACjspVA"><img src="assets/images/gallery/01.jpg" alt="One record, three roles: the patient's home with a Demo health notice, the doctor's signed report waiting to be marked as discussed, and the pathologist's AI pre-read at Low confidence" width="100%"></a>
+
+<sub>Watch the demo film (2:54) on <a href="https://youtu.be/xFvhACjspVA">YouTube</a>.</sub>
+
 </div>
 
 <div align="center">
